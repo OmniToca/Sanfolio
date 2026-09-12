@@ -395,6 +395,13 @@ class _AiPanelState extends ConsumerState<AiPanel> {
         );
       }
       return;
+    } on Object {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('folder.fileEmpty'.tr())),
+        );
+      }
+      return;
     }
     setState(() => _working = true);
     try {

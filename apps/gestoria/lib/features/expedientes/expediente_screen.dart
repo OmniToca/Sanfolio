@@ -273,6 +273,9 @@ class _ExpedienteScreenState extends ConsumerState<ExpedienteScreen> {
     } on OfficeFilePickException catch (e) {
       _toast(officePickErrorI18n(e.code).tr());
       return;
+    } on Object {
+      _toast('folder.fileEmpty'.tr());
+      return;
     }
     setState(() => _busy = true);
     try {

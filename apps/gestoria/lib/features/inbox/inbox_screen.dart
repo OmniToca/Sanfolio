@@ -244,7 +244,7 @@ Color _inboxStripe(String kind) {
     case 'overdue':
       return AppTheme.urgent;
     case 'due_today':
-      return AppTheme.accent;
+      return AppTheme.statusWarn;
     case 'missing_document':
       return AppTheme.statusAlert;
     case 'missing_data':
@@ -252,7 +252,7 @@ Color _inboxStripe(String kind) {
     case 'stale_expediente':
       return AppTheme.pencil;
     default:
-      return AppTheme.accent;
+      return AppTheme.statusWatch;
   }
 }
 

@@ -13,7 +13,8 @@ String documentoStoragePath({
   required String clienteId,
   required String originalName,
 }) {
-  final safe = originalName.replaceAll(RegExp(r'[/\\]'), '_').trim();
+  // `#` `?` `%` v URL rozbijí Storage. Mezery Safari taky občas spolkne.
+  final safe = originalName.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
   final name = safe.isEmpty ? 'file' : safe;
   final ts = DateTime.now().toUtc().microsecondsSinceEpoch.toRadixString(16);
   final rand = Random.secure().nextInt(1 << 32).toRadixString(16).padLeft(8, '0');
@@ -44,7 +45,7 @@ Future<void> uploadDocumentoBytes({
   final name = originalName ?? path.split('/').last;
   await client.storage.from('documentos').uploadBinary(
     path,
-    bytes,
+    Uint8List.fromList(bytes),
     fileOptions: FileOptions(
       contentType: mimeForOfficeFile(name),
       upsert: false,

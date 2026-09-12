@@ -4,7 +4,7 @@
     "start_url": ".",
     "display": "standalone",
     "background_color": "#F3EEE6",
-    "theme_color": "#12201E",
+    "theme_color": "#121C2E",
     "description": "SanFolio — gestión y asistencia for Spanish gestoría.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,

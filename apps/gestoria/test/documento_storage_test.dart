@@ -19,6 +19,14 @@ void main() {
     expect(path.contains('/card/'), isFalse);
     expect(path.contains('/ai/'), isFalse);
     expect(path.endsWith('_nie_petr.pdf'), isTrue);
+    final hashed = documentoStoragePath(
+      tenantId: tenant,
+      clienteId: cliente,
+      originalName: 'Factura #3?.pdf',
+    );
+    expect(hashed.contains('#'), isFalse);
+    expect(hashed.contains('?'), isFalse);
+    expect(hashed.endsWith('_Factura__3_.pdf'), isTrue);
     expect(
       documentoPathInTenant(path: path, tenantId: tenant, clienteId: cliente),
       isTrue,

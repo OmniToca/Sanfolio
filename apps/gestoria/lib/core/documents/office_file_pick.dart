@@ -2,6 +2,9 @@ import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 
+import 'office_file_pick_stub.dart'
+    if (dart.library.js_interop) 'office_file_pick_web.dart' as office_dialog;
+
 /// PDF a fotky, které bucket `documentos` přijme. HEIC z iPhonu taky.
 const officeFileExtensions = <String>[
   'pdf',
@@ -92,26 +95,32 @@ String? sniffOfficeExtension(Uint8List bytes) {
   return null;
 }
 
-/// Dialog souboru. Safari: jen FileReader (`withData`), ne stream —
-/// `withReadStream` na webu byty vůbec nenačte.
+/// Dialog souboru. Web: vlastní input (Safari). Jinak file_picker.
 Future<PickedOfficeFile?> pickOfficeFile() async {
-  final picked = await FilePicker.platform.pickFiles(
-    withData: true,
-    type: FileType.any,
-  );
-  if (picked == null || picked.files.isEmpty) return null;
-  return officeFileFromPicked(picked.files.first);
+  final raw = await office_dialog.openOfficeFileDialog();
+  if (raw == null) return null;
+  return officeFileFromBytes(raw.bytes, raw.name);
 }
 
 Future<PickedOfficeFile> officeFileFromPicked(PlatformFile file) async {
-  var ext = (file.extension ?? file.name.split('.').last).toLowerCase();
+  final bytes = await _bytesOf(file);
+  return officeFileFromBytes(bytes, file.name, extension: file.extension);
+}
+
+/// Kopie na Dart heap — JS ArrayBuffer ze Safari se jinak utrhne před uploadem.
+PickedOfficeFile officeFileFromBytes(
+  Uint8List? raw,
+  String originalName, {
+  String? extension,
+}) {
+  var ext = (extension ?? originalName.split('.').last).toLowerCase();
   if (!officeFileExtensions.contains(ext)) {
     ext = '';
   }
-  final bytes = await _bytesOf(file);
-  if (bytes == null || bytes.isEmpty) {
+  if (raw == null || raw.isEmpty) {
     throw OfficeFilePickException(OfficeFilePickError.empty);
   }
+  final bytes = Uint8List.fromList(raw);
   if (bytes.length > officeFileMaxBytes) {
     throw OfficeFilePickException(OfficeFilePickError.tooBig);
   }
@@ -121,7 +130,7 @@ Future<PickedOfficeFile> officeFileFromPicked(PlatformFile file) async {
   if (!officeFileExtensions.contains(ext)) {
     throw OfficeFilePickException(OfficeFilePickError.badType);
   }
-  var name = file.name.trim();
+  var name = originalName.trim();
   if (name.isEmpty) name = 'file.$ext';
   if (!name.toLowerCase().endsWith('.$ext')) {
     name = '$name.$ext';
@@ -131,7 +140,9 @@ Future<PickedOfficeFile> officeFileFromPicked(PlatformFile file) async {
 
 Future<Uint8List?> _bytesOf(PlatformFile file) async {
   final direct = file.bytes;
-  if (direct != null && direct.isNotEmpty) return direct;
+  if (direct != null && direct.isNotEmpty) {
+    return Uint8List.fromList(direct);
+  }
   final stream = file.readStream;
   if (stream == null) return null;
   final out = BytesBuilder(copy: false);

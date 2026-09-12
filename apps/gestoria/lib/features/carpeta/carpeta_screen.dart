@@ -809,6 +809,13 @@ class _BloqueCardState extends ConsumerState<_BloqueCard> {
         );
       }
       return;
+    } on Object {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('folder.fileEmpty'.tr())),
+        );
+      }
+      return;
     }
     CarpetaDocumento? attached;
     try {

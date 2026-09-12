@@ -1050,6 +1050,9 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
     } on OfficeFilePickException catch (e) {
       _toast(officePickErrorI18n(e.code).tr());
       return;
+    } on Object {
+      _toast('folder.fileEmpty'.tr());
+      return;
     }
     setState(() => _busy = true);
     try {

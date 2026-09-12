@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gestoria_os/core/theme/app_theme.dart';
 import 'package:gestoria_os/features/carpeta/bloque_template.dart';
@@ -139,6 +140,8 @@ void main() {
       bloqueStatusFill(BloqueUiStatus.watching),
       AppTheme.statusWatchSoft,
     );
+    expect(AppTheme.accent, isNot(AppTheme.statusOk));
+    expect(AppTheme.accent, isNot(const Color(0xFF1B5F59)));
   });
 
   test('voda s fakturou nemá lištu 1/3', () {
