@@ -32,6 +32,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final forbidden = path == '/forbidden';
       final payment = path == '/payment-required';
 
+      // Odkaz z mailu občas přistane mimo `/reset-password` (i na `/sb`).
+      if (looksLikePasswordRecovery(state.uri) || path == '/sb') {
+        if (resetting) return null;
+        final q = state.uri.hasQuery ? '?${state.uri.query}' : '';
+        return '/reset-password$q';
+      }
+
       if (accepting) return null;
       if (auth.isLoading) return null;
 
@@ -147,8 +154,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ],
       ),
     ],
-    errorBuilder: (context, state) => Scaffold(
-      body: Center(child: Text('error.notFound'.tr())),
-    ),
+    errorBuilder: (context, state) {
+      if (looksLikePasswordRecovery(state.uri) || state.uri.path == '/sb') {
+        return const ResetPasswordScreen();
+      }
+      return Scaffold(
+        body: Center(child: Text('error.notFound'.tr())),
+      );
+    },
   );
 });

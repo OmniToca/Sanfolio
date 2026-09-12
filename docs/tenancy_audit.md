@@ -26,7 +26,7 @@ auth.users.id
 Role tenant: `owner` | `gestor` | `asistente`.  
 Jeden e-mail smí být ve více kancelářích (Leo cross-tenant). Switcher organizace když `count(memberships) > 1`.
 
-Reset hesla: login má „Zapomenuté heslo“ → `resetPasswordForEmail` (`redirectTo` = `GESTORIA_BASE_URL`). Routa `/reset-password` je veřejná; inbox až po `updateUser(password)`. AI heslo nemění.
+Reset hesla: login má „Zapomenuté heslo“ → `resetPasswordForEmail` (`redirectTo` = `{GESTORIA_BASE_URL}/reset-password`). Routa je veřejná; inbox až po `updateUser(password)`. AI heslo nemění. PKCE `code` musí zůstat v query, proto web používá path URL (ne `#/login`).
 
 Helper RLS (SECURITY DEFINER, `stable`):
 

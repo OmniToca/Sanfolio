@@ -18,8 +18,11 @@ String authErrorI18nKey(String message) {
 /// Recovery token z e-mailu. `/reset-password` samotné session nenese.
 bool looksLikePasswordRecovery(Uri uri) {
   if (uri.queryParameters['type'] == 'recovery') return true;
+  // PKCE: GoTrue často pošle jen `?code=`, bez `type=recovery`.
+  if (uri.queryParameters['code']?.isNotEmpty == true) return true;
   final frag = uri.fragment;
   if (frag.contains('type=recovery')) return true;
+  if (frag.contains('code=')) return true;
   final q = uri.query.toLowerCase();
   return q.contains('type=recovery');
 }

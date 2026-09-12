@@ -34,10 +34,19 @@ void main() {
       ),
       isTrue,
     );
+    expect(
+      looksLikePasswordRecovery(
+        Uri.parse('http://localhost:5555/sb?code=pkce'),
+      ),
+      isTrue,
+    );
   });
 
-  test('password reset redirect stays on origin query, not behind hash', () {
-    expect(PortalUrls.gestoriaPasswordResetRedirect(), 'http://localhost:5555');
+  test('password reset redirect is /reset-password, not behind hash', () {
+    expect(
+      PortalUrls.gestoriaPasswordResetRedirect(),
+      'http://localhost:5555/reset-password',
+    );
     expect(PortalUrls.gestoriaPasswordResetRedirect().contains('#'), isFalse);
   });
 }

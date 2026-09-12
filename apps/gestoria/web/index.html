@@ -34,13 +34,27 @@
 </head>
 <body>
   <!--
-    You can customize the "flutter_bootstrap.js" script.
-    This is useful to provide a custom configuration to the Flutter loader
-    or to give the user feedback during the initialization process.
-
-    For more details:
-    * https://docs.flutter.dev/platform-integration/web/initialization
+    Recovery token musí zůstat v query/hash. Flutter hash router ho jinak
+    spolkne a GoTrue skončí na cizí cestě (u nás `/sb` = 404).
   -->
+  <script>
+    (function () {
+      var path = location.pathname;
+      var search = location.search;
+      var hash = location.hash || '';
+      var blob = search + hash;
+      var recovery = /type=recovery/.test(blob) ||
+        /access_token=/.test(blob) ||
+        (/[?&]code=/.test(search) && !/[?&]session_id=/.test(search));
+      if (recovery && path !== '/reset-password') {
+        location.replace('/reset-password' + search + hash);
+        return;
+      }
+      if (hash.indexOf('#/') === 0 && hash.indexOf('access_token') === -1) {
+        location.replace(hash.slice(1) + search);
+      }
+    })();
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

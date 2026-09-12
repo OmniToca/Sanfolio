@@ -19,7 +19,7 @@ Digitální složka pro španělskou gestoría. Zdroj pravdy je papírová deska
 1. **Add new project** → Import from Git → `OmniToca/Sanfolio`.
 2. Build z root `netlify.toml` (kancelář). Support později: druhé project, Base directory `apps/support`.
 3. Environment variables: `SUPABASE_URL`, `SUPABASE_ANON_KEY`. Adresy webů Netlify doplní samo (`$URL`). Až bude Support na vlastní URL, nastav `SUPPORT_APP_URL`.
-4. Po prvním deploji: Supabase Auth → Redirect URLs (`https://….netlify.app` + `/reset-password` origin). Site URL = kancelář.
+4. Po prvním deploji: Supabase Auth → Redirect URLs včetně `https://….netlify.app/reset-password` a `https://….netlify.app/reset-password/**`. Site URL = kancelář.
 
 ```bash
 # kancelář

@@ -25,8 +25,10 @@ abstract final class PortalUrls {
     );
   }
 
-  /// PKCE `code` musí zůstat v query originu, ne za hashem Flutter routeru.
-  static String gestoriaPasswordResetRedirect() => gestoriaAppBase();
+  /// Cíl z e-mailu. Query (`code`) musí zůstat před hashem, jinak PKCE zmizí.
+  static String gestoriaPasswordResetRedirect() {
+    return Uri.parse(gestoriaAppBase()).resolve('/reset-password').toString();
+  }
 
   /// Token je v fragmentu, ne v query — nepadá do access logů. Bez tokenu
   /// druhá origin nemá JWT (pád OmniToca).
