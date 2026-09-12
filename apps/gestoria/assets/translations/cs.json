@@ -180,7 +180,10 @@
     "contactRemove": "Odebrat kontakt",
     "contactEmpty": "Žádný druhý kontakt.",
     "documents": "Dokumenty klienta",
-    "documentsEmpty": "Zatím žádný DNI, NIE ani pasaporte."
+    "documentsEmpty": "Zatím žádný DNI, NIE ani pasaporte.",
+    "docValid": "Platné",
+    "docExpiring": "Brzy končí",
+    "docExpired": "Prošlé"
   },
   "audit": {
     "title": "Audit",
@@ -294,6 +297,8 @@
     "openBlock": "Otevřít složku bloku",
     "papers": "Papíry",
     "paperCount": "{count} dokladů",
+    "docsMissing": "Chybí: {types}",
+    "watchToggle": "Sledovat. Vypnutím přesunete blok do Nesledujeme.",
     "offReason": "Proč blok vypínáte?",
     "offReasonHint": "Důvod do auditu (povinný)",
     "offConfirm": "Vypnout"

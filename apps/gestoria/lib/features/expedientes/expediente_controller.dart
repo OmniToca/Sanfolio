@@ -135,6 +135,7 @@ class ThinExpedienteController
         id: bloqueId,
         values: _fields(bloqueRow['fields']),
         documents: documents,
+        dbStatus: '${bloqueRow['status'] ?? 'off'}',
       ),
     );
   }

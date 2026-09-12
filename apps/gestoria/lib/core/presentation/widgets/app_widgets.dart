@@ -417,3 +417,34 @@ class _PreviewThenHistoryState extends State<PreviewThenHistory> {
     );
   }
 }
+
+/// Hover/focus červený. Odebrat je schování, ne vysypání.
+class SoftRemoveIconButton extends StatelessWidget {
+  const SoftRemoveIconButton({
+    super.key,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  final String tooltip;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: tooltip,
+      onPressed: onPressed,
+      icon: const Icon(Icons.delete_outline),
+      style: ButtonStyle(
+        minimumSize: const WidgetStatePropertyAll(Size(44, 44)),
+        foregroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.hovered) ||
+              states.contains(WidgetState.focused)) {
+            return AppTheme.urgent;
+          }
+          return AppTheme.pencil;
+        }),
+      ),
+    );
+  }
+}

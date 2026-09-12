@@ -99,7 +99,24 @@ class _ExpedienteScreenState extends ConsumerState<ExpedienteScreen> {
                 },
               ),
               const SizedBox(height: 8),
-              Text(statusLabel(statusOf(view.kind.template, view.bloque))),
+              Builder(
+                builder: (context) {
+                  final s = bloqueUiStatus(view.bloque.dbStatus);
+                  return Align(
+                    alignment: Alignment.centerLeft,
+                    child: Chip(
+                      label: Text(
+                        statusLabel(s),
+                        style: TextStyle(
+                          color: bloqueStatusInk(s),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      backgroundColor: bloqueStatusFill(s),
+                    ),
+                  );
+                },
+              ),
               const SizedBox(height: 16),
               for (final key in view.kind.fieldKeys) ...[
                 _field(view, key, ctrl),

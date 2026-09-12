@@ -8,6 +8,7 @@ import '../../core/modules/feature_gate.dart';
 import '../../core/modules/module_catalog.dart';
 import '../../core/presentation/widgets/app_widgets.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/time/office_date.dart';
 import '../mensajes/mensaje_templates.dart';
 import '../settings/office_settings_controller.dart';
 import 'inbox_providers.dart';
@@ -245,8 +246,9 @@ Color _inboxStripe(String kind) {
     case 'due_today':
       return AppTheme.accent;
     case 'missing_document':
+      return AppTheme.statusAlert;
     case 'missing_data':
-      return AppTheme.proposal;
+      return AppTheme.statusWarn;
     case 'stale_expediente':
       return AppTheme.pencil;
     default:

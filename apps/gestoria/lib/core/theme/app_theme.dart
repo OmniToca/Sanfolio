@@ -18,6 +18,16 @@ class AppTheme {
   static const Color chipOn = Color(0xFFD7EBE8);
   static const Color stripeOn = Color(0xFF1B5F59);
 
+  /// Stav desky. Ne brand — Save / rail zůstávají [accent].
+  static const Color statusOk = Color(0xFF1F7A4D);
+  static const Color statusOkSoft = Color(0xFFD8F0E4);
+  static const Color statusWarn = Color(0xFFB45309);
+  static const Color statusWarnSoft = Color(0xFFFDE8D0);
+  static const Color statusAlert = Color(0xFFB42318);
+  static const Color statusAlertSoft = Color(0xFFF8D7D4);
+  static const Color statusWatch = Color(0xFF5C6B73);
+  static const Color statusWatchSoft = Color(0xFFE6E9EC);
+
   static const double radiusSm = 10;
   static const double radiusMd = 16;
   static const double radiusLg = 22;

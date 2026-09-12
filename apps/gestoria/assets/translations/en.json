@@ -180,7 +180,10 @@
     "contactRemove": "Remove contact",
     "contactEmpty": "No second contact.",
     "documents": "Client documents",
-    "documentsEmpty": "No DNI, NIE or passport yet."
+    "documentsEmpty": "No DNI, NIE or passport yet.",
+    "docValid": "Valid",
+    "docExpiring": "Expiring soon",
+    "docExpired": "Expired"
   },
   "audit": {
     "title": "Audit",
@@ -294,6 +297,8 @@
     "openBlock": "Open block folder",
     "papers": "Papers",
     "paperCount": "{count} documents",
+    "docsMissing": "Missing: {types}",
+    "watchToggle": "Watch this block. Turning it off moves it to Not tracking.",
     "offReason": "Why are you turning this block off?",
     "offReasonHint": "Reason for the audit (required)",
     "offConfirm": "Turn off"

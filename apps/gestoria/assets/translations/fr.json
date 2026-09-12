@@ -180,7 +180,10 @@
     "contactRemove": "Retirer le contact",
     "contactEmpty": "Pas de second contact.",
     "documents": "Documents du client",
-    "documentsEmpty": "Pas encore de DNI, NIE ni passeport."
+    "documentsEmpty": "Pas encore de DNI, NIE ni passeport.",
+    "docValid": "Valide",
+    "docExpiring": "Expire bientôt",
+    "docExpired": "Expiré"
   },
   "audit": {
     "title": "Audit",
@@ -294,6 +297,8 @@
     "openBlock": "Ouvrir le dossier du bloc",
     "papers": "Papiers",
     "paperCount": "{count} documents",
+    "docsMissing": "Manque : {types}",
+    "watchToggle": "Suivre le bloc. L’éteindre l’envoie dans Non suivi.",
     "offReason": "Pourquoi désactivez-vous ce bloc ?",
     "offReasonHint": "Motif pour l’audit (obligatoire)",
     "offConfirm": "Désactiver"

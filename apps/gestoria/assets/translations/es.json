@@ -180,7 +180,10 @@
     "contactRemove": "Quitar contacto",
     "contactEmpty": "No hay segundo contacto.",
     "documents": "Documentos del cliente",
-    "documentsEmpty": "Todavía no hay DNI, NIE ni pasaporte."
+    "documentsEmpty": "Todavía no hay DNI, NIE ni pasaporte.",
+    "docValid": "Vigente",
+    "docExpiring": "Caduca pronto",
+    "docExpired": "Caducado"
   },
   "audit": {
     "title": "Auditoría",
@@ -294,6 +297,8 @@
     "openBlock": "Abrir carpeta del bloque",
     "papers": "Papeles",
     "paperCount": "{count} documentos",
+    "docsMissing": "Falta: {types}",
+    "watchToggle": "Seguir el bloque. Al apagarlo pasa a No seguimos.",
     "offReason": "¿Por qué apaga este bloque?",
     "offReasonHint": "Motivo para la auditoría (obligatorio)",
     "offConfirm": "Apagar"

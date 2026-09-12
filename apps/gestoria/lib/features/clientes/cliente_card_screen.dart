@@ -13,6 +13,7 @@ import '../../core/modules/feature_gate.dart';
 import '../../core/modules/module_catalog.dart';
 import '../../core/presentation/widgets/app_widgets.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/time/office_date.dart';
 import '../ai/ai_providers.dart';
 import '../ai/documento_fields.dart';
 import 'cliente_audit.dart';
@@ -22,6 +23,7 @@ import '../expedientes/expediente_catalog.dart';
 import '../expedientes/expediente_controller.dart';
 import '../inbox/inbox_providers.dart';
 import '../mensajes/mensaje_history.dart';
+import '../settings/office_settings_controller.dart';
 
 class ClienteCardScreen extends ConsumerStatefulWidget {
   const ClienteCardScreen({super.key, required this.clienteId});
@@ -884,9 +886,8 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
                         ? null
                         : () => _openDoc(doc),
                   ),
-                  IconButton(
+                  SoftRemoveIconButton(
                     tooltip: 'folder.remove'.tr(),
-                    icon: const Icon(Icons.delete_outline),
                     onPressed: _busy ? null : () => _removeDoc(doc.id),
                   ),
                 ],
@@ -923,7 +924,16 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
             for (final k in shown)
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
-                child: Text('${k.tr()}: ${values[k]}'),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: Text('${k.tr()}: ${values[k]}')),
+                    if (k == 'fields.expiry')
+                      _docExpiryBadge(
+                        raw: (doc.extracted['fields.expiry'] ?? '').trim(),
+                      ),
+                  ],
+                ),
               ),
             if ((doc.bodyText ?? '').trim().isNotEmpty)
               Padding(
@@ -978,6 +988,54 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
                 ),
               ),
           ],
+        ),
+      ),
+    );
+  }
+
+  /// Badge z uloženého přepisu. OCR odpad ≠ červená. Lhůta = poder_warn_days.
+  Widget _docExpiryBadge({required String raw}) {
+    if (raw.isEmpty) return const SizedBox.shrink();
+    final warnDays =
+        ref.watch(officeSettingsProvider).valueOrNull?.poderWarnDays ?? 60;
+    final tone = expiryTone(
+      raw: raw,
+      today: DateTime.now(),
+      warnDays: warnDays,
+    );
+    if (tone == null) return const SizedBox.shrink();
+    final (label, fill, ink) = switch (tone) {
+      ExpiryTone.valid => (
+        'clients.docValid'.tr(),
+        AppTheme.statusOkSoft,
+        AppTheme.statusOk,
+      ),
+      ExpiryTone.expiring => (
+        'clients.docExpiring'.tr(),
+        AppTheme.statusWarnSoft,
+        AppTheme.statusWarn,
+      ),
+      ExpiryTone.expired => (
+        'clients.docExpired'.tr(),
+        AppTheme.statusAlertSoft,
+        AppTheme.statusAlert,
+      ),
+    };
+    return Padding(
+      padding: const EdgeInsets.only(left: 8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: fill,
+          borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: ink,
+          ),
         ),
       ),
     );

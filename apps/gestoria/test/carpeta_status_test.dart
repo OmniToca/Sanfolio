@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gestoria_os/core/theme/app_theme.dart';
 import 'package:gestoria_os/features/carpeta/bloque_template.dart';
 import 'package:gestoria_os/features/carpeta/carpeta_controller.dart';
 import 'package:gestoria_os/features/carpeta/carpeta_screen.dart';
@@ -122,5 +123,76 @@ void main() {
     expect(displayBloqueField('fields.address', 'Calle Isla'), 'Calle Isla');
     expect(displayBloqueField('fields.received', '100'), '1,00');
     expect(displayBloqueField('fields.invoiced', ''), '');
+  });
+
+  test('zelená je jen done, díra dokumentu není mint', () {
+    expect(bloqueStatusFill(BloqueUiStatus.done), AppTheme.statusOkSoft);
+    expect(
+      bloqueStatusFill(BloqueUiStatus.missingDocument),
+      AppTheme.statusAlertSoft,
+    );
+    expect(
+      bloqueStatusFill(BloqueUiStatus.missingData),
+      AppTheme.statusWarnSoft,
+    );
+    expect(
+      bloqueStatusFill(BloqueUiStatus.watching),
+      AppTheme.statusWatchSoft,
+    );
+  });
+
+  test('voda s fakturou nemá lištu 1/3', () {
+    const template = BloqueTemplate(
+      key: 'agua',
+      fieldKeys: ['fields.company'],
+      requiredDocTypes: ['contrato_agua', 'factura_agua', 'recibo_agua'],
+      requiredDocsMode: RequiredDocsMode.any,
+    );
+    const withInvoice = BloqueState(
+      enabled: true,
+      documents: [
+        CarpetaDocumento(
+          id: 'd1',
+          tipo: 'factura_agua',
+          storagePath: 't/c/f.pdf',
+          originalName: 'f.pdf',
+        ),
+      ],
+    );
+    final hint = bloqueDocsHint(template, withInvoice)!;
+    expect(hint.satisfied, isTrue);
+    expect(hint.showBar, isFalse);
+  });
+
+  test('all se dvěma typy ukáže lištu jen když něco chybí', () {
+    const template = BloqueTemplate(
+      key: 'modelo_210',
+      fieldKeys: ['fields.deadline'],
+      requiredDocTypes: ['recibo_ibi', 'certificado_catastral'],
+    );
+    const empty = BloqueState(enabled: true);
+    final missing = bloqueDocsHint(template, empty)!;
+    expect(missing.satisfied, isFalse);
+    expect(missing.showBar, isTrue);
+    expect(missing.missingTypes, ['recibo_ibi', 'certificado_catastral']);
+    const full = BloqueState(
+      enabled: true,
+      documents: [
+        CarpetaDocumento(
+          id: 'a',
+          tipo: 'recibo_ibi',
+          storagePath: 't/a',
+          originalName: 'a.pdf',
+        ),
+        CarpetaDocumento(
+          id: 'b',
+          tipo: 'certificado_catastral',
+          storagePath: 't/b',
+          originalName: 'b.pdf',
+        ),
+      ],
+    );
+    expect(bloqueDocsHint(template, full)!.satisfied, isTrue);
+    expect(bloqueDocsHint(template, full)!.showBar, isFalse);
   });
 }

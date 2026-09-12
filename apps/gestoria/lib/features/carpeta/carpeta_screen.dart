@@ -284,32 +284,20 @@ class _BloqueCover extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Expanded(
-                  child: Text(
-                    template.labelI18n.tr(),
-                    style: const TextStyle(
-                      letterSpacing: 0.8,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
-                    ),
+                  child: _BloqueWatchHeader(
+                    title: template.labelI18n.tr(),
+                    status: status,
                   ),
                 ),
-                Flexible(
-                  child: Chip(
-                    label: Text(
-                      statusLabel(status),
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                    visualDensity: VisualDensity.compact,
-                    backgroundColor: status == BloqueUiStatus.off
-                        ? AppTheme.chipOff
-                        : AppTheme.chipOn,
+                Tooltip(
+                  message: 'folder.watchToggle'.tr(),
+                  child: Switch(
+                    value: state.enabled,
+                    onChanged: (v) => _toggleCover(context, ctrl, v),
                   ),
-                ),
-                Switch(
-                  value: state.enabled,
-                  onChanged: (v) => _toggleCover(context, ctrl, v),
                 ),
               ],
             ),
@@ -329,6 +317,7 @@ class _BloqueCover extends ConsumerWidget {
               ),
               style: Theme.of(context).textTheme.bodySmall,
             ),
+            if (state.enabled) _BloqueDocsProgress(template: template, state: state),
             if (canOpen)
               Align(
                 alignment: Alignment.centerLeft,
@@ -386,6 +375,104 @@ class _BloqueCover extends ConsumerWidget {
     reasonCtrl.dispose();
     if (ok != true || reason.isEmpty) return;
     await ctrl.setEnabled(template.key, false, reason: reason);
+  }
+}
+
+/// Název vlevo, stav vedle. Switch je jinde — tužka ≠ hotovo.
+class _BloqueWatchHeader extends StatelessWidget {
+  const _BloqueWatchHeader({required this.title, required this.status});
+
+  final String title;
+  final BloqueUiStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 8,
+      runSpacing: 6,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            letterSpacing: 0.8,
+            fontWeight: FontWeight.w700,
+            fontSize: 14,
+          ),
+        ),
+        Chip(
+          label: Text(
+            statusLabel(status),
+            style: TextStyle(
+              fontSize: 12,
+              color: bloqueStatusInk(status),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          visualDensity: VisualDensity.compact,
+          backgroundColor: bloqueStatusFill(status),
+          side: BorderSide(color: bloqueStatusInk(status).withValues(alpha: 0.25)),
+        ),
+      ],
+    );
+  }
+}
+
+class _BloqueDocsProgress extends StatelessWidget {
+  const _BloqueDocsProgress({required this.template, required this.state});
+
+  final BloqueTemplate template;
+  final BloqueState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final hint = bloqueDocsHint(template, state);
+    if (hint == null) return const SizedBox.shrink();
+    final style = Theme.of(context).textTheme.bodySmall;
+    if (hint.mode == RequiredDocsMode.any) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: Text(
+          'folder.requiredDocsAny'.tr(
+            namedArgs: {
+              'types': template.requiredDocTypes
+                  .map((t) => 'docs.$t'.tr())
+                  .join(', '),
+            },
+          ),
+          style: style,
+        ),
+      );
+    }
+    if (hint.satisfied) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (hint.showBar) ...[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                minHeight: 4,
+                value: hint.barValue,
+                color: AppTheme.statusWarn,
+                backgroundColor: AppTheme.surfaceMuted,
+              ),
+            ),
+            const SizedBox(height: 4),
+          ],
+          Text(
+            'folder.docsMissing'.tr(
+              namedArgs: {
+                'types': hint.missingTypes.map((t) => 'docs.$t'.tr()).join(', '),
+              },
+            ),
+            style: style,
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -594,32 +681,20 @@ class _BloqueCardState extends ConsumerState<_BloqueCard> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Expanded(
-                  child: Text(
-                    template.labelI18n.tr(),
-                    style: const TextStyle(
-                      letterSpacing: 0.8,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
-                    ),
+                  child: _BloqueWatchHeader(
+                    title: template.labelI18n.tr(),
+                    status: status,
                   ),
                 ),
-                Flexible(
-                  child: Chip(
-                    label: Text(
-                      statusLabel(status),
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                    visualDensity: VisualDensity.compact,
-                    backgroundColor: status == BloqueUiStatus.off
-                        ? AppTheme.chipOff
-                        : AppTheme.chipOn,
+                Tooltip(
+                  message: 'folder.watchToggle'.tr(),
+                  child: Switch(
+                    value: state.enabled,
+                    onChanged: (v) => _toggle(ctrl, template.key, v),
                   ),
-                ),
-                Switch(
-                  value: state.enabled,
-                  onChanged: (v) => _toggle(ctrl, template.key, v),
                 ),
               ],
             ),

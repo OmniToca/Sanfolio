@@ -180,7 +180,10 @@
     "contactRemove": "Kontakt entfernen",
     "contactEmpty": "Kein zweiter Kontakt.",
     "documents": "Mandanten-Dokumente",
-    "documentsEmpty": "Noch kein DNI, NIE oder Pass."
+    "documentsEmpty": "Noch kein DNI, NIE oder Pass.",
+    "docValid": "Gültig",
+    "docExpiring": "Läuft bald ab",
+    "docExpired": "Abgelaufen"
   },
   "audit": {
     "title": "Audit",
@@ -294,6 +297,8 @@
     "openBlock": "Blockmappe öffnen",
     "papers": "Papiere",
     "paperCount": "{count} Dokumente",
+    "docsMissing": "Fehlt: {types}",
+    "watchToggle": "Block beobachten. Aus schiebt ihn nach Nicht verfolgt.",
     "offReason": "Warum schalten Sie diesen Block aus?",
     "offReasonHint": "Grund für das Audit (Pflicht)",
     "offConfirm": "Ausschalten"

@@ -2,10 +2,12 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gestoria_auth/gestoria_auth.dart';
 
 import '../../core/documents/documento_storage.dart';
+import '../../core/theme/app_theme.dart';
 import '../../core/money/cents.dart';
 import '../../core/money/provision.dart';
 import '../ai/documento_fields.dart';
@@ -720,6 +722,71 @@ String statusLabel(BloqueUiStatus s) {
     BloqueUiStatus.watching => 'blockStatus.watching'.tr(),
     BloqueUiStatus.done => 'blockStatus.done'.tr(),
   };
+}
+
+/// Pozadí chipu. Zelená jen Hotovo — zapnutý blok s dírou nesmí vypadat OK.
+Color bloqueStatusFill(BloqueUiStatus s) {
+  return switch (s) {
+    BloqueUiStatus.off => AppTheme.chipOff,
+    BloqueUiStatus.missingData => AppTheme.statusWarnSoft,
+    BloqueUiStatus.missingDocument => AppTheme.statusAlertSoft,
+    BloqueUiStatus.watching => AppTheme.statusWatchSoft,
+    BloqueUiStatus.done => AppTheme.statusOkSoft,
+  };
+}
+
+Color bloqueStatusInk(BloqueUiStatus s) {
+  return switch (s) {
+    BloqueUiStatus.off => AppTheme.pencil,
+    BloqueUiStatus.missingData => AppTheme.statusWarn,
+    BloqueUiStatus.missingDocument => AppTheme.statusAlert,
+    BloqueUiStatus.watching => AppTheme.statusWatch,
+    BloqueUiStatus.done => AppTheme.statusOk,
+  };
+}
+
+/// Papíry na krytu. Stav chipu dál z RPC, tady jen poctivý text (ne 2/3 u any).
+class BloqueDocsHint {
+  const BloqueDocsHint({
+    required this.mode,
+    required this.satisfied,
+    required this.missingTypes,
+    required this.showBar,
+    required this.barValue,
+  });
+
+  final RequiredDocsMode mode;
+  final bool satisfied;
+  final List<String> missingTypes;
+  final bool showBar;
+  final double barValue;
+}
+
+BloqueDocsHint? bloqueDocsHint(BloqueTemplate template, BloqueState bloque) {
+  if (template.requiredDocTypes.isEmpty) return null;
+  final have = {for (final d in bloque.documents) d.tipo};
+  if (template.requiredDocsMode == RequiredDocsMode.any) {
+    return BloqueDocsHint(
+      mode: RequiredDocsMode.any,
+      satisfied: template.requiredDocTypes.any(have.contains),
+      missingTypes: const [],
+      showBar: false,
+      barValue: 0,
+    );
+  }
+  final missing = [
+    for (final t in template.requiredDocTypes)
+      if (!have.contains(t)) t,
+  ];
+  final total = template.requiredDocTypes.length;
+  final filled = total - missing.length;
+  return BloqueDocsHint(
+    mode: RequiredDocsMode.all,
+    satisfied: missing.isEmpty,
+    missingTypes: missing,
+    showBar: total >= 2 && missing.isNotEmpty,
+    barValue: total == 0 ? 0 : filled / total,
+  );
 }
 
 Map<String, String> _fieldsMap(Object? raw) {

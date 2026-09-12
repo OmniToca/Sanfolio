@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gestoria_auth/gestoria_auth.dart';
 
+import '../../core/time/office_date.dart';
 import '../mensajes/mensaje_providers.dart';
 import '../mensajes/mensaje_templates.dart';
 
@@ -73,8 +74,6 @@ String inboxFechaIso(DateTime? dueOn) {
       '${dueOn.month.toString().padLeft(2, '0')}-'
       '${dueOn.day.toString().padLeft(2, '0')}';
 }
-
-DateTime calendarDay(DateTime d) => DateTime(d.year, d.month, d.day);
 
 /// Inbox i cron: schovat, když snooze_until je po dnešku (date, Madrid).
 bool isPlazoSnoozed({DateTime? snoozeUntil, required DateTime today}) {
