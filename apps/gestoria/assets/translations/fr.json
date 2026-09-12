@@ -208,7 +208,8 @@
         "insert": "Document ajouté",
         "open": "Document ouvert",
         "update": "Document modifié",
-        "soft_delete": "Document masqué"
+        "soft_delete": "Document masqué",
+        "purge_storage": "Fichier vidé"
       },
       "client_contacts": {
         "insert": "Contact ajouté",
@@ -273,6 +274,7 @@
     "uploadError": "Impossible de téléverser le document.",
     "fileTooBig": "Le fichier dépasse 32 Mo.",
     "fileType": "Joignez un PDF ou une photo (JPG, PNG, WebP, HEIC).",
+    "fileEmpty": "Le fichier n’a pas pu être lu. Enregistrez-le dans Téléchargements et réessayez.",
     "extractError": "Le fichier est dans le dossier. La transcription n’a pas pu être lue — ouvrez-le et enregistrez les champs vous-même.",
     "openError": "Impossible d’ouvrir le document.",
     "removeError": "Impossible de retirer le document.",
@@ -282,6 +284,7 @@
     "bodyText": "Texte du document",
     "purged": "L’original a été vidé. La transcription reste.",
     "trash": "Corbeille des documents",
+    "trashHint": "Une fois vidé, le fichier quitte la fiche. La transcription et l’audit restent.",
     "restore": "Restaurer",
     "purge": "Vider le fichier",
     "purgeConfirm": "Le fichier dans Storage sera supprimé. La transcription et l’audit restent. L’original ne se restaure pas.",

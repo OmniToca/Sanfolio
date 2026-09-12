@@ -4,6 +4,8 @@ import 'package:gestoria_auth/gestoria_auth.dart';
 import 'ai_chat.dart';
 import 'extract_text.dart';
 
+export '../../core/documents/office_file_pick.dart' show mimeForOfficeFile;
+
 class AiHit {
   const AiHit({
     required this.clienteId,
@@ -281,18 +283,6 @@ class AiFactAnswer {
       (tel != null && tel!.isNotEmpty) ||
       (email != null && email!.isNotEmpty) ||
       docs.isNotEmpty;
-}
-
-/// MIME z přípony. Edge Function podle toho volí vision vs. PDF.
-String mimeForOfficeFile(String name, {String? extension}) {
-  final e = (extension ?? name.split('.').last).toLowerCase();
-  return switch (e) {
-    'png' => 'image/png',
-    'webp' => 'image/webp',
-    'pdf' => 'application/pdf',
-    'heic' => 'image/heic',
-    _ => 'image/jpeg',
-  };
 }
 
 /// Search + uložené doklady. Nic se nezapisuje.

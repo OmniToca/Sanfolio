@@ -103,7 +103,7 @@ Hotovo když: nahrání vícestránkového PDF uloží originál + po Guardar č
 - U `copia_escritura` / daňových papírů varování, že originál nejde obnovit.
 - Volitelně později: grace 30 dní. Ne v prvním PR této fáze, pokud stačí ruční vysypání.
 
-Hotovo když: schovaný testovací sken zmizí z bucketu až po vysypání; karta a audit řádek pořád ukazují.
+Hotovo když: schovaný testovací sken zmizí z bucketu až po vysypání; karta vysypaný řádek neschovává (přepis + audit zůstanou).
 
 ---
 

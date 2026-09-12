@@ -208,7 +208,8 @@
         "insert": "Dokument hochgeladen",
         "open": "Dokument geöffnet",
         "update": "Dokument geändert",
-        "soft_delete": "Dokument versteckt"
+        "soft_delete": "Dokument versteckt",
+        "purge_storage": "Datei geleert"
       },
       "client_contacts": {
         "insert": "Kontakt hinzugefügt",
@@ -273,6 +274,7 @@
     "uploadError": "Das Dokument konnte nicht hochgeladen werden.",
     "fileTooBig": "Die Datei ist größer als 32 MB.",
     "fileType": "PDF oder Foto anhängen (JPG, PNG, WebP, HEIC).",
+    "fileEmpty": "Die Datei ließ sich nicht lesen. Speichern Sie sie in Downloads und versuchen Sie es erneut.",
     "extractError": "Die Datei liegt in der Mappe. Die Abschrift konnte nicht gelesen werden — öffnen und Felder selbst speichern.",
     "openError": "Das Dokument konnte nicht geöffnet werden.",
     "removeError": "Das Dokument konnte nicht entfernt werden.",
@@ -282,6 +284,7 @@
     "bodyText": "Dokumenttext",
     "purged": "Das Original wurde geleert. Die Abschrift bleibt.",
     "trash": "Dokument-Papierkorb",
+    "trashHint": "Nach dem Leeren verschwindet die Datei von der Karte. Abschrift und Audit bleiben.",
     "restore": "Wiederherstellen",
     "purge": "Datei leeren",
     "purgeConfirm": "Die Datei im Storage wird gelöscht. Abschrift und Audit bleiben. Das Original ist nicht wiederherstellbar.",

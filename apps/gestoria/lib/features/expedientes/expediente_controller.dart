@@ -213,7 +213,11 @@ class ThinExpedienteController
       clienteId: current.clienteId,
       originalName: originalName,
     );
-    await uploadDocumentoBytes(path: path, bytes: bytes);
+    await uploadDocumentoBytes(
+      path: path,
+      bytes: bytes,
+      originalName: originalName,
+    );
     Map inserted;
     try {
       inserted = await client

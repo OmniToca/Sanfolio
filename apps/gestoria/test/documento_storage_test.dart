@@ -1,6 +1,9 @@
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gestoria_os/core/documents/bloque_field_keys.dart';
 import 'package:gestoria_os/core/documents/documento_storage.dart';
+import 'package:gestoria_os/core/documents/office_file_pick.dart';
 import 'package:gestoria_os/features/ai/extract_text.dart';
 
 void main() {
@@ -63,6 +66,13 @@ void main() {
       '2026-12-01',
     );
     expect(bloqueField(const {}, 'fields.company'), isNull);
+  });
+
+  test('faktura bez přípony je pořád PDF', () {
+    final pdf = Uint8List.fromList([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31]);
+    expect(sniffOfficeExtension(pdf), 'pdf');
+    expect(mimeForOfficeFile('factura.pdf'), 'application/pdf');
+    expect(mimeForOfficeFile('pas.heic'), 'image/heic');
   });
 
   test('přepis oddělí body_text od polí desky', () {

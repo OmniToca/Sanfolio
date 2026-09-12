@@ -2,6 +2,9 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:gestoria_auth/gestoria_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'office_file_pick.dart';
 
 /// Jedna cesta originálu: `{tenant}/{cliente}/{id}_{název}`.
 /// PROČ ne `card/` vs `ai/`: stejný sken se jinak uložil dvakrát.
@@ -30,14 +33,23 @@ bool documentoPathInTenant({
   return path.startsWith(prefix);
 }
 
-/// Nahrání originálu. Když INSERT řádku selže, objekt se smaže (orphan).
+/// Nahrání originálu. MIME z názvu — bucket jinak odmítne octet-stream.
 Future<void> uploadDocumentoBytes({
   required String path,
   required Uint8List bytes,
+  String? originalName,
 }) async {
   final client = trySupabaseClient();
   if (client == null) throw StateError('not configured');
-  await client.storage.from('documentos').uploadBinary(path, bytes);
+  final name = originalName ?? path.split('/').last;
+  await client.storage.from('documentos').uploadBinary(
+    path,
+    bytes,
+    fileOptions: FileOptions(
+      contentType: mimeForOfficeFile(name),
+      upsert: false,
+    ),
+  );
 }
 
 /// Best-effort úklid blobu bez řádku v `documentos`.

@@ -208,7 +208,8 @@
         "insert": "Subida de documento",
         "open": "Apertura de documento",
         "update": "Cambio de documento",
-        "soft_delete": "Ocultación de documento"
+        "soft_delete": "Ocultación de documento",
+        "purge_storage": "Vaciado del archivo"
       },
       "client_contacts": {
         "insert": "Alta de contacto",
@@ -273,6 +274,7 @@
     "uploadError": "No se pudo subir el documento.",
     "fileTooBig": "El archivo supera 32 MB.",
     "fileType": "Adjunte un PDF o una foto (JPG, PNG, WebP, HEIC).",
+    "fileEmpty": "No se pudo leer el archivo. Guárdelo en Descargas e inténtelo de nuevo.",
     "extractError": "El archivo está en la carpeta. No se pudo leer la transcripción: ábralo y guarde los campos usted.",
     "openError": "No se pudo abrir el documento.",
     "removeError": "No se pudo quitar el documento.",
@@ -282,6 +284,7 @@
     "bodyText": "Texto del documento",
     "purged": "El original se vació. Queda la transcripción.",
     "trash": "Papelera de documentos",
+    "trashHint": "Al vaciarlo desaparece de la ficha. Quedan la transcripción y la auditoría.",
     "restore": "Restaurar",
     "purge": "Vaciar archivo",
     "purgeConfirm": "El archivo en Storage se borra. La transcripción y la auditoría quedan. El original no se recupera.",

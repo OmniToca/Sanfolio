@@ -405,7 +405,11 @@ class _AiPanelState extends ConsumerState<AiPanel> {
         clienteId: id,
         originalName: file.name,
       );
-      await uploadDocumentoBytes(path: path, bytes: file.bytes);
+      await uploadDocumentoBytes(
+        path: path,
+        bytes: file.bytes,
+        originalName: file.name,
+      );
       try {
         await client.from('documentos').insert({
           'tenant_id': tenantId,

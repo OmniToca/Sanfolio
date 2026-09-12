@@ -456,8 +456,11 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
     final auth = ref.read(authControllerProvider).valueOrNull;
     final bloque = view == null ? null : _bloqueLive(templateKey);
     final bloqueId = bloque?.id;
-    if (view == null || client == null || bloque == null || bloqueId == null) {
-      return null;
+    if (view == null || client == null) {
+      throw StateError('not configured');
+    }
+    if (bloque == null || bloqueId == null) {
+      throw StateError('bloque missing');
     }
     final template = _templateByKey(templateKey);
     final tipo = guessDocumentoTipo(
@@ -470,7 +473,11 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
       clienteId: view.clienteId,
       originalName: originalName,
     );
-    await uploadDocumentoBytes(path: path, bytes: bytes);
+    await uploadDocumentoBytes(
+      path: path,
+      bytes: bytes,
+      originalName: originalName,
+    );
     Map inserted;
     try {
       inserted = await client

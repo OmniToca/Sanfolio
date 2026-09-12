@@ -208,7 +208,8 @@
         "insert": "Nahrání dokumentu",
         "open": "Otevření dokumentu",
         "update": "Úprava dokumentu",
-        "soft_delete": "Schování dokumentu"
+        "soft_delete": "Schování dokumentu",
+        "purge_storage": "Vysypání souboru"
       },
       "client_contacts": {
         "insert": "Přidání kontaktu",
@@ -273,6 +274,7 @@
     "uploadError": "Dokument se nepodařilo nahrát.",
     "fileTooBig": "Soubor je větší než 32 MB.",
     "fileType": "Přiložte PDF nebo fotku (JPG, PNG, WebP, HEIC).",
+    "fileEmpty": "Soubor se nepodařilo přečíst. Uložte ho do stažených a zkuste znovu.",
     "extractError": "Soubor je ve složce. Přepis se nepodařilo načíst — otevřete ho a uložte pole ručně.",
     "openError": "Dokument se nepodařilo otevřít.",
     "removeError": "Dokument se nepodařilo odebrat.",
@@ -282,6 +284,7 @@
     "bodyText": "Text dokumentu",
     "purged": "Originál je vysypaný. Zůstává přepis.",
     "trash": "Koš dokumentů",
+    "trashHint": "Vysypáním zmizí z karty. Přepis a audit zůstanou.",
     "restore": "Obnovit",
     "purge": "Vysypat soubor",
     "purgeConfirm": "Soubor ve Storage se smaže. Přepis a audit zůstanou. Originál neobnovíte.",

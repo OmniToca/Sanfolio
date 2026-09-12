@@ -148,7 +148,19 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
                               Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Expanded(flex: 5, child: _identityCard(card)),
+                                  // Kontakt a spisy pod údaje — vedle dokladů by jinak zela díra.
+                                  Expanded(
+                                    flex: 5,
+                                    child: Column(
+                                      children: [
+                                        _identityCard(card),
+                                        const SizedBox(height: 16),
+                                        _contactsCard(card),
+                                        const SizedBox(height: 16),
+                                        _expedientesCard(),
+                                      ],
+                                    ),
+                                  ),
                                   const SizedBox(width: 16),
                                   Expanded(
                                     flex: 4,
@@ -174,11 +186,11 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
                                 clienteId: widget.clienteId,
                                 clientLocale: card.locale,
                               ),
+                              const SizedBox(height: 16),
+                              _contactsCard(card),
+                              const SizedBox(height: 16),
+                              _expedientesCard(),
                             ],
-                            const SizedBox(height: 16),
-                            _contactsCard(card),
-                            const SizedBox(height: 16),
-                            _expedientesCard(),
                             const SizedBox(height: 8),
                             Align(
                               alignment: Alignment.centerLeft,
@@ -359,6 +371,7 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
     for (final d in card.documents) {
       if (!types.contains(d.tipo)) types.add(d.tipo);
     }
+    final trash = trashVisibleOnCard(card.hiddenDocuments);
     return _SectionCard(
       title: 'clients.documents'.tr(),
       child: Column(
@@ -402,7 +415,7 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
                 ref.watch(authControllerProvider).valueOrNull ??
                     const AuthSnapshot(),
               ) &&
-              card.hiddenDocuments.isNotEmpty) ...[
+              trash.isNotEmpty) ...[
             const SizedBox(height: 16),
             Text(
               'folder.trash'.tr(),
@@ -410,11 +423,20 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
                 context,
               ).textTheme.labelSmall?.copyWith(color: AppTheme.pencil),
             ),
-            const SizedBox(height: 6),
-            for (final doc in card.hiddenDocuments) ...[
-              _hiddenDocumentTile(doc),
-              const SizedBox(height: 8),
-            ],
+            const SizedBox(height: 4),
+            Text(
+              'folder.trashHint'.tr(),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppTheme.pencil),
+            ),
+            const SizedBox(height: 8),
+            PreviewThenHistory(
+              itemCount: trash.length,
+              expandLabel: 'common.history'.tr(),
+              collapseLabel: 'common.historyHide'.tr(),
+              builder: (context, i) => _hiddenDocumentTile(trash[i]),
+            ),
           ],
         ],
       ),

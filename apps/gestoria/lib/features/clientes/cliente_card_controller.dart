@@ -63,6 +63,14 @@ class ClienteDocumento {
   }
 }
 
+/// Koš na kartě: jen schované s originálem. Vysypané zmizí z UI, řádek v DB zůstane.
+List<ClienteDocumento> trashVisibleOnCard(List<ClienteDocumento> hidden) {
+  return [
+    for (final d in hidden.reversed)
+      if (!d.storagePurged) d,
+  ];
+}
+
 /// Typy papírů na kartě, ne na desce. Úřední názvy se nepřekládají pryč.
 const clienteCardDocTypes = <String>['dni_nie', 'pasaporte'];
 
@@ -334,7 +342,11 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
       clienteId: current.id,
       originalName: originalName,
     );
-    await uploadDocumentoBytes(path: path, bytes: bytes);
+    await uploadDocumentoBytes(
+      path: path,
+      bytes: bytes,
+      originalName: originalName,
+    );
     try {
       await client.from('documentos').insert({
         'tenant_id': current.tenantId,

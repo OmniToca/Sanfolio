@@ -43,5 +43,16 @@ void main() {
       detail: {'surface': 'card'},
     );
     expect(card.actionI18nKey, 'audit.action.clientes.open');
+
+    final purge = ClienteAuditEvent(
+      id: '5',
+      createdAt: DateTime.utc(2026, 9, 13),
+      action: 'documentos.purge_storage',
+      detail: {
+        'tipo': 'dni_nie',
+        'original_name': 'nie_petr.pdf',
+      },
+    );
+    expect(purge.actionI18nKey, 'audit.action.documentos.purge_storage');
   });
 }
