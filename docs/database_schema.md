@@ -31,6 +31,8 @@ Pořadí souborů je čtyřmístné (`0001`, `0002`, …), ne timestamp.
 | `0024_documento_extracted.sql` | `documentos.extracted`; `ai_get_cliente` vrací doklady + bloky |
 | `0027_search_clients_score.sql` | `search_clients` bez ambiguous `score`; prefix NIE (`Y` → Y973…) |
 | `0028_documento_layers.sql` | cesta `{tenant}/{cliente}/…`; `body_text`; `storage_purged_at`; `bloque_field`; `purge_documento_storage`; office-wide `query_*` |
+| `0029_purge_storage_allow_delete.sql` | `purge_documento_storage` zapne `storage.allow_delete_query` — hosted trigger jinak přímý DELETE z SQL zakáže |
+| `0030_suministro_invoice_enough.sql` | agua/luz/gaz: `required_docs_mode=any` (stačí faktura); `fields.contractNo` nepovinné; bucket 32 MB |
 
 Edge: [`create-office`](../supabase/functions/create-office/index.ts) — založení kanceláře. [`translate-message`](../supabase/functions/translate-message/index.ts) — překlad výzvy (klíč `OPENAI_API_KEY`, jinak originál). [`plazo-reminders`](../supabase/functions/plazo-reminders/index.ts) — ranní drafty, nikdy `sent` (tajný `CRON_SECRET` nebo service_role). [`invite-staff`](../supabase/functions/invite-staff/index.ts) — owner zve gestor/asistente (max 3). [`extract-document`](../supabase/functions/extract-document/index.ts) — fotka/PDF → `ai_drafts` (PDF text stran + pole); Guardar zapíše `documentos.extracted` + `body_text`. [`ai-draft-message`](../supabase/functions/ai-draft-message/index.ts) — `get_cliente` + `mensajes.draft`, nikdy `sent`. [`ai-assistant`](../supabase/functions/ai-assistant/index.ts) — chat tools (search, get_cliente, query_suministro / plazos / escritura), žádný zápis.
 

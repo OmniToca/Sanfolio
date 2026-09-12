@@ -90,6 +90,7 @@ List<String> fieldsForDocTipo(String tipo) {
 }
 
 /// Název souboru má přednost před „první díra v bloku“ (facturas-5 ≠ contrato).
+/// U dodávky bez slova contrato v názvu je default faktura — kancelář smlouvy často nemá.
 String guessDocumentoTipo({
   required List<String> requiredDocTypes,
   required Set<String> alreadyHave,
@@ -97,9 +98,12 @@ String guessDocumentoTipo({
 }) {
   final name = originalName.toLowerCase();
   final looksFactura =
-      RegExp(r'factura|recibo|invoice').hasMatch(name);
+      RegExp(r'factura|recibo|invoice|abono').hasMatch(name);
   final looksContrato =
       RegExp(r'contrato|poliza|p[oó]liza').hasMatch(name);
+  final hasFacturaTipo = requiredDocTypes.any(
+    (x) => x.startsWith('factura') || x.startsWith('recibo'),
+  );
 
   String? pick(bool Function(String tipo) test) {
     for (final t in requiredDocTypes) {
@@ -121,6 +125,12 @@ String guessDocumentoTipo({
   if (looksContrato) {
     final t = pick(
       (x) => x.startsWith('contrato') || x.startsWith('poliza'),
+    );
+    if (t != null) return t;
+  }
+  if (hasFacturaTipo && !looksContrato) {
+    final t = pick(
+      (x) => x.startsWith('factura') || x.startsWith('recibo'),
     );
     if (t != null) return t;
   }

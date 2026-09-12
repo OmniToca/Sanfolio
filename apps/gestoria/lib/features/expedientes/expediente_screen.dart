@@ -1,5 +1,4 @@
 import 'package:easy_localization/easy_localization.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gestoria_auth/gestoria_auth.dart';
@@ -7,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/auth/staff_role.dart';
+import '../../core/documents/office_file_pick.dart';
 
 import '../../core/presentation/widgets/app_widgets.dart';
 import '../carpeta/carpeta_controller.dart';
@@ -248,23 +248,20 @@ class _ExpedienteScreenState extends ConsumerState<ExpedienteScreen> {
   }
 
   Future<void> _pickAndAttach() async {
-    final picked = await FilePicker.platform.pickFiles(
-      withData: true,
-      type: FileType.custom,
-      allowedExtensions: const ['pdf', 'jpg', 'jpeg', 'png', 'webp'],
-    );
-    if (picked == null || picked.files.isEmpty) return;
-    final file = picked.files.first;
-    final bytes = file.bytes;
-    if (bytes == null) {
-      _toast('folder.uploadError'.tr());
+    final PickedOfficeFile file;
+    try {
+      final picked = await pickOfficeFile();
+      if (picked == null) return;
+      file = picked;
+    } on OfficeFilePickException catch (e) {
+      _toast(officePickErrorI18n(e.code).tr());
       return;
     }
     setState(() => _busy = true);
     try {
       await ref
           .read(thinExpedienteProvider(widget.expedienteId).notifier)
-          .attachDocument(bytes: bytes, originalName: file.name);
+          .attachDocument(bytes: file.bytes, originalName: file.name);
     } on Object {
       if (mounted) _toast('folder.uploadError'.tr());
     } finally {

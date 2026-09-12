@@ -1,3 +1,6 @@
+/// all = každý typ. any = stačí jeden (voda/luz: faktura bez smlouvy).
+enum RequiredDocsMode { all, any }
+
 /// Šablona bloku desky. Popisky jdou z i18n (`blocks.$key`, `fields.*`).
 class BloqueTemplate {
   const BloqueTemplate({
@@ -5,6 +8,7 @@ class BloqueTemplate {
     required this.fieldKeys,
     this.requiredFieldKeys,
     this.requiredDocTypes = const [],
+    this.requiredDocsMode = RequiredDocsMode.all,
     this.moduleKey = 'carpeta_inmueble',
   });
 
@@ -14,6 +18,7 @@ class BloqueTemplate {
   /// Prázdné = pole na desce jsou jen zobrazení (jméno žije na `clientes`).
   final List<String>? requiredFieldKeys;
   final List<String> requiredDocTypes;
+  final RequiredDocsMode requiredDocsMode;
   final String moduleKey;
 
   String get labelI18n => 'blocks.$key';
@@ -49,7 +54,13 @@ const compraventaBloques = <BloqueTemplate>[
       'fields.contractNo',
       'fields.holder',
     ],
-    requiredDocTypes: ['contrato_agua', 'factura_agua'],
+    requiredFieldKeys: [
+      'fields.company',
+      'fields.clientNo',
+      'fields.holder',
+    ],
+    requiredDocTypes: ['contrato_agua', 'factura_agua', 'recibo_agua'],
+    requiredDocsMode: RequiredDocsMode.any,
   ),
   BloqueTemplate(
     key: 'luz',
@@ -59,7 +70,13 @@ const compraventaBloques = <BloqueTemplate>[
       'fields.contractNo',
       'fields.holder',
     ],
+    requiredFieldKeys: [
+      'fields.company',
+      'fields.cups',
+      'fields.holder',
+    ],
     requiredDocTypes: ['contrato_luz', 'factura_luz'],
+    requiredDocsMode: RequiredDocsMode.any,
   ),
   BloqueTemplate(
     key: 'gaz',
@@ -69,7 +86,13 @@ const compraventaBloques = <BloqueTemplate>[
       'fields.contractNo',
       'fields.holder',
     ],
+    requiredFieldKeys: [
+      'fields.company',
+      'fields.cups',
+      'fields.holder',
+    ],
     requiredDocTypes: ['contrato_gaz', 'factura_gaz'],
+    requiredDocsMode: RequiredDocsMode.any,
   ),
   BloqueTemplate(
     key: 'comunidad',

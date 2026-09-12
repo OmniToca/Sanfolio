@@ -25,6 +25,42 @@ void main() {
     expect(statusOf(template, state), BloqueUiStatus.missingDocument);
   });
 
+  test('voda s fakturou bez smlouvy není díra dokumentu', () {
+    const template = BloqueTemplate(
+      key: 'agua',
+      fieldKeys: [
+        'fields.company',
+        'fields.clientNo',
+        'fields.contractNo',
+        'fields.holder',
+      ],
+      requiredFieldKeys: [
+        'fields.company',
+        'fields.clientNo',
+        'fields.holder',
+      ],
+      requiredDocTypes: ['contrato_agua', 'factura_agua'],
+      requiredDocsMode: RequiredDocsMode.any,
+    );
+    const state = BloqueState(
+      enabled: true,
+      values: {
+        'fields.company': 'Hidraqua',
+        'fields.clientNo': '123',
+        'fields.holder': 'Petr Sokol',
+      },
+      documents: [
+        CarpetaDocumento(
+          id: 'd1',
+          tipo: 'factura_agua',
+          storagePath: 't/c/f.pdf',
+          originalName: 'factura.pdf',
+        ),
+      ],
+    );
+    expect(statusOf(template, state), BloqueUiStatus.done);
+  });
+
   test('vypnutý blok je off', () {
     const template = BloqueTemplate(key: 'luz', fieldKeys: ['fields.cups']);
     const state = BloqueState(enabled: false);

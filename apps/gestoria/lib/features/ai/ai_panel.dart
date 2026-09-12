@@ -1,11 +1,11 @@
 import 'package:easy_localization/easy_localization.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gestoria_auth/gestoria_auth.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/documents/documento_storage.dart';
+import '../../core/documents/office_file_pick.dart';
 import '../../core/theme/app_theme.dart';
 import 'ai_chat.dart';
 import 'ai_providers.dart';
@@ -383,19 +383,16 @@ class _AiPanelState extends ConsumerState<AiPanel> {
       ).showSnackBar(SnackBar(content: Text('ai.needFolder'.tr())));
       return;
     }
-    final picked = await FilePicker.platform.pickFiles(
-      withData: true,
-      type: FileType.custom,
-      allowedExtensions: const ['pdf', 'jpg', 'jpeg', 'png', 'webp'],
-    );
-    if (picked == null || picked.files.isEmpty) return;
-    final file = picked.files.first;
-    final bytes = file.bytes;
-    if (bytes == null) {
+    final PickedOfficeFile file;
+    try {
+      final picked = await pickOfficeFile();
+      if (picked == null) return;
+      file = picked;
+    } on OfficeFilePickException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('ai.extractError'.tr())));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(officePickErrorI18n(e.code).tr())),
+        );
       }
       return;
     }
@@ -408,7 +405,7 @@ class _AiPanelState extends ConsumerState<AiPanel> {
         clienteId: id,
         originalName: file.name,
       );
-      await uploadDocumentoBytes(path: path, bytes: bytes);
+      await uploadDocumentoBytes(path: path, bytes: file.bytes);
       try {
         await client.from('documentos').insert({
           'tenant_id': tenantId,
@@ -421,43 +418,51 @@ class _AiPanelState extends ConsumerState<AiPanel> {
         await rollbackDocumentoUpload(path);
         rethrow;
       }
-      final mime = mimeForOfficeFile(file.name, extension: file.extension);
-      final draft = await extractDocumentDraft(
-        tenantId: tenantId,
-        clienteId: id,
-        storagePath: path,
-        mime: mime,
-      );
       await ref.read(aiChatProvider.notifier).addUser(file.name);
-      if (draft == null) {
+      try {
+        final mime = mimeForOfficeFile(file.name, extension: file.extension);
+        final draft = await extractDocumentDraft(
+          tenantId: tenantId,
+          clienteId: id,
+          storagePath: path,
+          mime: mime,
+        );
+        if (draft == null) {
+          await ref
+              .read(aiChatProvider.notifier)
+              .addAssistant(
+                encodeAiChatPayload(AiChatPayload(text: 'ai.extractEmpty'.tr())),
+              );
+          return;
+        }
+        ref.read(aiPrefillProvider.notifier).state = draft;
         await ref
             .read(aiChatProvider.notifier)
             .addAssistant(
-              encodeAiChatPayload(AiChatPayload(text: 'ai.extractEmpty'.tr())),
-            );
-        return;
-      }
-      ref.read(aiPrefillProvider.notifier).state = draft;
-      await ref
-          .read(aiChatProvider.notifier)
-          .addAssistant(
-            encodeAiChatPayload(
-              AiChatPayload(
-                text: 'ai.proposal'.tr(),
-                fields: draft.fields,
-                opens: [
-                  AiChatOpen(clienteId: id, label: file.name, carpeta: true),
-                ],
+              encodeAiChatPayload(
+                AiChatPayload(
+                  text: 'ai.proposal'.tr(),
+                  fields: draft.fields,
+                  opens: [
+                    AiChatOpen(clienteId: id, label: file.name, carpeta: true),
+                  ],
+                ),
               ),
-            ),
+            );
+        if (!mounted) return;
+        context.go('/clientes/$id/carpeta');
+      } on Object {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('folder.extractError'.tr())),
           );
-      if (!mounted) return;
-      context.go('/clientes/$id/carpeta');
+        }
+      }
     } on Object {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('ai.extractError'.tr())));
+        ).showSnackBar(SnackBar(content: Text('folder.uploadError'.tr())));
       }
     } finally {
       if (mounted) setState(() => _working = false);

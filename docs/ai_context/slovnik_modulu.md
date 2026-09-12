@@ -27,7 +27,7 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `start_impersonation` | SQL RPC | auditní session 8 h |
 | `apps/support` | Flutter web | HQ kanceláře, Impersonar |
 | `CarpetaController` | `carpeta_controller.dart` | tužka, `bloques`, `clientes`, `documentos` |
-| `recompute_bloque_status` | SQL RPC | missing_data/document/watching/done; override s důvodem |
+| `recompute_bloque_status` | SQL RPC | missing_data/document/watching/done; agua/luz/gaz `required_docs_mode=any` |
 | `add_inmueble_compraventa` | SQL RPC | druhá koupě = nové inmueble + deska |
 | `add_manual_plazo` / `snooze_plazo` | SQL RPC | ruční termín; odklad inboxu, nic se nemaže |
 | `clienteMensajesProvider` | karta klienta | historie draft/sent; zahodit = `discarded` |

@@ -290,6 +290,7 @@ String mimeForOfficeFile(String name, {String? extension}) {
     'png' => 'image/png',
     'webp' => 'image/webp',
     'pdf' => 'application/pdf',
+    'heic' => 'image/heic',
     _ => 'image/jpeg',
   };
 }

@@ -92,18 +92,18 @@ Stejný tvar, jiný katalog dokumentu a volitelné pole sítě.
 | Pole | Povinné | Agua | Luz / Gaz | Comunidad |
 | --- | --- | --- | --- | --- |
 | `proveedor` | ano | Compañía | Comercializadora | Administrador |
-| `numero_cliente` | ano u vody | číslo klienta na smlouvě | — | — |
-| `numero_contrato` | ano | Póliza | Contrato | Ref. comunidad / účet |
-| `cups` | ano u luz/gaz | — | **CUPS** | — |
-| `titular` | ano | Kdo je na smlouvě | dtto | dtto |
+| `numero_cliente` | ano u vody | číslo klienta (i z faktury) | — | — |
+| `numero_contrato` | ne u dodávky | z faktury, když tam je | dtto | Ref. comunidad / účet |
+| `cups` | ano u luz/gaz | — | **CUPS** (i z faktury) | — |
+| `titular` | ano | Kdo platí / je na faktuře | dtto | dtto |
 | `fecha_alta` | ne | Změna titulu | dtto | dtto |
 
-| Blok | Povinné dokumenty |
-| --- | --- |
-| `agua` | `contrato_agua` + `factura_agua` |
-| `luz` | `contrato_luz` + `factura_luz` |
-| `gaz` | `contrato_gaz` + `factura_gaz` |
-| `comunidad` | `certificado_comunidad` (správce, účet, papír) |
+| Blok | Povinné dokumenty | Režim |
+| --- | --- | --- |
+| `agua` | `contrato_agua` / `factura_agua` / `recibo_agua` | **stačí jeden** — kancelář často nemá smlouvu, identita je na faktuře |
+| `luz` | `contrato_luz` / `factura_luz` | **stačí jeden** |
+| `gaz` | `contrato_gaz` / `factura_gaz` | **stačí jeden** |
+| `comunidad` | `certificado_comunidad` (správce, účet, papír) | všechny |
 
 Přepis dokladu a tužka na desce se neslévají. Faktura má v `documentos.extracted` číslo, datum vystavení, období od–do, spotřebu, částku. Na blok jdou jen identita (compañía, contrato, CUPS / číslo klienta, titular). `fields.period` je rok IBI, ne období faktury. Stoh papírů je `/clientes/:id/carpeta/:bloque`, ne 15 polí na deskách.
 

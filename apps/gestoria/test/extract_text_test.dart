@@ -70,6 +70,14 @@ void main() {
         alreadyHave: {},
         originalName: '31_07_2026.pdf',
       ),
+      'factura_luz',
+    );
+    expect(
+      guessDocumentoTipo(
+        requiredDocTypes: const ['contrato_luz', 'factura_luz'],
+        alreadyHave: {},
+        originalName: 'contrato_iberdrola.pdf',
+      ),
       'contrato_luz',
     );
   });

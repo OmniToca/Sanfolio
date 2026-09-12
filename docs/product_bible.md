@@ -129,7 +129,7 @@ Každý dokument má:
 - `uploaded_by`, `created_at`
 - `deleted_at`
 
-Chybějící dokument = v šabloně bloku je `required_document_types` a žádný živý dokument tohoto typu.
+Chybějící dokument = `required_doc_types` a režim `all` (každý typ) nebo `any` (stačí jeden — voda/luz/gaz: faktura bez smlouvy).
 
 AI může navrhnout `tipo` a pole z OCR. Zařazení potvrdí gestor.
 

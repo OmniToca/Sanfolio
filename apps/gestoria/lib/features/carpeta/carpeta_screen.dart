@@ -1,10 +1,10 @@
 import 'package:easy_localization/easy_localization.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/documents/office_file_pick.dart';
 import '../../core/modules/feature_gate.dart';
 import '../../core/modules/module_catalog.dart';
 import '../../core/modules/slot_order.dart';
@@ -659,7 +659,10 @@ class _BloqueCardState extends ConsumerState<_BloqueCard> {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Text(
-                    'folder.requiredDocs'.tr(
+                    (template.requiredDocsMode == RequiredDocsMode.any
+                            ? 'folder.requiredDocsAny'
+                            : 'folder.requiredDocs')
+                        .tr(
                       namedArgs: {
                         'types': template.requiredDocTypes
                             .map((t) => 'docs.$t'.tr())
@@ -706,15 +709,27 @@ class _BloqueCardState extends ConsumerState<_BloqueCard> {
     CarpetaController ctrl,
     String templateKey,
   ) async {
-    final picked = await FilePicker.platform.pickFiles(
-      withData: true,
-      type: FileType.custom,
-      allowedExtensions: const ['pdf', 'jpg', 'jpeg', 'png', 'webp'],
-    );
-    if (picked == null || picked.files.isEmpty) return;
-    final file = picked.files.first;
-    final bytes = file.bytes;
-    if (bytes == null) {
+    final PickedOfficeFile file;
+    try {
+      final picked = await pickOfficeFile();
+      if (picked == null) return;
+      file = picked;
+    } on OfficeFilePickException catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(officePickErrorI18n(e.code).tr())),
+        );
+      }
+      return;
+    }
+    CarpetaDocumento? attached;
+    try {
+      attached = await ctrl.attachDocument(
+        templateKey: templateKey,
+        bytes: file.bytes,
+        originalName: file.name,
+      );
+    } on Object {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('folder.uploadError'.tr())),
@@ -722,22 +737,19 @@ class _BloqueCardState extends ConsumerState<_BloqueCard> {
       }
       return;
     }
+    if (attached == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('folder.uploadError'.tr())),
+        );
+      }
+      return;
+    }
+    final tenantId = ctrl.state.valueOrNull?.tenantId;
+    final clienteId = ctrl.state.valueOrNull?.clienteId;
+    if (tenantId == null || clienteId == null) return;
     try {
-      final attached = await ctrl.attachDocument(
-        templateKey: templateKey,
-        bytes: bytes,
-        originalName: file.name,
-      );
-      if (attached == null) return;
-      final tenantId = ctrl.state.valueOrNull?.tenantId;
-      final clienteId = ctrl.state.valueOrNull?.clienteId;
-      if (tenantId == null || clienteId == null) return;
-      final mime = switch (file.extension?.toLowerCase()) {
-        'png' => 'image/png',
-        'webp' => 'image/webp',
-        'pdf' => 'application/pdf',
-        _ => 'image/jpeg',
-      };
+      final mime = mimeForOfficeFile(file.name, extension: file.extension);
       final draft = await extractDocumentDraft(
         tenantId: tenantId,
         clienteId: clienteId,
@@ -753,7 +765,7 @@ class _BloqueCardState extends ConsumerState<_BloqueCard> {
     } on Object {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('folder.uploadError'.tr())),
+          SnackBar(content: Text('folder.extractError'.tr())),
         );
       }
     }

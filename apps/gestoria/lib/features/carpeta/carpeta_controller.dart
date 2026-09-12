@@ -682,9 +682,15 @@ BloqueUiStatus statusOf(BloqueTemplate template, BloqueState bloque) {
   });
   if (missing.isNotEmpty) return BloqueUiStatus.missingData;
   final have = {for (final d in bloque.documents) d.tipo};
-  final missingDocs =
-      template.requiredDocTypes.where((t) => !have.contains(t));
-  if (missingDocs.isNotEmpty) return BloqueUiStatus.missingDocument;
+  if (template.requiredDocTypes.isNotEmpty) {
+    if (template.requiredDocsMode == RequiredDocsMode.any) {
+      if (!template.requiredDocTypes.any(have.contains)) {
+        return BloqueUiStatus.missingDocument;
+      }
+    } else if (template.requiredDocTypes.any((t) => !have.contains(t))) {
+      return BloqueUiStatus.missingDocument;
+    }
+  }
   return BloqueUiStatus.done;
 }
 

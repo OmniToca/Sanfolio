@@ -124,7 +124,7 @@ Založení kanceláře: Edge Function `create-office` (service_role). Flutter IN
 
 Bucket `documentos` v EU. Cesta `{tenant_id}/{cliente_id}/{id}_{název}`.  
 Policy: membership tenantu. Žádné veřejné URL. Signed URL 2 minuty.  
-INSERT cesty hlídá trigger (nesmí ven z tenanta/klienta). DELETE blobu: orphan rollback, jinak jen `purge_documento_storage` (owner, dokument v koši).
+INSERT cesty hlídá trigger (nesmí ven z tenanta/klienta). DELETE blobu: orphan rollback přes Storage API; vysypání koše jen `purge_documento_storage` (owner, dokument v koši). Hosted trigger `protect_delete` zakáže holý `DELETE FROM storage.objects` — RPC proto nastaví `storage.allow_delete_query`.
 
 ## 8. GDPR / LOPDGDD vs. „100 % soft-delete“
 
