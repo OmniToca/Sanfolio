@@ -24,9 +24,28 @@ void main() {
     expect(diffs.length, 3);
     expect(diffs.first.changed, isTrue);
     expect(diffs[1].changed, isFalse);
-    expect(stringFieldMap({'fields.nie': 'Y1', 'skip': ''}), {
-      'fields.nie': 'Y1',
+    expect(stringFieldMap({'fields.nie': 'Y1234567E', 'skip': ''}), {
+      'fields.nie': 'Y1234567E',
     });
+  });
+
+  test('odpad z PDF se nenabízí místo platného NIE', () {
+    expect(looksLikeNie('XU'), isFalse);
+    expect(looksLikeNie('Y9736943E'), isTrue);
+    expect(looksLikeTel('0000000000278' * 8), isFalse);
+    expect(looksLikeTel('+420775869555'), isTrue);
+    expect(
+      sanitizeExtractedFields({
+        'fields.nie': 'XU',
+        'fields.tel': '278000000000333330027833327827856556556556556556',
+      }),
+      isEmpty,
+    );
+    final diffs = prefillDiffs(
+      current: {'fields.nie': 'Y9736943E', 'fields.tel': '+420775869555'},
+      proposed: {'fields.nie': 'XU', 'fields.tel': '0000000000278'},
+    );
+    expect(diffs, isEmpty);
   });
 
   test('jméno na pase pozná stejného člověka', () {

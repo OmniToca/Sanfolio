@@ -80,13 +80,13 @@ Deno.serve(async (req) => {
     return json(413, { ok: false, error: "file too large" });
   }
 
-  const latin = latinText(bytes);
-  let fields = fieldsFromText(latin);
+  const isPdf = mime === "application/pdf" || /\.pdf$/i.test(storagePath);
+  const latin = isPdf ? "" : latinText(bytes);
+  let fields = isPdf ? {} : sanitizeFields(fieldsFromText(latin));
   let extracted = Object.keys(fields).length > 0;
 
   const apiKey = Deno.env.get("OPENAI_API_KEY")?.trim();
   const isImage = IMAGE_MIME.has(mime) || looksLikeImage(storagePath);
-  const isPdf = mime === "application/pdf" || /\.pdf$/i.test(storagePath);
   if (apiKey && (isImage || isPdf)) {
     const vision = await visionExtract(
       apiKey,
@@ -96,8 +96,8 @@ Deno.serve(async (req) => {
       isPdf,
     );
     if (vision) {
-      fields = { ...fields, ...vision };
-      extracted = true;
+      fields = { ...fields, ...sanitizeFields(vision) };
+      extracted = Object.keys(fields).length > 0;
     }
   }
 
@@ -142,19 +142,53 @@ Deno.serve(async (req) => {
 
 function fieldsFromText(text: string): Record<string, string> {
   const out: Record<string, string> = {};
-  const nie = text.match(/\b[XYZ]\d{0,3}\*{0,4}\d{0,4}[A-Z]\b/i);
+  const nie = text.match(/\b(?:[XYZ][0-9*]{7}[A-Z]|[0-9*]{8}[A-Z])\b/i);
   if (nie) out["fields.nie"] = nie[0].toUpperCase();
   const email = text.match(/[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}/i);
   if (email) out["fields.email"] = email[0].toLowerCase();
-  const tel = text.match(/\+?\d[\d \-]{7,}\d/);
+  const tel = text.match(/\+?\d[\d \-]{7,14}\d/);
   if (tel) {
     const compact = tel[0].replace(/[^\d+]/g, "");
-    if (compact.length >= 8) out["fields.tel"] = compact;
+    if (looksLikeTel(compact)) out["fields.tel"] = compact;
   }
   const iso = text.match(/\b(20\d{2}|19\d{2})[-/.](0[1-9]|1[0-2])[-/.](0[1-9]|[12]\d|3[01])\b/);
   if (iso) out["fields.date"] = iso[0].replace(/[/]/g, "-");
   const kwh = text.match(/(\d+[.,]?\d*)\s*kWh/i);
   if (kwh) out["fields.consumption"] = kwh[1].replace(",", ".");
+  return sanitizeFields(out);
+}
+
+function looksLikeNie(raw: string): boolean {
+  const v = raw.toUpperCase().replace(/[\s\-\./]/g, "");
+  return /^[XYZ][0-9*]{7}[A-Z]$/.test(v) || /^[0-9*]{8}[A-Z]$/.test(v);
+}
+
+function looksLikeTel(raw: string): boolean {
+  const digits = raw.replace(/[^\d]/g, "");
+  if (digits.length < 9 || digits.length > 15) return false;
+  const zeros = [...digits].filter((c) => c === "0").length;
+  return zeros <= Math.floor(digits.length / 2);
+}
+
+function sanitizeFields(raw: Record<string, string>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    const v = value.trim();
+    if (!v) continue;
+    if (key === "fields.nie") {
+      if (looksLikeNie(v)) out[key] = v.toUpperCase().replace(/\s/g, "");
+      continue;
+    }
+    if (key === "fields.tel") {
+      if (looksLikeTel(v)) out[key] = v.replace(/[^\d+]/g, "");
+      continue;
+    }
+    if (key === "fields.email") {
+      if (v.includes("@") && v.length <= 120) out[key] = v.toLowerCase();
+      continue;
+    }
+    if (v.length <= 200) out[key] = v;
+  }
   return out;
 }
 
