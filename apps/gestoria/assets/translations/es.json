@@ -9,6 +9,10 @@
   },
   "settings": {
     "title": "Ajustes del despacho",
+    "tabOffice": "Despacho",
+    "tabDeadlines": "Plazos",
+    "tabTeam": "Personas",
+    "tabFolder": "Carpeta",
     "intro": "Los plazos no van en el código. Cada despacho configura los días aquí.",
     "sendTranslated": "El correo y WhatsApp salen en el idioma del cliente. El original queda en el expediente.",
     "plusvaliaDays": "Plusvalía — días desde la escritura",

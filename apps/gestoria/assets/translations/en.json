@@ -9,6 +9,10 @@
   },
   "settings": {
     "title": "Office settings",
+    "tabOffice": "Office",
+    "tabDeadlines": "Deadlines",
+    "tabTeam": "People",
+    "tabFolder": "Folder",
     "intro": "Deadlines are not hardcoded. Each office sets the days here.",
     "sendTranslated": "Email and WhatsApp go out in the client’s language. The original stays in the file.",
     "plusvaliaDays": "Plusvalía — days after the escritura",

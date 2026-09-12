@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/modules/feature_gate.dart';
 import '../../core/modules/module_catalog.dart';
+import '../../core/theme/app_theme.dart';
 import '../ai/ai_sheet.dart';
 
 class AppShell extends ConsumerWidget {
@@ -90,7 +91,7 @@ class AppShell extends ConsumerWidget {
       return Scaffold(
         body: withBanner(child),
         floatingActionButton: fab(),
-        floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
+        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
         bottomNavigationBar: NavigationBar(
           selectedIndex: selected,
           onDestinationSelected: goIndex,
@@ -101,35 +102,117 @@ class AppShell extends ConsumerWidget {
 
     return Scaffold(
       floatingActionButton: fab(),
-      floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       body: withBanner(
         Row(
           children: [
-            NavigationRail(
-              selectedIndex: selected,
-              onDestinationSelected: goIndex,
-              labelType: NavigationRailLabelType.all,
-              destinations: [
-                NavigationRailDestination(
-                  icon: const Icon(Icons.inbox_outlined),
-                  selectedIcon: const Icon(Icons.inbox),
-                  label: Text('nav.inbox'.tr()),
-                ),
-                NavigationRailDestination(
-                  icon: const Icon(Icons.people_outline),
-                  selectedIcon: const Icon(Icons.people),
-                  label: Text('nav.clients'.tr()),
-                ),
-                NavigationRailDestination(
-                  icon: const Icon(Icons.settings_outlined),
-                  selectedIcon: const Icon(Icons.settings),
-                  label: Text('nav.settings'.tr()),
-                ),
-              ],
-            ),
-            const VerticalDivider(width: 1),
+            _OfficeRail(selected: selected, onSelect: goIndex),
             Expanded(child: child),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Levý pruh. Tmavý kvůli kontrastu k papírové ploše, ne kvůli dark mode.
+class _OfficeRail extends StatelessWidget {
+  const _OfficeRail({required this.selected, required this.onSelect});
+
+  final int selected;
+  final ValueChanged<int> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = [
+      (Icons.inbox_outlined, Icons.inbox, 'nav.inbox'.tr()),
+      (Icons.people_outline, Icons.people, 'nav.clients'.tr()),
+      (Icons.settings_outlined, Icons.settings, 'nav.settings'.tr()),
+    ];
+    return ColoredBox(
+      color: AppTheme.nav,
+      child: SizedBox(
+        width: AppTheme.railWidth,
+        child: SafeArea(
+          child: Column(
+            children: [
+              const SizedBox(height: 20),
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppTheme.navSelected,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                ),
+                child: const Icon(
+                  Icons.folder_open_rounded,
+                  color: AppTheme.navInk,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(height: 28),
+              for (var i = 0; i < items.length; i++)
+                _RailItem(
+                  icon: selected == i ? items[i].$2 : items[i].$1,
+                  label: items[i].$3,
+                  selected: selected == i,
+                  onTap: () => onSelect(i),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RailItem extends StatelessWidget {
+  const _RailItem({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(10, 4, 10, 4),
+      child: Material(
+        color: selected ? AppTheme.navSelected : Colors.transparent,
+        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+          child: SizedBox(
+            width: double.infinity,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Column(
+                children: [
+                  Icon(
+                    icon,
+                    color: selected ? AppTheme.navInk : AppTheme.navMuted,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                      color: selected ? AppTheme.navInk : AppTheme.navMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );

@@ -106,8 +106,8 @@ class CarpetaScreen extends ConsumerWidget {
             child: Column(
               children: [
                 if (view.expedienteId != null)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                  AppContent(
+                    padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
                     child: ExpedienteEstadoPicker(
                       estado: view.expedienteEstado,
                       onChanged: (v) async {
@@ -121,21 +121,24 @@ class CarpetaScreen extends ConsumerWidget {
                     ),
                   ),
                 Expanded(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 48),
-                    itemCount: templates.length,
-                    itemBuilder: (context, i) {
-                      final template = templates[i];
-                      final state = view.bloques[template.key] ??
-                          const BloqueState(enabled: false);
-                      return _BloqueCard(
-                        key: ValueKey(template.key),
-                        target: _target,
-                        template: template,
-                        state: state,
-                        movements: view.movements,
-                      );
-                    },
+                  child: AppContent(
+                    padding: const EdgeInsets.fromLTRB(24, 8, 24, 48),
+                    child: ListView.builder(
+                      padding: EdgeInsets.zero,
+                      itemCount: templates.length,
+                      itemBuilder: (context, i) {
+                        final template = templates[i];
+                        final state = view.bloques[template.key] ??
+                            const BloqueState(enabled: false);
+                        return _BloqueCard(
+                          key: ValueKey(template.key),
+                          target: _target,
+                          template: template,
+                          state: state,
+                          movements: view.movements,
+                        );
+                      },
+                    ),
                   ),
                 ),
               ],
@@ -194,6 +197,7 @@ class _BloqueCardState extends ConsumerState<_BloqueCard> {
     final ctrl = ref.read(carpetaControllerProvider(widget.target).notifier);
     return AppCard(
       margin: const EdgeInsets.only(bottom: 12),
+      emphasized: state.enabled,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 10, 8, 16),
         child: Column(

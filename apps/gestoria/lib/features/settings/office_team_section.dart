@@ -9,7 +9,9 @@ import 'office_team_controller.dart';
 
 /// Owner zve gestor / asistente. Max 3 živé členství.
 class OfficeTeamSection extends ConsumerStatefulWidget {
-  const OfficeTeamSection({super.key});
+  const OfficeTeamSection({super.key, this.showHeading = true});
+
+  final bool showHeading;
 
   @override
   ConsumerState<OfficeTeamSection> createState() => _OfficeTeamSectionState();
@@ -34,11 +36,13 @@ class _OfficeTeamSectionState extends ConsumerState<OfficeTeamSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'settings.team'.tr(),
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-        const SizedBox(height: 8),
+        if (widget.showHeading) ...[
+          Text(
+            'settings.team'.tr(),
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+        ],
         Text('settings.teamHint'.tr()),
         const SizedBox(height: 8),
         team.when(

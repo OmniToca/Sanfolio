@@ -9,6 +9,10 @@
   },
   "settings": {
     "title": "Nastavení kanceláře",
+    "tabOffice": "Kancelář",
+    "tabDeadlines": "Lhůty",
+    "tabTeam": "Lidé",
+    "tabFolder": "Deska",
     "intro": "Lhůty nejsou v kódu. Každá kancelář si dny nastaví tady.",
     "sendTranslated": "Do e-mailu a WhatsApp jde překlad do jazyka klienta. Originál zůstane ve spisu.",
     "plusvaliaDays": "Plusvalía — dní od escritura",

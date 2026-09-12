@@ -59,19 +59,18 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
                 ),
               ),
               Expanded(
-                child: shown.isEmpty
+                child: AppContent(
+                  padding: const EdgeInsets.fromLTRB(24, 4, 24, 48),
+                  child: shown.isEmpty
                     ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Text(
-                            rows.isEmpty
-                                ? 'inbox.empty'.tr()
-                                : 'inbox.emptyFilter'.tr(),
-                          ),
+                        child: Text(
+                          rows.isEmpty
+                              ? 'inbox.empty'.tr()
+                              : 'inbox.emptyFilter'.tr(),
                         ),
                       )
                     : ListView.separated(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 48),
+                        padding: EdgeInsets.zero,
                         itemCount: shown.length,
                         separatorBuilder: (context, index) =>
                             const SizedBox(height: 8),
@@ -110,6 +109,7 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
                           );
                         },
                       ),
+                ),
               ),
             ],
           );

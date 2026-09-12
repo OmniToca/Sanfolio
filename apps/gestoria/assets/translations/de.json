@@ -9,6 +9,10 @@
   },
   "settings": {
     "title": "Büro-Einstellungen",
+    "tabOffice": "Büro",
+    "tabDeadlines": "Fristen",
+    "tabTeam": "Team",
+    "tabFolder": "Mappe",
     "intro": "Fristen stehen nicht im Code. Jedes Büro stellt die Tage hier ein.",
     "sendTranslated": "E-Mail und WhatsApp gehen in der Sprache des Mandanten raus. Das Original bleibt in der Akte.",
     "plusvaliaDays": "Plusvalía — Tage nach der Escritura",

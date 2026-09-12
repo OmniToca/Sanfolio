@@ -1,6 +1,8 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/theme/app_theme.dart';
+
 const expedienteEstadoKeys = <String>[
   'abierto',
   'en_curso',
@@ -38,20 +40,37 @@ class ExpedienteEstadoPicker extends StatelessWidget {
   Widget build(BuildContext context) {
     final current =
         expedienteEstadoKeys.contains(estado) ? estado : 'abierto';
-    return DropdownButtonFormField<String>(
-      value: current,
-      decoration: InputDecoration(labelText: 'expedientes.estadoLabel'.tr()),
-      items: [
-        for (final k in expedienteEstadoKeys)
-          DropdownMenuItem(
-            value: k,
-            child: Text('expedientes.estado.$k'.tr()),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Text(
+            'expedientes.estadoLabel'.tr(),
+            style: Theme.of(context).textTheme.titleSmall,
           ),
+        ),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final k in expedienteEstadoKeys)
+              ChoiceChip(
+                label: Text('expedientes.estado.$k'.tr()),
+                selected: k == current,
+                onSelected: (_) {
+                  if (k == current) return;
+                  onChanged(k);
+                },
+                selectedColor: AppTheme.accentSoft,
+                labelStyle: TextStyle(
+                  color: k == current ? AppTheme.accent : AppTheme.ink,
+                  fontWeight: k == current ? FontWeight.w600 : FontWeight.w500,
+                ),
+              ),
+          ],
+        ),
       ],
-      onChanged: (v) {
-        if (v == null || v == current) return;
-        onChanged(v);
-      },
     );
   }
 }

@@ -9,6 +9,10 @@
   },
   "settings": {
     "title": "Paramètres du cabinet",
+    "tabOffice": "Cabinet",
+    "tabDeadlines": "Délais",
+    "tabTeam": "Équipe",
+    "tabFolder": "Dossier",
     "intro": "Les délais ne sont pas dans le code. Chaque cabinet règle les jours ici.",
     "sendTranslated": "E-mail et WhatsApp partent dans la langue du client. L’original reste au dossier.",
     "plusvaliaDays": "Plusvalía — jours après l’escritura",
