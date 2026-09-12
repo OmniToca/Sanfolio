@@ -1,0 +1,10 @@
+# Kancelář (Sanfolio). Tajemství = Netlify env, ne config.json v gitu.
+
+[build]
+  command = "bash tool/netlify_flutter_build.sh apps/gestoria"
+  publish = "apps/gestoria/build/web"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

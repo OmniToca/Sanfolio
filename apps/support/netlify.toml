@@ -1,7 +1,7 @@
-# Flutter web SPA. Build env: dart-define-from-file with SUPABASE_* and app URLs.
+# Support HQ. V Netlify: Base directory = apps/support.
 
 [build]
-  command = "flutter build web --release --dart-define-from-file=../../config.json"
+  command = "bash ../../tool/netlify_flutter_build.sh apps/support"
   publish = "build/web"
 
 [[redirects]]

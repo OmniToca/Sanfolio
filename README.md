@@ -12,6 +12,15 @@ Digitální složka pro španělskou gestoría. Zdroj pravdy je papírová deska
 4. Auth → Redirect URLs: kancelář i Support (Netlify + `localhost:5555` / `5556`).
 5. Zaregistruj se na Support, v SQL: `UPDATE profiles SET is_support = true WHERE email = '…';`
 
+## Nasazení (GitHub → Netlify)
+
+`config.json` v gitu není. Netlify si Flutter nainstaluje v buildu a klíče bere z Environment.
+
+1. **Add new project** → Import from Git → `OmniToca/Sanfolio`.
+2. Build z root `netlify.toml` (kancelář). Support později: druhé project, Base directory `apps/support`.
+3. Environment variables: `SUPABASE_URL`, `SUPABASE_ANON_KEY`. Adresy webů Netlify doplní samo (`$URL`). Až bude Support na vlastní URL, nastav `SUPPORT_APP_URL`.
+4. Po prvním deploji: Supabase Auth → Redirect URLs (`https://….netlify.app` + `/reset-password` origin). Site URL = kancelář.
+
 ```bash
 # kancelář
 cd apps/gestoria && flutter run -d chrome --web-port=5555 --dart-define-from-file=../../config.json

@@ -1,7 +1,8 @@
-# Flutter web SPA.
+# Flutter web SPA. Build spouští root `tool/netlify_flutter_build.sh`.
+# Když je Base directory v UI `apps/gestoria`, tento soubor se použije sám.
 
 [build]
-  command = "flutter build web --release --dart-define-from-file=../../config.json"
+  command = "bash ../../tool/netlify_flutter_build.sh apps/gestoria"
   publish = "build/web"
 
 [[redirects]]
