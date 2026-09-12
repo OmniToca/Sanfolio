@@ -32,6 +32,7 @@ class _AiSheetState extends ConsumerState<AiSheet> {
   var _hits = const <AiHit>[];
   var _busy = false;
   ExtractedFields? _extracted;
+  AiFactAnswer? _facts;
 
   @override
   void dispose() {
@@ -71,6 +72,10 @@ class _AiSheetState extends ConsumerState<AiSheet> {
                   child: Text('ai.search'.tr()),
                 ),
                 OutlinedButton(
+                  onPressed: _busy ? null : _ask,
+                  child: Text('ai.ask'.tr()),
+                ),
+                OutlinedButton(
                   onPressed: _busy ? null : _extract,
                   child: Text('ai.extract'.tr()),
                 ),
@@ -84,6 +89,36 @@ class _AiSheetState extends ConsumerState<AiSheet> {
                 ),
               ],
             ),
+            if (_facts != null) ...[
+              const SizedBox(height: 16),
+              Text('ai.factsTitle'.tr(namedArgs: {'name': _facts!.nombre})),
+              if (_facts!.docs.isEmpty)
+                Text('ai.factsEmpty'.tr())
+              else
+                for (final d in _facts!.docs)
+                  ListTile(
+                    dense: true,
+                    title: Text('docs.${d.tipo}'.tr()),
+                    subtitle: Text(
+                      [
+                        if (d.docNumber != null && d.docNumber!.isNotEmpty)
+                          '${'fields.docNumber'.tr()}: ${d.docNumber}',
+                        if (d.expiry != null && d.expiry!.isNotEmpty)
+                          '${'fields.expiry'.tr()}: ${d.expiry}',
+                        if (d.consumption != null && d.consumption!.isNotEmpty)
+                          '${'fields.consumption'.tr()}: ${d.consumption}',
+                        if (d.amount != null && d.amount!.isNotEmpty)
+                          '${'fields.amount'.tr()}: ${d.amount}',
+                        if (d.nombre != null && d.nombre!.isNotEmpty)
+                          '${'fields.nombre'.tr()}: ${d.nombre}',
+                      ].join(' · '),
+                    ),
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.go('/clientes/${_facts!.clienteId}/carpeta');
+                    },
+                  ),
+            ],
             if (_hits.isNotEmpty) ...[
               const SizedBox(height: 16),
               Text('ai.results'.tr()),
@@ -167,6 +202,23 @@ class _AiSheetState extends ConsumerState<AiSheet> {
     try {
       final hits = await aiSearchClients(_q.text);
       if (mounted) setState(() => _hits = hits);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _ask() async {
+    setState(() => _busy = true);
+    try {
+      final facts = await askClienteFacts(_q.text);
+      if (!mounted) return;
+      if (facts == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('ai.factsNone'.tr())),
+        );
+        return;
+      }
+      setState(() => _facts = facts);
     } finally {
       if (mounted) setState(() => _busy = false);
     }

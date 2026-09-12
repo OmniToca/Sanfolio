@@ -247,6 +247,9 @@
     "title": "Carpeta",
     "subtitle": "Las mismas dos hojas. El lápiz es el interruptor.",
     "attach": "Adjuntar documento",
+    "offBlocks": "No seguimos",
+    "offBlocksHint": "Los bloques apagados van abajo para que la carpeta empiece por lo que el despacho sí hace.",
+    "nameMismatch": "El nombre del documento ({doc}) no coincide con la ficha ({card}). Compruebe que el archivo es de este cliente.",
     "requiredDocs": "Papeles obligatorios: {types}",
     "open": "Abrir",
     "remove": "Quitar",
@@ -331,6 +334,11 @@
     "filed": "Presentada",
     "policy": "Póliza",
     "expiry": "Vencimiento",
+    "docNumber": "Número de documento",
+    "issued": "Fecha de expedición",
+    "nationality": "Nacionalidad",
+    "consumption": "Consumo",
+    "amount": "Importe",
     "received": "Recibido",
     "invoiced": "Facturado",
     "remaining": "Queda",
@@ -418,6 +426,10 @@
     "diffLine": "{field}: {current} → {proposed}",
     "emptyValue": "(vacío)",
     "apply": "Guardar propuesta",
-    "discard": "Descartar propuesta"
+    "discard": "Descartar propuesta",
+    "ask": "Preguntar por documentos",
+    "factsTitle": "Documentos guardados — {name}",
+    "factsEmpty": "Este cliente aún no tiene campos de documento guardados. Adjunte un archivo y guarde la propuesta.",
+    "factsNone": "No encontré a nadie con ese nombre."
   }
 }

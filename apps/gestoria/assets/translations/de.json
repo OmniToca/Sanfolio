@@ -247,6 +247,9 @@
     "title": "Mappe",
     "subtitle": "Dieselben zwei Blätter. Der Bleistift ist der Schalter.",
     "attach": "Dokument anhängen",
+    "offBlocks": "Nicht verfolgt",
+    "offBlocksHint": "Ausgeschaltete Blöcke stehen unten, damit die Mappe mit der echten Arbeit beginnt.",
+    "nameMismatch": "Der Name auf dem Dokument ({doc}) passt nicht zur Karte ({card}). Prüfen Sie, ob die Datei zu diesem Mandanten gehört.",
     "requiredDocs": "Pflichtunterlagen: {types}",
     "open": "Öffnen",
     "remove": "Entfernen",
@@ -331,6 +334,11 @@
     "filed": "Eingereicht",
     "policy": "Police",
     "expiry": "Ablauf",
+    "docNumber": "Dokumentnummer",
+    "issued": "Ausstellungsdatum",
+    "nationality": "Staatsangehörigkeit",
+    "consumption": "Verbrauch",
+    "amount": "Betrag",
     "received": "Erhalten",
     "invoiced": "Abgerechnet",
     "remaining": "Rest",
@@ -418,6 +426,10 @@
     "diffLine": "{field}: {current} → {proposed}",
     "emptyValue": "(leer)",
     "apply": "Vorschlag speichern",
-    "discard": "Vorschlag verwerfen"
+    "discard": "Vorschlag verwerfen",
+    "ask": "Zu Dokumenten fragen",
+    "factsTitle": "Gespeicherte Dokumente — {name}",
+    "factsEmpty": "Für diesen Mandanten sind noch keine Dokumentfelder gespeichert. Datei anhängen und den Vorschlag speichern.",
+    "factsNone": "Zu diesem Namen wurde niemand gefunden."
   }
 }

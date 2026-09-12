@@ -88,7 +88,7 @@ Výsledek do UI: `{ "type": "prefill", "draft_id": "uuid", "fields": … }`.
 
 Vstup: `attachment_id` v Storage. Vision/OCR → strukturovaný JSON podle cíle (`dni_nie`, `escritura`, `contrato_luz`, `folder_scan`).
 
-Výstup vždy končí jako `prefill` draft, ne jako uložený klient.
+Výstup vždy končí jako `prefill` draft, ne jako uložený klient. Gestor na desce klikne Guardar → `documentos.extracted` + pole bloku. Pak `ai_get_cliente` umí říct, kdy končí pas.
 
 Příklad extract NIE:
 

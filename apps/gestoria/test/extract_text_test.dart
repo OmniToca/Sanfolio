@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gestoria_os/features/ai/documento_fields.dart';
 import 'package:gestoria_os/features/ai/extract_text.dart';
 
 void main() {
@@ -26,5 +27,10 @@ void main() {
     expect(stringFieldMap({'fields.nie': 'Y1', 'skip': ''}), {
       'fields.nie': 'Y1',
     });
+  });
+
+  test('jméno na pase pozná stejného člověka', () {
+    expect(namesLikelyMatch('Petr Sokol', 'SOKOL, PETR'), isTrue);
+    expect(namesLikelyMatch('Petr Sokol', 'Ana García'), isFalse);
   });
 }

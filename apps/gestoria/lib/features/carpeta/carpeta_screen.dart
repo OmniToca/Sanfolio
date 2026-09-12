@@ -13,6 +13,7 @@ import '../../core/money/provision.dart';
 import '../../core/presentation/widgets/app_widgets.dart';
 import '../../core/theme/app_theme.dart';
 import '../ai/ai_providers.dart';
+import '../ai/documento_fields.dart';
 import '../ai/extract_text.dart';
 import '../expedientes/expediente_controller.dart';
 import '../expedientes/expediente_estado.dart';
@@ -103,45 +104,118 @@ class CarpetaScreen extends ConsumerWidget {
           ),
           body: FeatureGate(
             module: GestoriaModule.carpetaInmueble,
-            child: Column(
-              children: [
-                if (view.expedienteId != null)
-                  AppContent(
-                    padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
-                    child: ExpedienteEstadoPicker(
-                      estado: view.expedienteEstado,
-                      onChanged: (v) async {
-                        await setExpedienteEstado(
-                          expedienteId: view.expedienteId!,
-                          estado: v,
-                        );
-                        ref.invalidate(carpetaControllerProvider(_target));
-                        ref.invalidate(inboxFeedProvider);
-                      },
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final wide = constraints.maxWidth >= 1100;
+                final enabled = templates
+                    .where(
+                      (t) =>
+                          (view.bloques[t.key] ?? const BloqueState(enabled: false))
+                              .enabled,
+                    )
+                    .toList();
+                final disabled = templates
+                    .where(
+                      (t) =>
+                          !(view.bloques[t.key] ?? const BloqueState(enabled: false))
+                              .enabled,
+                    )
+                    .toList();
+                Widget cardFor(BloqueTemplate template, {required bool compact}) {
+                  final state = view.bloques[template.key] ??
+                      const BloqueState(enabled: false);
+                  return _BloqueCard(
+                    key: ValueKey(template.key),
+                    target: _target,
+                    template: template,
+                    state: state,
+                    movements: view.movements,
+                    clienteNombre: view.nombre,
+                    compact: compact,
+                  );
+                }
+
+                Widget enabledGrid() {
+                  if (enabled.isEmpty) return const SizedBox.shrink();
+                  if (!wide) {
+                    return Column(
+                      children: [for (final t in enabled) cardFor(t, compact: false)],
+                    );
+                  }
+                  final left = [for (var i = 0; i < enabled.length; i += 2) enabled[i]];
+                  final right = [for (var i = 1; i < enabled.length; i += 2) enabled[i]];
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          children: [
+                            for (final t in left) cardFor(t, compact: false),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          children: [
+                            for (final t in right) cardFor(t, compact: false),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                }
+
+                return ListView(
+                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 48),
+                  children: [
+                    Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          maxWidth: AppTheme.contentWide,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            if (view.expedienteId != null)
+                              ExpedienteEstadoPicker(
+                                estado: view.expedienteEstado,
+                                onChanged: (v) async {
+                                  await setExpedienteEstado(
+                                    expedienteId: view.expedienteId!,
+                                    estado: v,
+                                  );
+                                  ref.invalidate(
+                                    carpetaControllerProvider(_target),
+                                  );
+                                  ref.invalidate(inboxFeedProvider);
+                                },
+                              ),
+                            if (view.expedienteId != null)
+                              const SizedBox(height: 16),
+                            enabledGrid(),
+                            if (disabled.isNotEmpty) ...[
+                              const SizedBox(height: 24),
+                              Text(
+                                'folder.offBlocks'.tr(),
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'folder.offBlocksHint'.tr(),
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                              const SizedBox(height: 12),
+                              for (final t in disabled)
+                                cardFor(t, compact: true),
+                            ],
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
-                Expanded(
-                  child: AppContent(
-                    padding: const EdgeInsets.fromLTRB(24, 8, 24, 48),
-                    child: ListView.builder(
-                      padding: EdgeInsets.zero,
-                      itemCount: templates.length,
-                      itemBuilder: (context, i) {
-                        final template = templates[i];
-                        final state = view.bloques[template.key] ??
-                            const BloqueState(enabled: false);
-                        return _BloqueCard(
-                          key: ValueKey(template.key),
-                          target: _target,
-                          template: template,
-                          state: state,
-                          movements: view.movements,
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              ],
+                  ],
+                );
+              },
             ),
           ),
         );
@@ -157,12 +231,16 @@ class _BloqueCard extends ConsumerStatefulWidget {
     required this.template,
     required this.state,
     this.movements = const [],
+    this.clienteNombre = '',
+    this.compact = false,
   });
 
   final CarpetaTarget target;
   final BloqueTemplate template;
   final BloqueState state;
   final List<ProvisionMovement> movements;
+  final String clienteNombre;
+  final bool compact;
 
   @override
   ConsumerState<_BloqueCard> createState() => _BloqueCardState();
@@ -179,6 +257,15 @@ class _BloqueCardState extends ConsumerState<_BloqueCard> {
         if (f != 'fields.remaining')
           f: TextEditingController(text: _displayField(f)),
     };
+  }
+
+  @override
+  void didUpdateWidget(covariant _BloqueCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    for (final e in widget.state.values.entries) {
+      final c = _fields[e.key];
+      if (c != null && c.text != e.value) c.text = e.value;
+    }
   }
 
   @override
@@ -238,7 +325,7 @@ class _BloqueCardState extends ConsumerState<_BloqueCard> {
               templateKey: template.key,
               fields: _fields,
             ),
-            if (state.enabled) ...[
+            if (!widget.compact && state.enabled) ...[
               const SizedBox(height: 8),
               if (template.key == 'provision_factura')
                 _provisionBody(context, ctrl)
@@ -286,31 +373,17 @@ class _BloqueCardState extends ConsumerState<_BloqueCard> {
                   ),
                 ),
               for (final doc in state.documents)
-                ListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.insert_drive_file_outlined, size: 18),
-                  title: Text(doc.originalName),
-                  subtitle: Text('docs.${doc.tipo}'.tr()),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        tooltip: 'folder.open'.tr(),
-                        icon: const Icon(Icons.open_in_new, size: 18),
-                        onPressed: () => _openDoc(context, ctrl, doc.storagePath),
-                      ),
-                      IconButton(
-                        tooltip: 'folder.remove'.tr(),
-                        icon: const Icon(Icons.delete_outline, size: 18),
-                        onPressed: () => _removeDoc(
-                          context,
-                          ctrl,
-                          template.key,
-                          doc.id,
-                        ),
-                      ),
-                    ],
+                _DocumentoForm(
+                  target: widget.target,
+                  templateKey: template.key,
+                  doc: doc,
+                  clienteNombre: widget.clienteNombre,
+                  onOpen: () => _openDoc(context, ctrl, doc.storagePath),
+                  onRemove: () => _removeDoc(
+                    context,
+                    ctrl,
+                    template.key,
+                    doc.id,
                   ),
                 ),
             ],
@@ -342,11 +415,33 @@ class _BloqueCardState extends ConsumerState<_BloqueCard> {
       return;
     }
     try {
-      await ctrl.attachDocument(
+      final attached = await ctrl.attachDocument(
         templateKey: templateKey,
         bytes: bytes,
         originalName: file.name,
       );
+      if (attached == null) return;
+      final tenantId = ctrl.state.valueOrNull?.tenantId;
+      final clienteId = ctrl.state.valueOrNull?.clienteId;
+      if (tenantId == null || clienteId == null) return;
+      final mime = switch (file.extension?.toLowerCase()) {
+        'png' => 'image/png',
+        'webp' => 'image/webp',
+        'pdf' => 'application/pdf',
+        _ => 'image/jpeg',
+      };
+      final draft = await extractDocumentDraft(
+        tenantId: tenantId,
+        clienteId: clienteId,
+        storagePath: attached.storagePath,
+        mime: mime,
+        docTipo: attached.tipo,
+        bloqueKey: templateKey,
+      );
+      if (draft != null) {
+        ref.read(aiPrefillProvider.notifier).state = draft;
+        ref.invalidate(liveAiDraftsProvider(clienteId));
+      }
     } on Object {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -598,23 +693,40 @@ class _AiPrefillBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final clienteId = target.clienteId;
     final memory = ref.watch(aiPrefillProvider);
-    final live = ref.watch(liveAiDraftProvider(clienteId)).valueOrNull;
-    final draft = memory ?? live;
+    final live =
+        ref.watch(liveAiDraftsProvider(clienteId)).valueOrNull ?? const [];
+    AiPrefillDraft? draft;
+    if (memory != null &&
+        memory.clienteId == clienteId &&
+        memory.bloqueKey == templateKey &&
+        (memory.storagePath == null || memory.storagePath!.isEmpty)) {
+      draft = memory;
+    } else {
+      for (final d in live) {
+        if (d.clienteId == clienteId &&
+            d.bloqueKey == templateKey &&
+            (d.storagePath == null || d.storagePath!.isEmpty)) {
+          draft = d;
+          break;
+        }
+      }
+    }
     if (draft == null ||
         draft.clienteId != clienteId ||
         draft.bloqueKey != templateKey) {
       return const SizedBox.shrink();
     }
+    final proposal = draft;
     final current = {
       for (final e in fields.entries) e.key: e.value.text,
     };
-    final diffs = prefillDiffs(current: current, proposed: draft.fields);
+    final diffs = prefillDiffs(current: current, proposed: proposal.fields);
     if (diffs.isEmpty) return const SizedBox.shrink();
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(top: 8),
       padding: const EdgeInsets.all(12),
-      color: const Color(0xFFFFF59D),
+      color: AppTheme.proposal,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -644,27 +756,154 @@ class _AiPrefillBar extends ConsumerWidget {
                   final ctrl =
                       ref.read(carpetaControllerProvider(target).notifier);
                   await ctrl.setEnabled(templateKey, true);
-                  for (final e in draft.fields.entries) {
+                  for (final e in proposal.fields.entries) {
                     ctrl.setField(templateKey, e.key, e.value);
                     fields[e.key]?.text = e.value;
                   }
-                  await discardAiDraft(draft.draftId);
+                  await discardAiDraft(proposal.draftId);
                   ref.read(aiPrefillProvider.notifier).state = null;
-                  ref.invalidate(liveAiDraftProvider(clienteId));
+                  ref.invalidate(liveAiDraftsProvider(clienteId));
                 },
                 child: Text('ai.apply'.tr()),
               ),
               TextButton(
                 onPressed: () async {
-                  await discardAiDraft(draft.draftId);
+                  await discardAiDraft(proposal.draftId);
                   ref.read(aiPrefillProvider.notifier).state = null;
-                  ref.invalidate(liveAiDraftProvider(clienteId));
+                  ref.invalidate(liveAiDraftsProvider(clienteId));
                 },
                 child: Text('ai.discard'.tr()),
               ),
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _DocumentoForm extends ConsumerWidget {
+  const _DocumentoForm({
+    required this.target,
+    required this.templateKey,
+    required this.doc,
+    required this.clienteNombre,
+    required this.onOpen,
+    required this.onRemove,
+  });
+
+  final CarpetaTarget target;
+  final String templateKey;
+  final CarpetaDocumento doc;
+  final String clienteNombre;
+  final VoidCallback onOpen;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final drafts =
+        ref.watch(liveAiDraftsProvider(target.clienteId)).valueOrNull ??
+            const [];
+    final memory = ref.watch(aiPrefillProvider);
+    AiPrefillDraft? pending;
+    if (memory != null && memory.storagePath == doc.storagePath) {
+      pending = memory;
+    } else {
+      for (final d in drafts) {
+        if (d.storagePath == doc.storagePath) {
+          pending = d;
+          break;
+        }
+      }
+    }
+    final values = pending?.fields ?? doc.extracted;
+    final keys = fieldsForDocTipo(doc.tipo);
+    final shown = [
+      for (final k in keys)
+        if ((values[k] ?? '').trim().isNotEmpty) k,
+    ];
+    final nombre = (values['fields.nombre'] ?? '').trim();
+    final mismatch =
+        nombre.isNotEmpty && !namesLikelyMatch(clienteNombre, nombre);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: pending != null ? AppTheme.proposal : AppTheme.surfaceMuted,
+          borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+          border: Border.all(color: AppTheme.rule),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 4, 4, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.insert_drive_file_outlined, size: 18),
+                title: Text(doc.originalName),
+                subtitle: Text('docs.${doc.tipo}'.tr()),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      tooltip: 'folder.open'.tr(),
+                      icon: const Icon(Icons.open_in_new, size: 18),
+                      onPressed: onOpen,
+                    ),
+                    IconButton(
+                      tooltip: 'folder.remove'.tr(),
+                      icon: const Icon(Icons.delete_outline, size: 18),
+                      onPressed: onRemove,
+                    ),
+                  ],
+                ),
+              ),
+              if (mismatch)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    'folder.nameMismatch'.tr(
+                      namedArgs: {
+                        'doc': nombre,
+                        'card': clienteNombre,
+                      },
+                    ),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                ),
+              for (final k in shown)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text('${k.tr()}: ${values[k]}'),
+                ),
+              if (pending != null)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: FilledButton(
+                    onPressed: () async {
+                      final draft = pending!;
+                      final ctrl = ref.read(
+                        carpetaControllerProvider(target).notifier,
+                      );
+                      await ctrl.saveDocumentoExtracted(
+                        templateKey: templateKey,
+                        documentId: doc.id,
+                        fields: draft.fields,
+                      );
+                      await discardAiDraft(draft.draftId);
+                      ref.read(aiPrefillProvider.notifier).state = null;
+                      ref.invalidate(liveAiDraftsProvider(target.clienteId));
+                    },
+                    child: Text('ai.apply'.tr()),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }

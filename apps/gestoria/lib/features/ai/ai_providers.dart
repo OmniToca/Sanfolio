@@ -23,43 +23,51 @@ class AiPrefillDraft {
     required this.bloqueKey,
     required this.fields,
     this.draftId,
+    this.storagePath,
   });
 
   final String clienteId;
   final String bloqueKey;
   final Map<String, String> fields;
   final String? draftId;
+  final String? storagePath;
 }
 
 /// Paměť aktuálního návrhu. Zdroj pravdy TTL je `ai_drafts`.
 final aiPrefillProvider = StateProvider<AiPrefillDraft?>((ref) => null);
 
-/// Živý návrh z DB (24 h). AI sem zapisuje, desku ne.
-final liveAiDraftProvider =
-    FutureProvider.family<AiPrefillDraft?, String>((ref, clienteId) async {
+/// Živé návrhy z DB (24 h). AI sem zapisuje, desku ne.
+final liveAiDraftsProvider =
+    FutureProvider.family<List<AiPrefillDraft>, String>((ref, clienteId) async {
   ref.watch(authControllerProvider);
   final client = trySupabaseClient();
   final tenantId = ref.read(authControllerProvider).valueOrNull?.currentTenantId;
-  if (client == null || tenantId == null) return null;
-  final row = await client
+  if (client == null || tenantId == null) return const [];
+  final rows = await client
       .from('ai_drafts')
-      .select('id, bloque_key, fields, expires_at')
+      .select('id, bloque_key, fields, storage_path, expires_at')
       .eq('tenant_id', tenantId)
       .eq('cliente_id', clienteId)
       .isFilter('deleted_at', null)
       .gt('expires_at', DateTime.now().toUtc().toIso8601String())
-      .order('created_at', ascending: false)
-      .limit(1)
-      .maybeSingle();
-  if (row == null) return null;
-  final fields = stringFieldMap(row['fields']);
-  if (fields.isEmpty) return null;
-  return AiPrefillDraft(
-    draftId: '${row['id']}',
-    clienteId: clienteId,
-    bloqueKey: '${row['bloque_key'] ?? 'cliente_snapshot'}',
-    fields: fields,
-  );
+      .order('created_at', ascending: false);
+  final out = <AiPrefillDraft>[];
+  if (rows is! List) return out;
+  for (final raw in rows) {
+    if (raw is! Map) continue;
+    final fields = stringFieldMap(raw['fields']);
+    if (fields.isEmpty) continue;
+    out.add(
+      AiPrefillDraft(
+        draftId: '${raw['id']}',
+        clienteId: clienteId,
+        bloqueKey: '${raw['bloque_key'] ?? 'cliente_snapshot'}',
+        fields: fields,
+        storagePath: raw['storage_path']?.toString(),
+      ),
+    );
+  }
+  return out;
 });
 
 Future<String?> persistAiDraft({
@@ -106,6 +114,8 @@ Future<AiPrefillDraft?> extractDocumentDraft({
   required String clienteId,
   required String storagePath,
   required String mime,
+  String? docTipo,
+  String bloqueKey = 'cliente_snapshot',
 }) async {
   final client = trySupabaseClient();
   if (client == null) return null;
@@ -116,6 +126,8 @@ Future<AiPrefillDraft?> extractDocumentDraft({
       'cliente_id': clienteId,
       'storage_path': storagePath,
       'mime': mime,
+      if (docTipo != null && docTipo.isNotEmpty) 'doc_tipo': docTipo,
+      'bloque_key': bloqueKey,
     },
   );
   final data = response.data;
@@ -125,8 +137,9 @@ Future<AiPrefillDraft?> extractDocumentDraft({
   return AiPrefillDraft(
     draftId: data['draft_id']?.toString(),
     clienteId: clienteId,
-    bloqueKey: '${data['bloque_key'] ?? 'cliente_snapshot'}',
+    bloqueKey: '${data['bloque_key'] ?? bloqueKey}',
     fields: fields,
+    storagePath: storagePath,
   );
 }
 
@@ -226,3 +239,75 @@ Future<AiDraftMessage> draftMessageFromHoles({
     throw StateError('draft failed');
   }
 }
+
+class AiDocFact {
+  const AiDocFact({
+    required this.tipo,
+    this.nombre,
+    this.expiry,
+    this.amount,
+    this.consumption,
+    this.docNumber,
+  });
+
+  final String tipo;
+  final String? nombre;
+  final String? expiry;
+  final String? amount;
+  final String? consumption;
+  final String? docNumber;
+}
+
+class AiFactAnswer {
+  const AiFactAnswer({
+    required this.clienteId,
+    required this.nombre,
+    this.docs = const [],
+  });
+
+  final String clienteId;
+  final String nombre;
+  final List<AiDocFact> docs;
+}
+
+/// Search + uložené doklady. Nic se nezapisuje.
+Future<AiFactAnswer?> askClienteFacts(String q) async {
+  final hits = await aiSearchClients(q);
+  if (hits.isEmpty) return null;
+  final hit = hits.first;
+  final client = trySupabaseClient();
+  if (client == null) return AiFactAnswer(clienteId: hit.clienteId, nombre: hit.nombre);
+  try {
+    final snap = await client.rpc(
+      'ai_get_cliente',
+      params: {'p_cliente_id': hit.clienteId},
+    );
+    final docs = <AiDocFact>[];
+    if (snap is Map && snap['documentos'] is List) {
+      for (final raw in snap['documentos'] as List) {
+        if (raw is! Map) continue;
+        final extracted = stringFieldMap(raw['extracted']);
+        docs.add(
+          AiDocFact(
+            tipo: '${raw['tipo']}',
+            nombre: extracted['fields.nombre'],
+            expiry: extracted['fields.expiry'],
+            amount: extracted['fields.amount'],
+            consumption: extracted['fields.consumption'],
+            docNumber: extracted['fields.docNumber'],
+          ),
+        );
+      }
+    }
+    final cliente = snap is Map ? snap['cliente'] : null;
+    var nombre = hit.nombre;
+    if (cliente is Map) {
+      final n = '${cliente['nombre'] ?? ''}'.trim();
+      if (n.isNotEmpty) nombre = n;
+    }
+    return AiFactAnswer(clienteId: hit.clienteId, nombre: nombre, docs: docs);
+  } on Object {
+    return AiFactAnswer(clienteId: hit.clienteId, nombre: hit.nombre);
+  }
+}
+

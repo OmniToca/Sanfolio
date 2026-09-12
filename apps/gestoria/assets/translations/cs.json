@@ -247,6 +247,9 @@
     "title": "Složka",
     "subtitle": "Stejné dva listy. Tužka je přepínač.",
     "attach": "Přiložit dokument",
+    "offBlocks": "Nesledujeme",
+    "offBlocksHint": "Vypnuté bloky jsou dole, ať deska začíná tím, co kancelář opravdu dělá.",
+    "nameMismatch": "Jméno na dokladu ({doc}) nesedí ke kartě ({card}). Zkontrolujte, že je soubor u správného klienta.",
     "requiredDocs": "Povinné papíry: {types}",
     "open": "Otevřít",
     "remove": "Odebrat",
@@ -331,6 +334,11 @@
     "filed": "Podáno",
     "policy": "Pojistka",
     "expiry": "Konec platnosti",
+    "docNumber": "Číslo dokladu",
+    "issued": "Datum vydání",
+    "nationality": "Národnost",
+    "consumption": "Spotřeba",
+    "amount": "Částka",
     "received": "Přijato",
     "invoiced": "Vyúčtováno",
     "remaining": "Zbývá",
@@ -418,6 +426,10 @@
     "diffLine": "{field}: {current} → {proposed}",
     "emptyValue": "(prázdné)",
     "apply": "Uložit návrh",
-    "discard": "Zahodit návrh"
+    "discard": "Zahodit návrh",
+    "ask": "Zeptat se na doklady",
+    "factsTitle": "Uložené doklady — {name}",
+    "factsEmpty": "U tohoto klienta zatím nejsou uložená pole z dokladů. Nejdřív přiložte soubor a uložte návrh.",
+    "factsNone": "Nikoho s takovým jménem jsem nenašel."
   }
 }

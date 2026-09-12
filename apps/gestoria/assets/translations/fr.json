@@ -247,6 +247,9 @@
     "title": "Dossier",
     "subtitle": "Les deux mêmes feuilles. Le crayon est l’interrupteur.",
     "attach": "Joindre un document",
+    "offBlocks": "Non suivi",
+    "offBlocksHint": "Les blocs éteints sont en bas, pour que le dossier commence par le travail réel.",
+    "nameMismatch": "Le nom du document ({doc}) ne correspond pas à la fiche ({card}). Vérifiez que le fichier appartient à ce client.",
     "requiredDocs": "Papiers obligatoires : {types}",
     "open": "Ouvrir",
     "remove": "Retirer",
@@ -331,6 +334,11 @@
     "filed": "Déposé",
     "policy": "Police",
     "expiry": "Échéance",
+    "docNumber": "Numéro de document",
+    "issued": "Date d’émission",
+    "nationality": "Nationalité",
+    "consumption": "Consommation",
+    "amount": "Montant",
     "received": "Reçu",
     "invoiced": "Facturé",
     "remaining": "Reste",
@@ -418,6 +426,10 @@
     "diffLine": "{field}: {current} → {proposed}",
     "emptyValue": "(vide)",
     "apply": "Enregistrer la proposition",
-    "discard": "Jeter la proposition"
+    "discard": "Jeter la proposition",
+    "ask": "Demander les documents",
+    "factsTitle": "Documents enregistrés — {name}",
+    "factsEmpty": "Ce client n’a pas encore de champs de document enregistrés. Joignez un fichier et enregistrez la proposition.",
+    "factsNone": "Personne ne correspond à ce nom."
   }
 }

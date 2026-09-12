@@ -24,6 +24,8 @@ class AppTheme {
   static const double radiusPill = 999;
   static const double railWidth = 92;
   static const double contentMax = 920;
+  static const double contentWide = 1360;
+  static const Color proposal = Color(0xFFFFF4C2);
 
   static const String _ui = 'Plus Jakarta Sans';
   static const String _display = 'Fraunces';

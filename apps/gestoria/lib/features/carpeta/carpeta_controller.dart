@@ -17,12 +17,24 @@ class CarpetaDocumento {
     required this.tipo,
     required this.storagePath,
     required this.originalName,
+    this.extracted = const {},
   });
 
   final String id;
   final String tipo;
   final String storagePath;
   final String originalName;
+  final Map<String, String> extracted;
+
+  CarpetaDocumento copyWith({Map<String, String>? extracted}) {
+    return CarpetaDocumento(
+      id: id,
+      tipo: tipo,
+      storagePath: storagePath,
+      originalName: originalName,
+      extracted: extracted ?? this.extracted,
+    );
+  }
 }
 
 class BloqueState {
@@ -205,7 +217,7 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
 
     final docsRows = await client
         .from('documentos')
-        .select('id, bloque_id, tipo, storage_path, original_name')
+        .select('id, bloque_id, tipo, storage_path, original_name, extracted')
         .eq('cliente_id', clienteId)
         .isFilter('deleted_at', null);
     final docsByBloque = <String, List<CarpetaDocumento>>{};
@@ -218,6 +230,7 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
               tipo: '${raw['tipo']}',
               storagePath: '${raw['storage_path']}',
               originalName: '${raw['original_name'] ?? raw['tipo']}',
+              extracted: _fieldsMap(raw['extracted']),
             ),
           );
     }
@@ -368,7 +381,7 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
     }
   }
 
-  Future<void> attachDocument({
+  Future<CarpetaDocumento?> attachDocument({
     required String templateKey,
     required Uint8List bytes,
     required String originalName,
@@ -379,7 +392,7 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
     final bloque = view?.bloques[templateKey];
     final bloqueId = bloque?.id;
     if (view == null || client == null || bloque == null || bloqueId == null) {
-      return;
+      return null;
     }
     final template = _templateByKey(templateKey);
     final tipo = _nextDocTipo(template, bloque);
@@ -404,18 +417,42 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
         })
         .select('id')
         .single();
+    final doc = CarpetaDocumento(
+      id: '${inserted['id']}',
+      tipo: tipo,
+      storagePath: path,
+      originalName: originalName,
+    );
     final next = bloque.copyWith(
       enabled: true,
-      documents: [
-        ...bloque.documents,
-        CarpetaDocumento(
-          id: '${inserted['id']}',
-          tipo: tipo,
-          storagePath: path,
-          originalName: originalName,
-        ),
-      ],
+      documents: [...bloque.documents, doc],
     );
+    state = AsyncData(view.withBloque(templateKey, next));
+    await _persistBloque(templateKey, next);
+    return doc;
+  }
+
+  /// Gestor ukládá návrh z dokladu. AI sem nesmí.
+  Future<void> saveDocumentoExtracted({
+    required String templateKey,
+    required String documentId,
+    required Map<String, String> fields,
+  }) async {
+    final view = state.valueOrNull;
+    final client = trySupabaseClient();
+    final bloque = view?.bloques[templateKey];
+    if (view == null || client == null || bloque == null || fields.isEmpty) {
+      return;
+    }
+    await client.from('documentos').update({
+      'extracted': fields,
+    }).eq('id', documentId);
+    final docs = [
+      for (final d in bloque.documents)
+        d.id == documentId ? d.copyWith(extracted: fields) : d,
+    ];
+    final merged = {...bloque.values, ...fields};
+    final next = bloque.copyWith(values: merged, documents: docs);
     state = AsyncData(view.withBloque(templateKey, next));
     await _persistBloque(templateKey, next);
   }

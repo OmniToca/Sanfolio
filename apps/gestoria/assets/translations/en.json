@@ -247,6 +247,9 @@
     "title": "Folder",
     "subtitle": "The same two sheets. The pencil is the switch.",
     "attach": "Attach document",
+    "offBlocks": "Not followed",
+    "offBlocksHint": "Switched-off blocks sit at the bottom so the folder starts with what the office actually does.",
+    "nameMismatch": "The name on the document ({doc}) does not match the card ({card}). Check that the file belongs to this client.",
     "requiredDocs": "Required papers: {types}",
     "open": "Open",
     "remove": "Remove",
@@ -331,6 +334,11 @@
     "filed": "Filed",
     "policy": "Policy",
     "expiry": "Expiry",
+    "docNumber": "Document number",
+    "issued": "Issue date",
+    "nationality": "Nationality",
+    "consumption": "Consumption",
+    "amount": "Amount",
     "received": "Received",
     "invoiced": "Invoiced",
     "remaining": "Remaining",
@@ -418,6 +426,10 @@
     "diffLine": "{field}: {current} → {proposed}",
     "emptyValue": "(empty)",
     "apply": "Save proposal",
-    "discard": "Discard proposal"
+    "discard": "Discard proposal",
+    "ask": "Ask about documents",
+    "factsTitle": "Saved documents — {name}",
+    "factsEmpty": "This client has no saved document fields yet. Attach a file and save the proposal first.",
+    "factsNone": "No client matched that name."
   }
 }

@@ -42,6 +42,8 @@ Deno.serve(async (req) => {
     cliente_id?: unknown;
     storage_path?: unknown;
     mime?: unknown;
+    doc_tipo?: unknown;
+    bloque_key?: unknown;
   };
   const tenantId = typeof body.tenant_id === "string" ? body.tenant_id.trim() : "";
   const clienteId = typeof body.cliente_id === "string" ? body.cliente_id.trim() : "";
@@ -49,6 +51,10 @@ Deno.serve(async (req) => {
     ? body.storage_path.trim()
     : "";
   const mime = typeof body.mime === "string" ? body.mime.trim() : "";
+  const docTipo = typeof body.doc_tipo === "string" ? body.doc_tipo.trim() : "";
+  const bloqueKey = typeof body.bloque_key === "string" && body.bloque_key.trim()
+    ? body.bloque_key.trim()
+    : "cliente_snapshot";
   if (!tenantId || !clienteId || !storagePath) {
     return json(400, { ok: false, error: "tenant_id, cliente_id, storage_path required" });
   }
@@ -81,7 +87,12 @@ Deno.serve(async (req) => {
   const apiKey = Deno.env.get("OPENAI_API_KEY")?.trim();
   const isImage = IMAGE_MIME.has(mime) || looksLikeImage(storagePath);
   if (apiKey && isImage) {
-    const vision = await visionExtract(apiKey, bytes, mime || guessMime(storagePath));
+    const vision = await visionExtract(
+      apiKey,
+      bytes,
+      mime || guessMime(storagePath),
+      docTipo,
+    );
     if (vision) {
       fields = { ...fields, ...vision };
       extracted = true;
@@ -95,8 +106,8 @@ Deno.serve(async (req) => {
       cliente_id: clienteId,
       created_by: userData.user.id,
       purpose: "extract_document",
-      target: "bloque",
-      bloque_key: "cliente_snapshot",
+      target: "documento",
+      bloque_key: bloqueKey,
       fields,
       storage_path: storagePath,
     })
@@ -122,7 +133,7 @@ Deno.serve(async (req) => {
     ok: true,
     extracted,
     draft_id: draft.id,
-    bloque_key: "cliente_snapshot",
+    bloque_key: bloqueKey,
     fields,
   });
 });
@@ -138,6 +149,10 @@ function fieldsFromText(text: string): Record<string, string> {
     const compact = tel[0].replace(/[^\d+]/g, "");
     if (compact.length >= 8) out["fields.tel"] = compact;
   }
+  const iso = text.match(/\b(20\d{2}|19\d{2})[-/.](0[1-9]|1[0-2])[-/.](0[1-9]|[12]\d|3[01])\b/);
+  if (iso) out["fields.date"] = iso[0].replace(/[/]/g, "-");
+  const kwh = text.match(/(\d+[.,]?\d*)\s*kWh/i);
+  if (kwh) out["fields.consumption"] = kwh[1].replace(",", ".");
   return out;
 }
 
@@ -145,6 +160,7 @@ async function visionExtract(
   apiKey: string,
   bytes: Uint8Array,
   mime: string,
+  docTipo: string,
 ): Promise<Record<string, string> | null> {
   const b64 = bytesToB64(bytes);
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -160,7 +176,10 @@ async function visionExtract(
         {
           role: "system",
           content:
-            "Extract NIE/DNI, name, email, phone from a Spanish office document. Keep official terms. Return JSON only: {nie,nombre,email,tel}. Empty string if unknown. Do not invent.",
+            `Extract fields from a Spanish gestoría document (type: ${docTipo || "unknown"}). ` +
+            "Keep official terms (NIE, escritura). Return JSON only with keys you actually see: " +
+            "nombre,nie,docNumber,issued,expiry,nationality,holder,clientNo,cups,period,consumption,amount,notary,protocol,date,company,policy,attorney,email,tel. " +
+            "Dates YYYY-MM-DD. Amounts like 123.45. Omit unknown. Do not invent.",
         },
         {
           role: "user",
@@ -184,15 +203,34 @@ async function visionExtract(
   if (!jsonMatch) return fieldsFromText(raw);
   try {
     const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
+    const map: Record<string, string> = {
+      nie: "fields.nie",
+      nombre: "fields.nombre",
+      email: "fields.email",
+      tel: "fields.tel",
+      docNumber: "fields.docNumber",
+      issued: "fields.issued",
+      expiry: "fields.expiry",
+      nationality: "fields.nationality",
+      holder: "fields.holder",
+      clientNo: "fields.clientNo",
+      cups: "fields.cups",
+      period: "fields.period",
+      consumption: "fields.consumption",
+      amount: "fields.amount",
+      notary: "fields.notary",
+      protocol: "fields.protocol",
+      date: "fields.date",
+      company: "fields.company",
+      policy: "fields.policy",
+      attorney: "fields.attorney",
+    };
     const out: Record<string, string> = {};
-    const nie = str(parsed.nie);
-    const nombre = str(parsed.nombre);
-    const email = str(parsed.email);
-    const tel = str(parsed.tel);
-    if (nie) out["fields.nie"] = nie.toUpperCase();
-    if (nombre) out["fields.nombre"] = nombre;
-    if (email) out["fields.email"] = email.toLowerCase();
-    if (tel) out["fields.tel"] = tel;
+    for (const [src, dest] of Object.entries(map)) {
+      const v = str(parsed[src]);
+      if (!v) continue;
+      out[dest] = src === "nie" ? v.toUpperCase() : src === "email" ? v.toLowerCase() : v;
+    }
     return { ...fieldsFromText(raw), ...out };
   } catch {
     return fieldsFromText(raw);
