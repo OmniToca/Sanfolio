@@ -43,8 +43,9 @@ class ClienteRow {
 }
 
 final clientesQueryProvider = StateProvider<String>((ref) => '');
-final clientesFilterProvider =
-    StateProvider<ClientesListFilter>((ref) => ClientesListFilter.activo);
+final clientesFilterProvider = StateProvider<ClientesListFilter>(
+  (ref) => ClientesListFilter.activo,
+);
 
 final clientesListProvider = FutureProvider<List<ClienteRow>>((ref) async {
   ref.watch(authControllerProvider);
@@ -62,19 +63,23 @@ final clientesListProvider = FutureProvider<List<ClienteRow>>((ref) async {
       : filter;
   // search_clients vynechává smazané — u koše jen seznam schovaných.
   if (q.isNotEmpty && effective != ClientesListFilter.deleted) {
-    final hits = await client.rpc(
-      'search_clients',
-      params: {'p_q': q, 'p_limit': 40},
-    );
-    if (hits is List) {
-      for (final raw in hits) {
-        if (raw is Map && raw['cliente_id'] != null) {
-          final id = '${raw['cliente_id']}';
-          if (!orderedIds.contains(id)) orderedIds.add(id);
+    try {
+      final hits = await client.rpc(
+        'search_clients',
+        params: {'p_q': q, 'p_limit': 40},
+      );
+      if (hits is List) {
+        for (final raw in hits) {
+          if (raw is Map && raw['cliente_id'] != null) {
+            final id = '${raw['cliente_id']}';
+            if (!orderedIds.contains(id)) orderedIds.add(id);
+          }
         }
       }
+      if (orderedIds.isEmpty) return [];
+    } on Object {
+      // RPC nesmí shodit celou desku. Doplní se ilike níž.
     }
-    if (orderedIds.isEmpty) return [];
   }
 
   var query = client
@@ -94,6 +99,12 @@ final clientesListProvider = FutureProvider<List<ClienteRow>>((ref) async {
   }
   if (orderedIds.isNotEmpty) {
     query = query.inFilter('id', orderedIds);
+  } else if (q.isNotEmpty && effective != ClientesListFilter.deleted) {
+    final safe = q.replaceAll(RegExp(r'[%_,.()"]'), ' ').trim();
+    if (safe.isEmpty) return [];
+    query = query.or(
+      'nombre.ilike.%$safe%,apellidos.ilike.%$safe%,email.ilike.%$safe%,tel.ilike.%$safe%',
+    );
   }
   final rows = await query.order('updated_at', ascending: false);
   final out = <ClienteRow>[];
@@ -141,10 +152,7 @@ Future<String> addInmuebleCompraventa({
   if (client == null) throw StateError('not configured');
   final id = await client.rpc(
     'add_inmueble_compraventa',
-    params: {
-      'p_cliente_id': clienteId,
-      'p_direccion': direccion,
-    },
+    params: {'p_cliente_id': clienteId, 'p_direccion': direccion},
   );
   return '$id';
 }

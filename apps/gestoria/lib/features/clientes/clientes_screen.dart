@@ -20,10 +20,12 @@ class ClientesScreen extends ConsumerStatefulWidget {
 
 class _ClientesScreenState extends ConsumerState<ClientesScreen> {
   Timer? _searchDebounce;
+  final _search = TextEditingController();
 
   @override
   void dispose() {
     _searchDebounce?.cancel();
+    _search.dispose();
     super.dispose();
   }
 
@@ -37,174 +39,158 @@ class _ClientesScreenState extends ConsumerState<ClientesScreen> {
       ref.watch(authControllerProvider).valueOrNull ?? AuthSnapshot.signedOut,
     );
     final wide = MediaQuery.sizeOf(context).width >= 720;
+    final rows = list.valueOrNull ?? const <ClienteRow>[];
     return Scaffold(
-      body: Column(
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(24, 12, 24, 48),
         children: [
-          Expanded(
-            child: list.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, st) => Center(child: Text('clients.loadError'.tr())),
-              data: (rows) {
-                return ListView(
-                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 48),
-                  children: [
-                    Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(
-                          maxWidth: AppTheme.contentWide,
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: AppTheme.contentWide),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  AppPageHeader(
+                    kicker: office.isEmpty ? null : office,
+                    title: 'clients.title'.tr(),
+                    subtitle: 'clients.onShelf'.tr(
+                      namedArgs: {'count': '${rows.length}'},
+                    ),
+                    actions: [
+                      if (wide)
+                        FilledButton.icon(
+                          onPressed: () => _createCliente(context, ref),
+                          icon: const Icon(Icons.add, size: 18),
+                          label: Text('clients.newFolder'.tr()),
+                        )
+                      else
+                        IconButton.filled(
+                          tooltip: 'clients.newFolder'.tr(),
+                          onPressed: () => _createCliente(context, ref),
+                          icon: const Icon(Icons.add),
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            AppPageHeader(
-                              kicker: office.isEmpty ? null : office,
-                              title: 'clients.title'.tr(),
-                              subtitle: 'clients.onShelf'.tr(
-                                namedArgs: {'count': '${rows.length}'},
-                              ),
-                              actions: [
-                                if (wide)
-                                  FilledButton.icon(
-                                    onPressed: () =>
-                                        _createCliente(context, ref),
-                                    icon: const Icon(Icons.add, size: 18),
-                                    label: Text('clients.newFolder'.tr()),
+                    ],
+                    bottom: AppTextField(
+                      label: 'clients.searchHint'.tr(),
+                      prefixIcon: const Icon(Icons.search),
+                      controller: _search,
+                      onChanged: (v) {
+                        _searchDebounce?.cancel();
+                        _searchDebounce = Timer(
+                          const Duration(milliseconds: 300),
+                          () {
+                            ref.read(clientesQueryProvider.notifier).state = v;
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      AppStamp(
+                        label: 'clients.filterActive'.tr(),
+                        selected: filter == ClientesListFilter.activo,
+                        onTap: () =>
+                            ref.read(clientesFilterProvider.notifier).state =
+                                ClientesListFilter.activo,
+                      ),
+                      AppStamp(
+                        label: 'clients.filterInactive'.tr(),
+                        selected: filter == ClientesListFilter.inactivo,
+                        onTap: () =>
+                            ref.read(clientesFilterProvider.notifier).state =
+                                ClientesListFilter.inactivo,
+                      ),
+                      if (showDeleted)
+                        AppStamp(
+                          label: 'clients.filterDeleted'.tr(),
+                          selected: filter == ClientesListFilter.deleted,
+                          onTap: () =>
+                              ref.read(clientesFilterProvider.notifier).state =
+                                  ClientesListFilter.deleted,
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  if (list.isLoading)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 48),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else if (list.hasError)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 48),
+                      child: Text('clients.loadError'.tr()),
+                    )
+                  else if (rows.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 48),
+                      child: Text(
+                        'clients.empty'.tr(),
+                        style: Theme.of(
+                          context,
+                        ).textTheme.bodyLarge?.copyWith(color: AppTheme.pencil),
+                      ),
+                    )
+                  else
+                    for (final row in rows)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: AppCard(
+                          stripe: row.deleted
+                              ? AppTheme.pencil
+                              : row.status == 'inactivo'
+                              ? AppTheme.rule
+                              : AppTheme.accent,
+                          onTap: () => context.go('/clientes/${row.id}'),
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        row.nombre,
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.titleMedium,
+                                      ),
+                                      if (row.subtitle.isNotEmpty) ...[
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          row.subtitle,
+                                          style: Theme.of(
+                                            context,
+                                          ).textTheme.bodySmall,
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                                if (_statusLabel(row).isNotEmpty)
+                                  Text(
+                                    _statusLabel(row),
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodySmall,
                                   )
                                 else
-                                  IconButton.filled(
-                                    tooltip: 'clients.newFolder'.tr(),
-                                    onPressed: () =>
-                                        _createCliente(context, ref),
-                                    icon: const Icon(Icons.add),
-                                  ),
-                              ],
-                              bottom: AppTextField(
-                                label: 'clients.searchHint'.tr(),
-                                prefixIcon: const Icon(Icons.search),
-                                onChanged: (v) {
-                                  _searchDebounce?.cancel();
-                                  _searchDebounce = Timer(
-                                    const Duration(milliseconds: 300),
-                                    () {
-                                      ref
-                                          .read(clientesQueryProvider.notifier)
-                                          .state = v;
-                                    },
-                                  );
-                                },
-                              ),
-                            ),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: [
-                                AppStamp(
-                                  label: 'clients.filterActive'.tr(),
-                                  selected:
-                                      filter == ClientesListFilter.activo,
-                                  onTap: () => ref
-                                      .read(clientesFilterProvider.notifier)
-                                      .state = ClientesListFilter.activo,
-                                ),
-                                AppStamp(
-                                  label: 'clients.filterInactive'.tr(),
-                                  selected:
-                                      filter == ClientesListFilter.inactivo,
-                                  onTap: () => ref
-                                      .read(clientesFilterProvider.notifier)
-                                      .state = ClientesListFilter.inactivo,
-                                ),
-                                if (showDeleted)
-                                  AppStamp(
-                                    label: 'clients.filterDeleted'.tr(),
-                                    selected:
-                                        filter == ClientesListFilter.deleted,
-                                    onTap: () => ref
-                                        .read(clientesFilterProvider.notifier)
-                                        .state = ClientesListFilter.deleted,
+                                  const Icon(
+                                    Icons.chevron_right,
+                                    color: AppTheme.pencil,
                                   ),
                               ],
                             ),
-                            const SizedBox(height: 20),
-                            if (rows.isEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 48),
-                                child: Text(
-                                  'clients.empty'.tr(),
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodyLarge
-                                      ?.copyWith(color: AppTheme.pencil),
-                                ),
-                              )
-                            else
-                              for (final row in rows)
-                                Padding(
-                                  padding: const EdgeInsets.only(bottom: 10),
-                                  child: AppCard(
-                                    stripe: row.deleted
-                                        ? AppTheme.pencil
-                                        : row.status == 'inactivo'
-                                            ? AppTheme.rule
-                                            : AppTheme.accent,
-                                    onTap: () =>
-                                        context.go('/clientes/${row.id}'),
-                                    child: Padding(
-                                      padding: const EdgeInsets.fromLTRB(
-                                        16,
-                                        14,
-                                        16,
-                                        14,
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  row.nombre,
-                                                  style: Theme.of(context)
-                                                      .textTheme
-                                                      .titleMedium,
-                                                ),
-                                                if (row.subtitle.isNotEmpty) ...[
-                                                  const SizedBox(height: 4),
-                                                  Text(
-                                                    row.subtitle,
-                                                    style: Theme.of(context)
-                                                        .textTheme
-                                                        .bodySmall,
-                                                  ),
-                                                ],
-                                              ],
-                                            ),
-                                          ),
-                                          if (_statusLabel(row).isNotEmpty)
-                                            Text(
-                                              _statusLabel(row),
-                                              style: Theme.of(context)
-                                                  .textTheme
-                                                  .bodySmall,
-                                            )
-                                          else
-                                            const Icon(
-                                              Icons.chevron_right,
-                                              color: AppTheme.pencil,
-                                            ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                          ],
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                );
-              },
+                ],
+              ),
             ),
           ),
         ],
@@ -220,12 +206,14 @@ class _ClientesScreenState extends ConsumerState<ClientesScreen> {
 }
 
 Future<void> _createCliente(BuildContext context, WidgetRef ref) async {
-  final tenantId =
-      ref.read(authControllerProvider).valueOrNull?.currentTenantId;
+  final tenantId = ref
+      .read(authControllerProvider)
+      .valueOrNull
+      ?.currentTenantId;
   if (tenantId == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('clients.createError'.tr())),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('clients.createError'.tr())));
     return;
   }
   final nombre = TextEditingController();
@@ -285,9 +273,9 @@ Future<void> _createCliente(BuildContext context, WidgetRef ref) async {
   tel.dispose();
   if (ok != true || !context.mounted) return;
   if (name.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('clients.nameRequired'.tr())),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('clients.nameRequired'.tr())));
     return;
   }
   try {
@@ -302,9 +290,9 @@ Future<void> _createCliente(BuildContext context, WidgetRef ref) async {
     if (context.mounted) context.go('/clientes/$id/carpeta');
   } on Object {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('clients.createError'.tr())),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('clients.createError'.tr())));
     }
   }
 }

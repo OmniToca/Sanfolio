@@ -106,6 +106,8 @@ Doplňkové exact/normalize: IBAN bez mezer uppercase; `protocolo` jako text.
 
 Jediný vstup z aplikace: `search_clients(p_q text, p_limit int default 20)`.
 
+Uvnitř RPC se nesmí jmenovat sloupce CTE `score` — RETURNS TABLE už `score` má, Postgres 15+ hodí 42702 a Flutter ukáže prázdnou desku. Alias `hit_score`. Krátký prefix (`Y`) jde přes `starts_with`, ne trigram.
+
 Vrací `cliente_id`, `score`, `matched_via` (`id_exact` | `id_mask` | `id_trgm` | `fts` | `iban` | `protocolo`), `highlight`.
 
 RLS: funkce `SECURITY INVOKER` + běžné politiky tenantu, nebo `SECURITY DEFINER` s `auth.uid()` a `tenant_id` z membership — preferovat invoker.
