@@ -120,7 +120,7 @@ Odeslání = člověk. Originál zůstane ve spisu.
 
 ## 8. AI panel
 
-Pravý sheet / FAB. Umí hodit fotku/PDF. Eventy `navigate` a `prefill` viz [ai_contract.md](ai_contract.md).  
+Pravý dock (překryv na úzkém okně). Umí hodit fotku/PDF. Turny v `ai_messages`. Eventy `navigate` a `prefill` viz [ai_contract.md](ai_contract.md).  
 Na prefill desky zůstat na inmueble, neskákat pryč.
 
 ## 9. Support

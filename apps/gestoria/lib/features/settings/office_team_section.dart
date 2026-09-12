@@ -9,9 +9,7 @@ import 'office_team_controller.dart';
 
 /// Owner zve gestor / asistente. Max 3 živé členství.
 class OfficeTeamSection extends ConsumerStatefulWidget {
-  const OfficeTeamSection({super.key, this.showHeading = true});
-
-  final bool showHeading;
+  const OfficeTeamSection({super.key});
 
   @override
   ConsumerState<OfficeTeamSection> createState() => _OfficeTeamSectionState();
@@ -33,42 +31,29 @@ class _OfficeTeamSectionState extends ConsumerState<OfficeTeamSection> {
     final auth = ref.watch(authControllerProvider).valueOrNull;
     final team = ref.watch(officeTeamProvider);
     final owner = auth != null && canInviteStaff(auth);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (widget.showHeading) ...[
-          Text(
-            'settings.team'.tr(),
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 8),
-        ],
-        Text('settings.teamHint'.tr()),
-        const SizedBox(height: 8),
-        team.when(
-          loading: () => const LinearProgressIndicator(),
-          error: (e, st) => Text('settings.loadError'.tr()),
-          data: (members) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (final m in members)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: AppCard(
-                      child: ListTile(
-                        title: Text(
-                          m.fullName == null || m.fullName!.isEmpty
-                              ? m.email
-                              : m.fullName!,
-                        ),
-                        subtitle: Text(
-                          [
-                            m.email,
-                            'settings.role.${m.role}'.tr(),
-                          ].join(' · '),
-                        ),
-                        trailing: owner && m.role != 'owner'
+    return team.when(
+      loading: () => const LinearProgressIndicator(),
+      error: (e, st) => Text('settings.loadError'.tr()),
+      data: (members) {
+        final people = AppSectionCard(
+          title: 'settings.team'.tr(),
+          hint: 'settings.teamHint'.tr(),
+          child: members.isEmpty
+              ? const SizedBox.shrink()
+              : Column(
+                  children: [
+                    for (var i = 0; i < members.length; i++) ...[
+                      if (i > 0) const SizedBox(height: 8),
+                      AppInsetRow(
+                        title: members[i].fullName == null ||
+                                members[i].fullName!.isEmpty
+                            ? members[i].email
+                            : members[i].fullName!,
+                        subtitle: [
+                          members[i].email,
+                          'settings.role.${members[i].role}'.tr(),
+                        ].join(' · '),
+                        trailing: owner && members[i].role != 'owner'
                             ? IconButton(
                                 tooltip: 'settings.removeMember'.tr(),
                                 icon: const Icon(Icons.delete_outline),
@@ -76,50 +61,106 @@ class _OfficeTeamSectionState extends ConsumerState<OfficeTeamSection> {
                                     ? null
                                     : () => ref
                                         .read(officeTeamProvider.notifier)
-                                        .removeMember(m.id),
+                                        .removeMember(members[i].id),
                               )
                             : null,
                       ),
-                    ),
-                  ),
-                if (owner && members.length < officeTeamLimit) ...[
-                  AppTextField(
-                    controller: _email,
-                    label: 'settings.inviteEmail'.tr(),
-                  ),
-                  const SizedBox(height: 8),
-                  DropdownMenu<String>(
-                    initialSelection: _role,
-                    label: Text('settings.roleLabel'.tr()),
-                    expandedInsets: EdgeInsets.zero,
-                    dropdownMenuEntries: [
-                      DropdownMenuEntry(
-                        value: 'gestor',
-                        label: 'settings.role.gestor'.tr(),
-                      ),
-                      DropdownMenuEntry(
-                        value: 'asistente',
-                        label: 'settings.role.asistente'.tr(),
-                      ),
                     ],
-                    onSelected: (v) {
-                      if (v == null) return;
-                      setState(() => _role = v);
-                    },
-                  ),
-                  const SizedBox(height: 8),
-                  FilledButton(
-                    onPressed: _busy ? null : _invite,
-                    child: Text('settings.invite'.tr()),
-                  ),
+                  ],
+                ),
+        );
+        final invite = !owner
+            ? const SizedBox.shrink()
+            : AppSectionCard(
+                title: 'settings.inviteTitle'.tr(),
+                hint: members.length >= officeTeamLimit
+                    ? 'settings.teamFull'.tr()
+                    : null,
+                child: members.length >= officeTeamLimit
+                    ? const SizedBox.shrink()
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          LayoutBuilder(
+                            builder: (context, constraints) {
+                              final email = AppTextField(
+                                controller: _email,
+                                label: 'settings.inviteEmail'.tr(),
+                                keyboardType: TextInputType.emailAddress,
+                              );
+                              final role = DropdownMenu<String>(
+                                initialSelection: _role,
+                                label: Text('settings.roleLabel'.tr()),
+                                expandedInsets: EdgeInsets.zero,
+                                dropdownMenuEntries: [
+                                  DropdownMenuEntry(
+                                    value: 'gestor',
+                                    label: 'settings.role.gestor'.tr(),
+                                  ),
+                                  DropdownMenuEntry(
+                                    value: 'asistente',
+                                    label: 'settings.role.asistente'.tr(),
+                                  ),
+                                ],
+                                onSelected: (v) {
+                                  if (v == null) return;
+                                  setState(() => _role = v);
+                                },
+                              );
+                              if (constraints.maxWidth < 520) {
+                                return Column(
+                                  children: [
+                                    email,
+                                    const SizedBox(height: 12),
+                                    role,
+                                  ],
+                                );
+                              }
+                              return Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(flex: 3, child: email),
+                                  const SizedBox(width: 12),
+                                  Expanded(flex: 2, child: role),
+                                ],
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: FilledButton(
+                              onPressed: _busy ? null : _invite,
+                              child: Text('settings.invite'.tr()),
+                            ),
+                          ),
+                        ],
+                      ),
+              );
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            if (constraints.maxWidth < 900 || !owner) {
+              return Column(
+                children: [
+                  people,
+                  if (owner) ...[
+                    const SizedBox(height: 16),
+                    invite,
+                  ],
                 ],
-                if (owner && members.length >= officeTeamLimit)
-                  Text('settings.teamFull'.tr()),
+              );
+            }
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: people),
+                const SizedBox(width: 16),
+                Expanded(child: invite),
               ],
             );
           },
-        ),
-      ],
+        );
+      },
     );
   }
 

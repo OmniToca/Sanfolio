@@ -80,7 +80,7 @@ Workflow kanceláře = zapnuté moduly + tyhle offsety + pořadí bloků. Ne BPM
 | `impuestos` | ano (jen plazo) | `cliente.tabs`, `inbox.feed` |
 | `messaging` | ano (e-mail + copy WhatsApp) | `inbox.feed`, `cliente.tabs` |
 | `nie_poder` | ano jako bloky na desce | `carpeta.blocks` |
-| `ai_copilot` | kostra | FAB |
+| `ai_copilot` | kostra | pravý panel (`AiPanel`) |
 | `client_portal` | ne | — |
 | `policia` / `ayuntamiento` / `testament` | zapnuto u Jarky; UI desky až po složce koupě | `cliente.tabs` |
 

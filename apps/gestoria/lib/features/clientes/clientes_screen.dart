@@ -7,6 +7,8 @@ import 'package:gestoria_auth/gestoria_auth.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/presentation/widgets/app_widgets.dart';
+import '../../core/theme/app_theme.dart';
+import '../settings/office_settings_controller.dart';
 import 'clientes_providers.dart';
 
 class ClientesScreen extends ConsumerStatefulWidget {
@@ -28,73 +30,184 @@ class _ClientesScreenState extends ConsumerState<ClientesScreen> {
   @override
   Widget build(BuildContext context) {
     final list = ref.watch(clientesListProvider);
+    final office =
+        ref.watch(officeSettingsProvider).valueOrNull?.displayName ?? '';
+    final filter = ref.watch(clientesFilterProvider);
+    final showDeleted = canRestoreDeleted(
+      ref.watch(authControllerProvider).valueOrNull ?? AuthSnapshot.signedOut,
+    );
+    final wide = MediaQuery.sizeOf(context).width >= 720;
     return Scaffold(
-      appBar: AppBar(title: Text('clients.title'.tr())),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            child: SearchBar(
-              hintText: 'clients.searchHint'.tr(),
-              leading: const Icon(Icons.search),
-              onChanged: (v) {
-                _searchDebounce?.cancel();
-                _searchDebounce = Timer(const Duration(milliseconds: 300), () {
-                  ref.read(clientesQueryProvider.notifier).state = v;
-                });
-              },
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: _ClientesFilterBar(
-                filter: ref.watch(clientesFilterProvider),
-                showDeleted: canRestoreDeleted(
-                  ref.watch(authControllerProvider).valueOrNull ??
-                      AuthSnapshot.signedOut,
-                ),
-                onChanged: (v) =>
-                    ref.read(clientesFilterProvider.notifier).state = v,
-              ),
-            ),
-          ),
           Expanded(
             child: list.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, st) => Center(child: Text('clients.loadError'.tr())),
               data: (rows) {
-                if (rows.isEmpty) {
-                  return Center(child: Text('clients.empty'.tr()));
-                }
-                return ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 88),
-                  itemCount: rows.length,
-                  separatorBuilder: (context, index) => const SizedBox(height: 8),
-                  itemBuilder: (context, i) {
-                    final row = rows[i];
-                    return AppCard(
-                      onTap: () => context.go('/clientes/${row.id}'),
-                      child: ListTile(
-                        title: Text(row.nombre),
-                        subtitle: row.subtitle.isEmpty ? null : Text(row.subtitle),
-                        trailing: _statusLabel(row).isEmpty
-                            ? const Icon(Icons.chevron_right)
-                            : Text(_statusLabel(row)),
+                return ListView(
+                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 48),
+                  children: [
+                    Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          maxWidth: AppTheme.contentWide,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            AppPageHeader(
+                              kicker: office.isEmpty ? null : office,
+                              title: 'clients.title'.tr(),
+                              subtitle: 'clients.onShelf'.tr(
+                                namedArgs: {'count': '${rows.length}'},
+                              ),
+                              actions: [
+                                if (wide)
+                                  FilledButton.icon(
+                                    onPressed: () =>
+                                        _createCliente(context, ref),
+                                    icon: const Icon(Icons.add, size: 18),
+                                    label: Text('clients.newFolder'.tr()),
+                                  )
+                                else
+                                  IconButton.filled(
+                                    tooltip: 'clients.newFolder'.tr(),
+                                    onPressed: () =>
+                                        _createCliente(context, ref),
+                                    icon: const Icon(Icons.add),
+                                  ),
+                              ],
+                              bottom: AppTextField(
+                                label: 'clients.searchHint'.tr(),
+                                prefixIcon: const Icon(Icons.search),
+                                onChanged: (v) {
+                                  _searchDebounce?.cancel();
+                                  _searchDebounce = Timer(
+                                    const Duration(milliseconds: 300),
+                                    () {
+                                      ref
+                                          .read(clientesQueryProvider.notifier)
+                                          .state = v;
+                                    },
+                                  );
+                                },
+                              ),
+                            ),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                AppStamp(
+                                  label: 'clients.filterActive'.tr(),
+                                  selected:
+                                      filter == ClientesListFilter.activo,
+                                  onTap: () => ref
+                                      .read(clientesFilterProvider.notifier)
+                                      .state = ClientesListFilter.activo,
+                                ),
+                                AppStamp(
+                                  label: 'clients.filterInactive'.tr(),
+                                  selected:
+                                      filter == ClientesListFilter.inactivo,
+                                  onTap: () => ref
+                                      .read(clientesFilterProvider.notifier)
+                                      .state = ClientesListFilter.inactivo,
+                                ),
+                                if (showDeleted)
+                                  AppStamp(
+                                    label: 'clients.filterDeleted'.tr(),
+                                    selected:
+                                        filter == ClientesListFilter.deleted,
+                                    onTap: () => ref
+                                        .read(clientesFilterProvider.notifier)
+                                        .state = ClientesListFilter.deleted,
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 20),
+                            if (rows.isEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 48),
+                                child: Text(
+                                  'clients.empty'.tr(),
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodyLarge
+                                      ?.copyWith(color: AppTheme.pencil),
+                                ),
+                              )
+                            else
+                              for (final row in rows)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 10),
+                                  child: AppCard(
+                                    stripe: row.deleted
+                                        ? AppTheme.pencil
+                                        : row.status == 'inactivo'
+                                            ? AppTheme.rule
+                                            : AppTheme.accent,
+                                    onTap: () =>
+                                        context.go('/clientes/${row.id}'),
+                                    child: Padding(
+                                      padding: const EdgeInsets.fromLTRB(
+                                        16,
+                                        14,
+                                        16,
+                                        14,
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  row.nombre,
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .titleMedium,
+                                                ),
+                                                if (row.subtitle.isNotEmpty) ...[
+                                                  const SizedBox(height: 4),
+                                                  Text(
+                                                    row.subtitle,
+                                                    style: Theme.of(context)
+                                                        .textTheme
+                                                        .bodySmall,
+                                                  ),
+                                                ],
+                                              ],
+                                            ),
+                                          ),
+                                          if (_statusLabel(row).isNotEmpty)
+                                            Text(
+                                              _statusLabel(row),
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .bodySmall,
+                                            )
+                                          else
+                                            const Icon(
+                                              Icons.chevron_right,
+                                              color: AppTheme.pencil,
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                          ],
+                        ),
                       ),
-                    );
-                  },
+                    ),
+                  ],
                 );
               },
             ),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _createCliente(context, ref),
-        icon: const Icon(Icons.add),
-        label: Text('clients.newFolder'.tr()),
       ),
     );
   }
@@ -103,45 +216,6 @@ class _ClientesScreenState extends ConsumerState<ClientesScreen> {
     if (row.deleted) return 'clients.filterDeleted'.tr();
     if (row.status == 'inactivo') return 'clients.statusInactivo'.tr();
     return '';
-  }
-}
-
-class _ClientesFilterBar extends StatelessWidget {
-  const _ClientesFilterBar({
-    required this.filter,
-    required this.showDeleted,
-    required this.onChanged,
-  });
-
-  final ClientesListFilter filter;
-  final bool showDeleted;
-  final ValueChanged<ClientesListFilter> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final selected = showDeleted || filter != ClientesListFilter.deleted
-        ? filter
-        : ClientesListFilter.activo;
-    return SegmentedButton<ClientesListFilter>(
-      showSelectedIcon: false,
-      segments: [
-        ButtonSegment(
-          value: ClientesListFilter.activo,
-          label: Text('clients.filterActive'.tr()),
-        ),
-        ButtonSegment(
-          value: ClientesListFilter.inactivo,
-          label: Text('clients.filterInactive'.tr()),
-        ),
-        if (showDeleted)
-          ButtonSegment(
-            value: ClientesListFilter.deleted,
-            label: Text('clients.filterDeleted'.tr()),
-          ),
-      ],
-      selected: {selected},
-      onSelectionChanged: (next) => onChanged(next.first),
-    );
   }
 }
 

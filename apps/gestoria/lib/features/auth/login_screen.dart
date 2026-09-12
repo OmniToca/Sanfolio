@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gestoria_auth/gestoria_auth.dart';
 
+import '../../core/presentation/widgets/app_widgets.dart';
 import '../../core/theme/app_theme.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -70,7 +71,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         body: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(28),
-            child: formBlock,
+            child: AppCard(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+                child: formBlock,
+              ),
+            ),
           ),
         ),
       );
@@ -87,28 +93,47 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 child: Align(
                   alignment: Alignment.bottomLeft,
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 360),
+                    constraints: const BoxConstraints(maxWidth: 400),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(
-                          Icons.folder_open_rounded,
-                          color: AppTheme.navInk,
-                          size: 36,
+                        Container(
+                          width: 48,
+                          height: 48,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: AppTheme.navInk,
+                            borderRadius:
+                                BorderRadius.circular(AppTheme.radiusSm),
+                          ),
+                          child: Text(
+                            'S',
+                            style: Theme.of(context)
+                                .textTheme
+                                .headlineSmall
+                                ?.copyWith(color: AppTheme.nav, height: 1),
+                          ),
                         ),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 28),
                         Text(
                           'app.title'.tr(),
                           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                                 color: AppTheme.navInk,
                               ),
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 12),
+                        Container(
+                          width: 48,
+                          height: 2,
+                          color: AppTheme.accent,
+                        ),
+                        const SizedBox(height: 16),
                         Text(
                           'auth.intro'.tr(),
                           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                                 color: AppTheme.navMuted,
+                                height: 1.45,
                               ),
                         ),
                       ],
@@ -122,7 +147,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             child: Center(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(48),
-                child: formBlock,
+                child: AppCard(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(28, 32, 28, 28),
+                    child: formBlock,
+                  ),
+                ),
               ),
             ),
           ),

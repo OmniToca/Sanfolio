@@ -11,6 +11,7 @@ import '../../core/i18n/app_locales.dart';
 import '../../core/modules/feature_gate.dart';
 import '../../core/modules/module_catalog.dart';
 import '../../core/presentation/widgets/app_widgets.dart';
+import '../../core/theme/app_theme.dart';
 import 'cliente_audit.dart';
 import 'cliente_card_controller.dart';
 import 'clientes_providers.dart';
@@ -126,202 +127,101 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
                 ),
             ],
           ),
-          body: ListView(
-            padding: const EdgeInsets.all(24),
-            children: [
-              if (card.deleted) ...[
-                AppCard(
-                  child: ListTile(
-                    leading: const Icon(Icons.inventory_2_outlined),
-                    title: Text('clients.deletedBanner'.tr()),
-                    subtitle: owner
-                        ? null
-                        : Text('clients.onlyOwnerRestore'.tr()),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                if (owner)
-                  FilledButton(
-                    onPressed: _busy ? null : () => _restore(),
-                    child: Text('clients.restore'.tr()),
-                  ),
-              ] else ...[
-                if (card.nie != null && card.nie!.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Text('${'fields.nie'.tr()}: ${card.nie}'),
-                  ),
-                AppTextField(
-                  label: 'clients.name'.tr(),
-                  controller: _nombre,
-                ),
-                const SizedBox(height: 12),
-                AppTextField(
-                  label: 'fields.email'.tr(),
-                  controller: _email,
-                ),
-                const SizedBox(height: 12),
-                AppTextField(
-                  label: 'fields.tel'.tr(),
-                  controller: _tel,
-                ),
-                const SizedBox(height: 12),
-                AppTextField(
-                  label: 'fields.iban'.tr(),
-                  controller: _iban,
-                ),
-                const SizedBox(height: 12),
-                _LocaleMenu(
-                  value: _locale,
-                  onChanged: (v) => setState(() => _locale = v),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _notas,
-                  minLines: 2,
-                  maxLines: 4,
-                  decoration: InputDecoration(
-                    labelText: 'clients.notes'.tr(),
-                    alignLabelWithHint: true,
-                    border: const OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text('clients.status'.tr()),
-                  subtitle: Text(
-                    card.status == 'inactivo'
-                        ? 'clients.statusInactivo'.tr()
-                        : 'clients.statusActivo'.tr(),
-                  ),
-                  value: card.status == 'activo',
-                  onChanged: _busy
-                      ? null
-                      : (on) => _status(on ? 'activo' : 'inactivo'),
-                ),
-                const SizedBox(height: 8),
-                FilledButton(
-                  onPressed: _busy ? null : _save,
-                  child: Text('clients.save'.tr()),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  'clients.documents'.tr(),
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  children: [
-                    for (final tipo in clienteCardDocTypes)
-                      OutlinedButton.icon(
-                        onPressed: _busy ? null : () => _attachDoc(tipo),
-                        icon: const Icon(Icons.attach_file, size: 18),
-                        label: Text('docs.$tipo'.tr()),
+          body: LayoutBuilder(
+            builder: (context, constraints) {
+              final wide = constraints.maxWidth >= 1100;
+              return ListView(
+                padding: const EdgeInsets.fromLTRB(24, 12, 24, 48),
+                children: [
+                  Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        maxWidth: AppTheme.contentWide,
                       ),
-                  ],
-                ),
-                if (card.documents.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8, bottom: 8),
-                    child: Text('clients.documentsEmpty'.tr()),
-                  ),
-                for (final doc in card.documents)
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.insert_drive_file_outlined),
-                    title: Text(
-                      doc.originalName.isEmpty
-                          ? 'docs.${doc.tipo}'.tr()
-                          : doc.originalName,
-                    ),
-                    subtitle: Text('docs.${doc.tipo}'.tr()),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          tooltip: 'folder.open'.tr(),
-                          icon: const Icon(Icons.open_in_new),
-                          onPressed: () => _openDoc(doc.storagePath),
-                        ),
-                        IconButton(
-                          tooltip: 'folder.remove'.tr(),
-                          icon: const Icon(Icons.delete_outline),
-                          onPressed: _busy
-                              ? null
-                              : () => _removeDoc(doc.id),
-                        ),
-                      ],
-                    ),
-                  ),
-                const SizedBox(height: 24),
-                ClienteMensajeHistory(
-                  clienteId: widget.clienteId,
-                  clientLocale: card.locale,
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  'clients.contactTitle'.tr(),
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 8),
-                if (card.contacts.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Text('clients.contactEmpty'.tr()),
-                  ),
-                for (final c in card.contacts)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: AppCard(
-                      child: ListTile(
-                        title: Text(c.nombre),
-                        subtitle: Text(
-                          [
-                            if (c.relacion != null) c.relacion!,
-                            'lang.${c.locale}'.tr(),
-                            if (c.tel != null) c.tel!,
-                            if (c.email != null) c.email!,
-                          ].join(' · '),
-                        ),
-                        trailing: IconButton(
-                          tooltip: 'clients.contactRemove'.tr(),
-                          icon: const Icon(Icons.delete_outline),
-                          onPressed: _busy
-                              ? null
-                              : () => _removeContact(c.id),
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (card.deleted) ...[
+                            AppCard(
+                              child: ListTile(
+                                leading:
+                                    const Icon(Icons.inventory_2_outlined),
+                                title: Text('clients.deletedBanner'.tr()),
+                                subtitle: owner
+                                    ? null
+                                    : Text('clients.onlyOwnerRestore'.tr()),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            if (owner)
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: FilledButton(
+                                  onPressed: _busy ? null : () => _restore(),
+                                  child: Text('clients.restore'.tr()),
+                                ),
+                              ),
+                          ] else ...[
+                            if (wide)
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    flex: 5,
+                                    child: _identityCard(card),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    flex: 4,
+                                    child: Column(
+                                      children: [
+                                        _documentsCard(card),
+                                        const SizedBox(height: 16),
+                                        ClienteMensajeHistory(
+                                          clienteId: widget.clienteId,
+                                          clientLocale: card.locale,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              )
+                            else ...[
+                              _identityCard(card),
+                              const SizedBox(height: 16),
+                              _documentsCard(card),
+                              const SizedBox(height: 16),
+                              ClienteMensajeHistory(
+                                clienteId: widget.clienteId,
+                                clientLocale: card.locale,
+                              ),
+                            ],
+                            const SizedBox(height: 16),
+                            _contactsCard(card),
+                            const SizedBox(height: 16),
+                            _expedientesCard(),
+                            const SizedBox(height: 8),
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: TextButton(
+                                onPressed: _busy ? null : _softDelete,
+                                child: Text('clients.softDelete'.tr()),
+                              ),
+                            ),
+                          ],
+                          if (showAudit) ...[
+                            const SizedBox(height: 16),
+                            _ClienteAuditSection(
+                              clienteId: widget.clienteId,
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                   ),
-                OutlinedButton(
-                  onPressed: _busy ? null : _addContact,
-                  child: Text('clients.contactAdd'.tr()),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  'expedientes.title'.tr(),
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 8),
-                ..._expedienteSection(),
-                const SizedBox(height: 8),
-                OutlinedButton(
-                  onPressed: _busy ? null : _addManualPlazo,
-                  child: Text('inbox.addManual'.tr()),
-                ),
-                const SizedBox(height: 24),
-                TextButton(
-                  onPressed: _busy ? null : _softDelete,
-                  child: Text('clients.softDelete'.tr()),
-                ),
-              ],
-              if (showAudit) ...[
-                const SizedBox(height: 24),
-                _ClienteAuditSection(clienteId: widget.clienteId),
-              ],
-            ],
+                ],
+              );
+            },
           ),
         );
       },
@@ -344,101 +244,315 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
     });
   }
 
-  List<Widget> _expedienteSection() {
+  Widget _identityCard(ClienteCard card) {
+    final nie = card.nie?.trim();
+    return _SectionCard(
+      title: 'clients.identity'.tr(),
+      trailing: nie != null && nie.isNotEmpty
+          ? Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppTheme.accentSoft,
+                borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+              ),
+              child: Text(
+                '${'fields.nie'.tr()} $nie',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: AppTheme.accent,
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+            )
+          : null,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _FieldPair(
+            left: AppTextField(
+              label: 'clients.name'.tr(),
+              controller: _nombre,
+            ),
+            right: AppTextField(
+              label: 'fields.email'.tr(),
+              controller: _email,
+              keyboardType: TextInputType.emailAddress,
+            ),
+          ),
+          const SizedBox(height: 12),
+          _FieldPair(
+            left: AppTextField(
+              label: 'fields.tel'.tr(),
+              controller: _tel,
+              keyboardType: TextInputType.phone,
+            ),
+            right: AppTextField(
+              label: 'fields.iban'.tr(),
+              controller: _iban,
+            ),
+          ),
+          const SizedBox(height: 12),
+          _LocaleMenu(
+            value: _locale,
+            onChanged: (v) => setState(() => _locale = v),
+          ),
+          const SizedBox(height: 12),
+          AppTextField(
+            label: 'clients.notes'.tr(),
+            controller: _notas,
+            minLines: 2,
+            maxLines: 4,
+            alignLabelWithHint: true,
+          ),
+          const SizedBox(height: 4),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text('clients.status'.tr()),
+            subtitle: Text(
+              card.status == 'inactivo'
+                  ? 'clients.statusInactivo'.tr()
+                  : 'clients.statusActivo'.tr(),
+            ),
+            value: card.status == 'activo',
+            onChanged: _busy
+                ? null
+                : (on) => _status(on ? 'activo' : 'inactivo'),
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton(
+              onPressed: _busy ? null : _save,
+              child: Text('clients.save'.tr()),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _documentsCard(ClienteCard card) {
+    final types = <String>[];
+    for (final t in clienteCardDocTypes) {
+      if (card.documents.any((d) => d.tipo == t)) types.add(t);
+    }
+    for (final d in card.documents) {
+      if (!types.contains(d.tipo)) types.add(d.tipo);
+    }
+    return _SectionCard(
+      title: 'clients.documents'.tr(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final tipo in clienteCardDocTypes)
+                OutlinedButton.icon(
+                  onPressed: _busy ? null : () => _attachDoc(tipo),
+                  icon: const Icon(Icons.attach_file, size: 18),
+                  label: Text('docs.$tipo'.tr()),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (card.documents.isEmpty)
+            Text(
+              'clients.documentsEmpty'.tr(),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppTheme.pencil,
+                  ),
+            )
+          else
+            for (var t = 0; t < types.length; t++) ...[
+              if (t > 0) const SizedBox(height: 8),
+              Text(
+                'docs.${types[t]}'.tr(),
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: AppTheme.pencil,
+                    ),
+              ),
+              const SizedBox(height: 6),
+              for (final doc
+                  in card.documents.where((d) => d.tipo == types[t])) ...[
+                _InsetRow(
+                  leading: const Icon(Icons.insert_drive_file_outlined),
+                  title: doc.originalName.isEmpty
+                      ? 'docs.${doc.tipo}'.tr()
+                      : doc.originalName,
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        tooltip: 'folder.open'.tr(),
+                        icon: const Icon(Icons.open_in_new),
+                        onPressed: () => _openDoc(doc),
+                      ),
+                      IconButton(
+                        tooltip: 'folder.remove'.tr(),
+                        icon: const Icon(Icons.delete_outline),
+                        onPressed:
+                            _busy ? null : () => _removeDoc(doc.id),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+            ],
+        ],
+      ),
+    );
+  }
+
+  Widget _contactsCard(ClienteCard card) {
+    return _SectionCard(
+      title: 'clients.contactTitle'.tr(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (card.contacts.isEmpty)
+            Text(
+              'clients.contactEmpty'.tr(),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppTheme.pencil,
+                  ),
+            )
+          else
+            for (var i = 0; i < card.contacts.length; i++) ...[
+              if (i > 0) const SizedBox(height: 8),
+              _InsetRow(
+                title: card.contacts[i].nombre,
+                subtitle: [
+                  if (card.contacts[i].relacion != null)
+                    card.contacts[i].relacion!,
+                  'lang.${card.contacts[i].locale}'.tr(),
+                  if (card.contacts[i].tel != null) card.contacts[i].tel!,
+                  if (card.contacts[i].email != null) card.contacts[i].email!,
+                ].join(' · '),
+                trailing: IconButton(
+                  tooltip: 'clients.contactRemove'.tr(),
+                  icon: const Icon(Icons.delete_outline),
+                  onPressed:
+                      _busy ? null : () => _removeContact(card.contacts[i].id),
+                ),
+              ),
+            ],
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton(
+              onPressed: _busy ? null : _addContact,
+              child: Text('clients.contactAdd'.tr()),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _expedientesCard() {
     final rows = ref.watch(clienteExpedientesProvider(widget.clienteId));
     final auth = ref.watch(authControllerProvider).valueOrNull;
     final canDelete = auth != null && canSoftDeleteExpediente(auth);
-    return [
-      rows.when(
-        loading: () => const Padding(
-          padding: EdgeInsets.symmetric(vertical: 8),
-          child: LinearProgressIndicator(),
-        ),
-        error: (e, st) => Text('expedientes.loadError'.tr()),
-        data: (list) {
-          if (list.isEmpty) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Text('expedientes.empty'.tr()),
-            );
-          }
-          return Column(
-            children: [
-              for (final e in list)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: AppCard(
-                    onTap: () {
-                      if (e.tipo == 'compraventa') {
-                        context.go(
-                          '/clientes/${widget.clienteId}/carpeta?exp=${e.id}',
-                        );
-                      } else {
-                        context.go('/expedientes/${e.id}');
-                      }
-                    },
-                    child: ListTile(
-                      title: Text('expedientes.tipo.${e.tipo}'.tr()),
-                      subtitle: Text(
-                        [
-                          'expedientes.estado.${e.estado}'.tr(),
-                          if (e.inmuebleDireccion != null) e.inmuebleDireccion!,
-                        ].join(' · '),
+    return _SectionCard(
+      title: 'expedientes.title'.tr(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          rows.when(
+            loading: () => const LinearProgressIndicator(),
+            error: (e, st) => Text('expedientes.loadError'.tr()),
+            data: (list) {
+              if (list.isEmpty) {
+                return Text(
+                  'expedientes.empty'.tr(),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppTheme.pencil,
                       ),
-                      trailing: e.tipo == 'compraventa' || !canDelete
+                );
+              }
+              return Column(
+                children: [
+                  for (var i = 0; i < list.length; i++) ...[
+                    if (i > 0) const SizedBox(height: 8),
+                    _InsetRow(
+                      title: 'expedientes.tipo.${list[i].tipo}'.tr(),
+                      subtitle: [
+                        'expedientes.estado.${list[i].estado}'.tr(),
+                        if (list[i].inmuebleDireccion != null)
+                          list[i].inmuebleDireccion!,
+                      ].join(' · '),
+                      onTap: () {
+                        if (list[i].tipo == 'compraventa') {
+                          context.go(
+                            '/clientes/${widget.clienteId}/carpeta?exp=${list[i].id}',
+                          );
+                        } else {
+                          context.go('/expedientes/${list[i].id}');
+                        }
+                      },
+                      trailing: list[i].tipo == 'compraventa' || !canDelete
                           ? const Icon(Icons.chevron_right)
                           : IconButton(
                               tooltip: 'expedientes.softDelete'.tr(),
                               icon: const Icon(Icons.delete_outline),
                               onPressed: _busy
                                   ? null
-                                  : () => _softDeleteExpediente(e.id),
+                                  : () => _softDeleteExpediente(list[i].id),
                             ),
                     ),
-                  ),
+                  ],
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FeatureGate(
+                module: GestoriaModule.carpetaInmueble,
+                child: OutlinedButton(
+                  onPressed: _busy ? null : _newPurchase,
+                  child: Text('expedientes.newPurchase'.tr()),
                 ),
+              ),
+              FeatureGate(
+                module: GestoriaModule.impuestos,
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    OutlinedButton(
+                      onPressed:
+                          _busy ? null : () => _openThin('impuestos_210'),
+                      child: Text('expedientes.open210'.tr()),
+                    ),
+                    OutlinedButton(
+                      onPressed:
+                          _busy ? null : () => _openThin('impuestos_renta'),
+                      child: Text('expedientes.openRenta'.tr()),
+                    ),
+                  ],
+                ),
+              ),
+              FeatureGate(
+                module: GestoriaModule.niePoder,
+                child: OutlinedButton(
+                  onPressed: _busy ? null : () => _openThin('nie_tramite'),
+                  child: Text('expedientes.openNie'.tr()),
+                ),
+              ),
+              OutlinedButton(
+                onPressed: _busy ? null : _addManualPlazo,
+                child: Text('inbox.addManual'.tr()),
+              ),
             ],
-          );
-        },
-      ),
-      FeatureGate(
-        module: GestoriaModule.carpetaInmueble,
-        child: Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: OutlinedButton(
-            onPressed: _busy ? null : _newPurchase,
-            child: Text('expedientes.newPurchase'.tr()),
           ),
-        ),
+        ],
       ),
-      FeatureGate(
-        module: GestoriaModule.impuestos,
-        child: Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            OutlinedButton(
-              onPressed: _busy ? null : () => _openThin('impuestos_210'),
-              child: Text('expedientes.open210'.tr()),
-            ),
-            OutlinedButton(
-              onPressed: _busy ? null : () => _openThin('impuestos_renta'),
-              child: Text('expedientes.openRenta'.tr()),
-            ),
-          ],
-        ),
-      ),
-      FeatureGate(
-        module: GestoriaModule.niePoder,
-        child: Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: OutlinedButton(
-            onPressed: _busy ? null : () => _openThin('nie_tramite'),
-            child: Text('expedientes.openNie'.tr()),
-          ),
-        ),
-      ),
-    ];
+    );
   }
 
   Future<void> _addManualPlazo() async {
@@ -688,12 +802,25 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
     }
   }
 
-  Future<void> _openDoc(String path) async {
+  Future<void> _openDoc(ClienteDocumento doc) async {
     try {
       final url = await ref
           .read(clienteCardProvider(widget.clienteId).notifier)
-          .signedUrl(path);
+          .signedUrl(doc.storagePath);
       if (url == null) throw StateError('url');
+      final tenantId =
+          ref.read(authControllerProvider).valueOrNull?.currentTenantId;
+      if (tenantId != null) {
+        await auditDocumentoOpen(
+          documentId: doc.id,
+          tenantId: tenantId,
+          tipo: doc.tipo,
+          originalName: doc.originalName,
+        );
+        if (mounted) {
+          ref.invalidate(clienteAuditProvider(widget.clienteId));
+        }
+      }
       await launchUrl(Uri.parse(url));
     } on Object {
       if (mounted) _toast('folder.openError'.tr());
@@ -960,46 +1087,212 @@ class _ClienteAuditSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(clienteAuditProvider(clienteId));
     final when = DateFormat.yMMMd(context.locale.toString()).add_Hm();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'audit.title'.tr(),
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-        const SizedBox(height: 8),
-        Text('audit.hint'.tr()),
-        const SizedBox(height: 8),
-        async.when(
-          loading: () => const LinearProgressIndicator(),
-          error: (e, st) => Text('audit.loadError'.tr()),
-          data: (events) {
-            if (events.isEmpty) {
-              return Text('audit.empty'.tr());
-            }
-            return Column(
+    return _SectionCard(
+      title: 'audit.title'.tr(),
+      hint: 'audit.hint'.tr(),
+      child: async.when(
+        loading: () => const LinearProgressIndicator(),
+        error: (e, st) => Text('audit.loadError'.tr()),
+        data: (events) {
+          if (events.isEmpty) {
+            return Text(
+              'audit.empty'.tr(),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppTheme.pencil,
+                  ),
+            );
+          }
+          return Column(
+            children: [
+              for (var i = 0; i < events.length; i++) ...[
+                if (i > 0) const SizedBox(height: 8),
+                _InsetRow(
+                  title: events[i].actionI18nKey.tr(),
+                  subtitle: [
+                    if (_auditSubject(events[i]) case final subject?) subject,
+                    when.format(events[i].createdAt.toLocal()),
+                    events[i].actorLabel ?? 'audit.system'.tr(),
+                    if (events[i].impersonating) 'audit.impersonation'.tr(),
+                  ].join(' · '),
+                ),
+              ],
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  /// Co se otevřelo / nahrálo / změnilo. Akce samotná nestačí.
+  String? _auditSubject(ClienteAuditEvent e) {
+    final tipo = e.documentTipo;
+    final tipoLabel = tipo == null ? null : 'docs.$tipo'.tr();
+    final name = e.documentName;
+    if (name != null && tipoLabel != null) return '$name · $tipoLabel';
+    if (name != null) return name;
+    if (tipoLabel != null) return tipoLabel;
+
+    final asunto = e.asunto;
+    if (asunto != null) return asunto;
+
+    final contact = [
+      if (e.contactNombre != null) e.contactNombre!,
+      if (e.contactRelacion != null) e.contactRelacion!,
+    ];
+    if (contact.isNotEmpty) return contact.join(' · ');
+
+    final fields = [
+      for (final key in e.changedFields)
+        if (auditClienteFieldI18n[key] != null) auditClienteFieldI18n[key]!.tr(),
+    ];
+    if (fields.isNotEmpty) return fields.join(', ');
+    return null;
+  }
+}
+
+/// Společný obal sekce karty — nadpis uvnitř, ne volně nad polem.
+class _SectionCard extends StatelessWidget {
+  const _SectionCard({
+    required this.title,
+    required this.child,
+    this.hint,
+    this.trailing,
+  });
+
+  final String title;
+  final String? hint;
+  final Widget? trailing;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
               children: [
-                for (final e in events)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: AppCard(
-                      child: ListTile(
-                        title: Text(e.actionI18nKey.tr()),
-                        subtitle: Text(
-                          [
-                            when.format(e.createdAt.toLocal()),
-                            e.actorLabel ?? 'audit.system'.tr(),
-                            if (e.impersonating) 'audit.impersonation'.tr(),
-                          ].join(' · '),
-                        ),
-                      ),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+                if (trailing != null) trailing!,
+              ],
+            ),
+            if (hint != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                hint!,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppTheme.pencil,
                     ),
+              ),
+            ],
+            const SizedBox(height: 16),
+            child,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Řádek uvnitř karty. Ultrawide nesmí natáhnout ikony na kraj monitoru.
+class _InsetRow extends StatelessWidget {
+  const _InsetRow({
+    required this.title,
+    this.subtitle,
+    this.leading,
+    this.trailing,
+    this.onTap,
+  });
+
+  final String title;
+  final String? subtitle;
+  final Widget? leading;
+  final Widget? trailing;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final row = Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+      child: Row(
+        children: [
+          if (leading != null) ...[
+            IconTheme(
+              data: const IconThemeData(color: AppTheme.pencil),
+              child: leading!,
+            ),
+            const SizedBox(width: 12),
+          ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: Theme.of(context).textTheme.titleSmall),
+                if (subtitle != null && subtitle!.isNotEmpty)
+                  Text(
+                    subtitle!,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppTheme.pencil,
+                        ),
                   ),
               ],
-            );
-          },
-        ),
-      ],
+            ),
+          ),
+          if (trailing != null) trailing!,
+        ],
+      ),
+    );
+    return Material(
+      color: AppTheme.surfaceMuted,
+      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+      child: onTap == null
+          ? row
+          : InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+              child: row,
+            ),
+    );
+  }
+}
+
+/// Dvě pole vedle sebe, pod 520 px pod sebou.
+class _FieldPair extends StatelessWidget {
+  const _FieldPair({required this.left, required this.right});
+
+  final Widget left;
+  final Widget right;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 520) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              left,
+              const SizedBox(height: 12),
+              right,
+            ],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: left),
+            const SizedBox(width: 12),
+            Expanded(child: right),
+          ],
+        );
+      },
     );
   }
 }

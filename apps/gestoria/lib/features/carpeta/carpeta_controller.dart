@@ -7,6 +7,7 @@ import 'package:gestoria_auth/gestoria_auth.dart';
 
 import '../../core/money/cents.dart';
 import '../../core/money/provision.dart';
+import '../clientes/cliente_audit.dart';
 import 'bloque_template.dart';
 
 enum BloqueUiStatus { off, missingData, missingDocument, watching, done }
@@ -263,13 +264,10 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
       '${persona['apellidos'] ?? ''}'.trim(),
     ].where((s) => s.isNotEmpty).join(' ');
 
-    await client.rpc(
-      'audit_open',
-      params: {
-        'p_entity_table': 'clientes',
-        'p_entity_id': clienteId,
-        'p_tenant_id': tenantId,
-      },
+    await auditClienteOpen(
+      clienteId: clienteId,
+      tenantId: tenantId,
+      surface: 'carpeta',
     );
 
     final movRows = await client

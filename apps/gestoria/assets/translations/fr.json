@@ -34,6 +34,11 @@
     "staffLocale": "Langue de l’écran",
     "staffLocaleHint": "Uniquement pour vous. La langue du client est sur sa fiche.",
     "cronHint": "Les brouillons sont préparés chaque matin à 7:00 Madrid. Vous envoyez, pas le cron.",
+    "groupTax": "Impôts et IBI / SUMA",
+    "groupCover": "Assurance, alarme et poder",
+    "groupFollowup": "Relances et dossiers",
+    "outboundTitle": "Messages sortants",
+    "inviteTitle": "Inviter un collègue",
     "team": "Personnes du cabinet",
     "teamHint": "L’owner invite un gestor ou un asistente. Trois personnes au plus. L’asistente n’archive pas le dossier.",
     "invite": "Inviter",
@@ -93,6 +98,7 @@
   },
   "inbox": {
     "title": "Aujourd’hui",
+    "onDesk": "{count} sur le bureau",
     "empty": "Aucune échéance ni trou. Ouvrez un dossier ou créez un client.",
     "loadError": "Impossible de charger la boîte du jour.",
     "unnamed": "Client",
@@ -130,6 +136,7 @@
   },
   "clients": {
     "title": "Clients",
+    "onShelf": "{count} dossiers",
     "searchHint": "NIE, nom, Y123**6E…",
     "empty": "Aucun dossier pour le moment.",
     "newFolder": "Nouveau dossier",
@@ -143,6 +150,7 @@
     "createError": "Impossible de créer le dossier.",
     "locale": "Langue du client",
     "cardTitle": "Client",
+    "identity": "Coordonnées",
     "cardLoadError": "Impossible de charger la fiche client.",
     "openFolder": "Ouvrir le dossier",
     "save": "Enregistrer",
@@ -171,7 +179,7 @@
   },
   "audit": {
     "title": "Audit",
-    "hint": "Qui a ouvert, modifié ou envoyé. Les entrées ne se suppriment pas.",
+    "hint": "Qui a ouvert la fiche, le dossier ou un fichier. Les ajouts indiquent quel document. Les entrées ne se suppriment pas.",
     "empty": "Aucune entrée pour le moment.",
     "loadError": "Impossible de charger l’audit.",
     "system": "Système",
@@ -179,6 +187,7 @@
     "action": {
       "clientes": {
         "open": "Ouverture de la fiche",
+        "openCarpeta": "Ouverture du dossier",
         "insert": "Création du client",
         "update": "Modification de la fiche",
         "soft_delete": "Masquage du dossier",
@@ -192,6 +201,7 @@
       },
       "documentos": {
         "insert": "Document ajouté",
+        "open": "Document ouvert",
         "update": "Document modifié",
         "soft_delete": "Document masqué"
       },
@@ -376,12 +386,12 @@
       "otros": "Otros"
     },
     "estado": {
-      "abierto": "Abierto",
-      "en_curso": "En curso",
-      "espera_cliente": "Espera cliente",
-      "espera_admin": "Espera admin",
-      "hecho": "Hecho",
-      "archivado": "Archivado"
+      "abierto": "Ouvert",
+      "en_curso": "En cours",
+      "espera_cliente": "En attente du client",
+      "espera_admin": "En attente de l’administration",
+      "hecho": "Terminé",
+      "archivado": "Archivé"
     },
     "periodicidad": {
       "trimestral": "Trimestral",
@@ -430,6 +440,12 @@
     "ask": "Demander les documents",
     "factsTitle": "Documents enregistrés — {name}",
     "factsEmpty": "Ce client n’a pas encore de champs de document enregistrés. Joignez un fichier et enregistrez la proposition.",
-    "factsNone": "Personne ne correspond à ce nom."
+    "factsNone": "Personne ne correspond à ce nom.",
+    "newThread": "Nouveau fil",
+    "closePanel": "Masquer l’assistant",
+    "emptyThread": "Demandez un client, un NIE ou un document. Vous enregistrez — rien ne s’écrit ni ne s’envoie tout seul.",
+    "send": "Envoyer",
+    "savedHint": "Cette conversation est enregistrée dans votre cabinet.",
+    "writeError": "Impossible d’enregistrer la conversation."
   }
 }

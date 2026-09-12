@@ -34,6 +34,11 @@
     "staffLocale": "Idioma de la pantalla",
     "staffLocaleHint": "Solo para usted. El idioma del cliente está en su ficha.",
     "cronHint": "Los borradores se preparan cada mañana a las 7:00 Madrid. Los envía usted, no el cron.",
+    "groupTax": "Impuestos e IBI / SUMA",
+    "groupCover": "Seguro, alarma y poder",
+    "groupFollowup": "Avisos y expedientes",
+    "outboundTitle": "Mensajes de salida",
+    "inviteTitle": "Invitar a un colega",
     "team": "Personas del despacho",
     "teamHint": "El owner invita a un gestor o asistente. Como máximo tres. El asistente no oculta expedientes.",
     "invite": "Invitar",
@@ -93,6 +98,7 @@
   },
   "inbox": {
     "title": "Hoy",
+    "onDesk": "{count} en el escritorio",
     "empty": "No hay plazos ni huecos. Abra una carpeta o cree un cliente.",
     "loadError": "No se pudo cargar el inbox.",
     "unnamed": "Cliente",
@@ -130,6 +136,7 @@
   },
   "clients": {
     "title": "Clientes",
+    "onShelf": "{count} carpetas",
     "searchHint": "NIE, nombre, Y123**6E…",
     "empty": "Todavía no hay carpetas.",
     "newFolder": "Nueva carpeta",
@@ -143,6 +150,7 @@
     "createError": "No se pudo crear la carpeta.",
     "locale": "Idioma del cliente",
     "cardTitle": "Cliente",
+    "identity": "Datos",
     "cardLoadError": "No se pudo cargar la ficha del cliente.",
     "openFolder": "Abrir carpeta",
     "save": "Guardar",
@@ -171,7 +179,7 @@
   },
   "audit": {
     "title": "Auditoría",
-    "hint": "Quién abrió, cambió o envió. El registro no se borra.",
+    "hint": "Quién abrió la ficha, la carpeta o un archivo. En cada subida se ve qué documento. El registro no se borra.",
     "empty": "Todavía no hay registros.",
     "loadError": "No se pudo cargar la auditoría.",
     "system": "Sistema",
@@ -179,6 +187,7 @@
     "action": {
       "clientes": {
         "open": "Apertura de la ficha",
+        "openCarpeta": "Apertura de la carpeta",
         "insert": "Alta del cliente",
         "update": "Cambio de la ficha",
         "soft_delete": "Ocultación de la carpeta",
@@ -192,6 +201,7 @@
       },
       "documentos": {
         "insert": "Subida de documento",
+        "open": "Apertura de documento",
         "update": "Cambio de documento",
         "soft_delete": "Ocultación de documento"
       },
@@ -430,6 +440,12 @@
     "ask": "Preguntar por documentos",
     "factsTitle": "Documentos guardados — {name}",
     "factsEmpty": "Este cliente aún no tiene campos de documento guardados. Adjunte un archivo y guarde la propuesta.",
-    "factsNone": "No encontré a nadie con ese nombre."
+    "factsNone": "No encontré a nadie con ese nombre.",
+    "newThread": "Hilo nuevo",
+    "closePanel": "Ocultar asistente",
+    "emptyThread": "Pregunte por un cliente, NIE o documento. Usted guarda — nada se escribe ni se envía solo.",
+    "send": "Enviar",
+    "savedHint": "Esta conversación se guarda en su despacho.",
+    "writeError": "No se pudo guardar la conversación."
   }
 }

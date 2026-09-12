@@ -3,6 +3,18 @@ import 'package:gestoria_auth/gestoria_auth.dart';
 
 import '../../core/auth/staff_role.dart';
 
+/// Pole karty, která má smysl ukázat ve stopě (ne UUID / timestamps).
+const auditClienteFieldI18n = <String, String>{
+  'nombre': 'clients.name',
+  'email': 'fields.email',
+  'tel': 'fields.tel',
+  'iban': 'fields.iban',
+  'notas': 'clients.notes',
+  'locale': 'clients.locale',
+  'status': 'clients.status',
+  'nie': 'fields.nie',
+};
+
 /// Řádek stopy na kartě. Insert jde z RPC/triggeru, ne z Flutteru.
 class ClienteAuditEvent {
   const ClienteAuditEvent({
@@ -11,6 +23,7 @@ class ClienteAuditEvent {
     required this.action,
     this.actorLabel,
     this.impersonating = false,
+    this.detail = const {},
   });
 
   final String id;
@@ -18,8 +31,61 @@ class ClienteAuditEvent {
   final String action;
   final String? actorLabel;
   final bool impersonating;
+  final Map<String, dynamic> detail;
 
-  String get actionI18nKey => 'audit.action.$action';
+  String? get surface {
+    final v = '${detail['surface'] ?? ''}'.trim();
+    return v.isEmpty ? null : v;
+  }
+
+  String? get documentTipo {
+    final v = '${detail['tipo'] ?? ''}'.trim();
+    return v.isEmpty ? null : v;
+  }
+
+  String? get documentName {
+    final v = '${detail['original_name'] ?? ''}'.trim();
+    return v.isEmpty ? null : v;
+  }
+
+  String? get asunto {
+    final v = '${detail['asunto'] ?? ''}'.trim();
+    return v.isEmpty ? null : v;
+  }
+
+  String? get contactNombre {
+    final v = '${detail['nombre'] ?? ''}'.trim();
+    return v.isEmpty ? null : v;
+  }
+
+  String? get contactRelacion {
+    final v = '${detail['relacion'] ?? ''}'.trim();
+    return v.isEmpty ? null : v;
+  }
+
+  List<String> get changedFields {
+    final raw = detail['changed'];
+    if (raw is! List) return const [];
+    return [
+      for (final x in raw)
+        if ('$x'.trim().isNotEmpty) '$x'.trim(),
+    ];
+  }
+
+  /// Karta vs. složka vs. dokument — bez toho je „otevření“ prázdné slovo.
+  String get actionI18nKey {
+    if (action == 'clientes.open' && surface == 'carpeta') {
+      return 'audit.action.clientes.openCarpeta';
+    }
+    return 'audit.action.$action';
+  }
+}
+
+Map<String, dynamic> _asStringKeyedMap(Object? raw) {
+  if (raw is! Map) return const {};
+  return {
+    for (final e in raw.entries) '${e.key}': e.value,
+  };
 }
 
 /// Owner (a Support v impersonaci) vidí, kdo kartu otevřel / změnil / odeslal.
@@ -52,16 +118,18 @@ final clienteAuditProvider =
             ? name
             : (email.isNotEmpty ? email : null),
         impersonating: raw['impersonating'] == true,
+        detail: _asStringKeyedMap(raw['detail']),
       ),
     );
   }
   return out;
 });
 
-/// LOPDGDD: otevření karty musí zanechat stopu. Selhání nesmí zavřít kartu.
-Future<void> auditClienteOpen({
-  required String clienteId,
+Future<void> _auditOpen({
+  required String entityTable,
+  required String entityId,
   required String tenantId,
+  Map<String, Object?>? after,
 }) async {
   final client = trySupabaseClient();
   if (client == null) return;
@@ -69,12 +137,45 @@ Future<void> auditClienteOpen({
     await client.rpc(
       'audit_open',
       params: {
-        'p_entity_table': 'clientes',
-        'p_entity_id': clienteId,
+        'p_entity_table': entityTable,
+        'p_entity_id': entityId,
         'p_tenant_id': tenantId,
+        if (after != null) 'p_after': after,
       },
     );
   } on Object {
-    // Karta je zdroj pravdy pro práci; audit se doplní příště.
+    // Práce na kartě nesmí spadnout kvůli stopě.
   }
+}
+
+/// LOPDGDD: otevření karty musí zanechat stopu. Selhání nesmí zavřít kartu.
+Future<void> auditClienteOpen({
+  required String clienteId,
+  required String tenantId,
+  String surface = 'card',
+}) {
+  return _auditOpen(
+    entityTable: 'clientes',
+    entityId: clienteId,
+    tenantId: tenantId,
+    after: {'surface': surface},
+  );
+}
+
+/// Kdo otevřel který sken. Bez názvu je „otevření“ k ničemu.
+Future<void> auditDocumentoOpen({
+  required String documentId,
+  required String tenantId,
+  required String tipo,
+  required String originalName,
+}) {
+  return _auditOpen(
+    entityTable: 'documentos',
+    entityId: documentId,
+    tenantId: tenantId,
+    after: {
+      'tipo': tipo,
+      if (originalName.trim().isNotEmpty) 'original_name': originalName.trim(),
+    },
+  );
 }

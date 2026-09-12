@@ -34,6 +34,11 @@
     "staffLocale": "Screen language",
     "staffLocaleHint": "This is only for you. The client language lives on their card.",
     "cronHint": "Draft reminders are prepared every morning at 07:00 Madrid. You send them, not the cron.",
+    "groupTax": "Tax and IBI / SUMA",
+    "groupCover": "Insurance, alarm and poder",
+    "groupFollowup": "Reminders and files",
+    "outboundTitle": "Outbound messages",
+    "inviteTitle": "Invite a colleague",
     "team": "Office people",
     "teamHint": "The owner invites a gestor or asistente. Three people at most. An asistente cannot hide a file.",
     "invite": "Invite",
@@ -93,6 +98,7 @@
   },
   "inbox": {
     "title": "Today",
+    "onDesk": "{count} on the desk",
     "empty": "No deadlines or gaps. Open a folder or create a client.",
     "loadError": "Could not load the inbox.",
     "unnamed": "Client",
@@ -130,6 +136,7 @@
   },
   "clients": {
     "title": "Clients",
+    "onShelf": "{count} folders",
     "searchHint": "NIE, name, Y123**6E…",
     "empty": "No folders yet.",
     "newFolder": "New folder",
@@ -143,6 +150,7 @@
     "createError": "Could not create the folder.",
     "locale": "Client language",
     "cardTitle": "Client",
+    "identity": "Details",
     "cardLoadError": "Could not load the client card.",
     "openFolder": "Open folder",
     "save": "Save",
@@ -171,7 +179,7 @@
   },
   "audit": {
     "title": "Audit",
-    "hint": "Who opened, changed or sent. Entries are never deleted.",
+    "hint": "Who opened the card, the folder or a file. Uploads show which document. Entries are never deleted.",
     "empty": "No entries yet.",
     "loadError": "Could not load the audit log.",
     "system": "System",
@@ -179,6 +187,7 @@
     "action": {
       "clientes": {
         "open": "Opened the card",
+        "openCarpeta": "Opened the folder",
         "insert": "Created the client",
         "update": "Updated the card",
         "soft_delete": "Hid the folder",
@@ -192,6 +201,7 @@
       },
       "documentos": {
         "insert": "Uploaded a document",
+        "open": "Opened a document",
         "update": "Updated a document",
         "soft_delete": "Hid a document"
       },
@@ -376,12 +386,12 @@
       "otros": "Otros"
     },
     "estado": {
-      "abierto": "Abierto",
-      "en_curso": "En curso",
-      "espera_cliente": "Espera cliente",
-      "espera_admin": "Espera admin",
-      "hecho": "Hecho",
-      "archivado": "Archivado"
+      "abierto": "Open",
+      "en_curso": "In progress",
+      "espera_cliente": "Waiting on client",
+      "espera_admin": "Waiting on the authority",
+      "hecho": "Done",
+      "archivado": "Archived"
     },
     "periodicidad": {
       "trimestral": "Trimestral",
@@ -430,6 +440,12 @@
     "ask": "Ask about documents",
     "factsTitle": "Saved documents — {name}",
     "factsEmpty": "This client has no saved document fields yet. Attach a file and save the proposal first.",
-    "factsNone": "No client matched that name."
+    "factsNone": "No client matched that name.",
+    "newThread": "New thread",
+    "closePanel": "Hide assistant",
+    "emptyThread": "Ask about a client, NIE, or a document. You save — nothing is written or sent on its own.",
+    "send": "Send",
+    "savedHint": "This conversation is saved in your office.",
+    "writeError": "The conversation could not be saved."
   }
 }

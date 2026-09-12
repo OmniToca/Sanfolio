@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/modules/feature_gate.dart';
 import '../../core/modules/module_catalog.dart';
 import '../../core/presentation/widgets/app_widgets.dart';
+import '../../core/theme/app_theme.dart';
 import '../mensajes/mensaje_templates.dart';
 import '../settings/office_settings_controller.dart';
 import 'inbox_providers.dart';
@@ -26,89 +27,79 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
     final feed = ref.watch(inboxFeedProvider);
     final nudgeDays =
         ref.watch(officeSettingsProvider).valueOrNull?.nudgeIntervalDays ?? 7;
+    final office =
+        ref.watch(officeSettingsProvider).valueOrNull?.displayName ?? '';
     return Scaffold(
-      appBar: AppBar(title: Text('inbox.title'.tr())),
       body: feed.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, st) => Center(child: Text('inbox.loadError'.tr())),
         data: (rows) {
           final shown =
               rows.where((r) => matchesInboxFilter(r, _filter)).toList();
-          return Column(
+          final when = DateFormat.MMMMEEEEd(context.locale.toString());
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 48),
             children: [
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                child: Row(
-                  children: [
-                    for (final key in inboxFilterKeys) ...[
-                      FilterChip(
-                        label: Text(
-                          key == 'all'
-                              ? 'inbox.filterAll'.tr()
-                              : key == 'no_channel'
-                                  ? 'inbox.noChannel'.tr()
-                                  : 'inbox.kind.$key'.tr(),
+              Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxWidth: AppTheme.contentWide,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      AppPageHeader(
+                        kicker: office.isEmpty ? when.format(DateTime.now()) : office,
+                        title: 'inbox.title'.tr(),
+                        subtitle: 'inbox.onDesk'.tr(
+                          namedArgs: {'count': '${shown.length}'},
                         ),
-                        selected: _filter == key,
-                        onSelected: (_) => setState(() => _filter = key),
                       ),
-                      const SizedBox(width: 8),
-                    ],
-                  ],
-                ),
-              ),
-              Expanded(
-                child: AppContent(
-                  padding: const EdgeInsets.fromLTRB(24, 4, 24, 48),
-                  child: shown.isEmpty
-                    ? Center(
-                        child: Text(
-                          rows.isEmpty
-                              ? 'inbox.empty'.tr()
-                              : 'inbox.emptyFilter'.tr(),
-                        ),
-                      )
-                    : ListView.separated(
-                        padding: EdgeInsets.zero,
-                        itemCount: shown.length,
-                        separatorBuilder: (context, index) =>
-                            const SizedBox(height: 8),
-                        itemBuilder: (context, i) {
-                          final row = shown[i];
-                          final canAsk =
-                              row.canPedir(nudgeIntervalDays: nudgeDays);
-                          return AppCard(
-                            onTap: () => _open(context, row),
-                            child: ListTile(
-                              title: Text(
-                                row.clienteNombre.isEmpty
-                                    ? 'inbox.unnamed'.tr()
-                                    : row.clienteNombre,
-                              ),
-                              subtitle: Text(_subtitle(row)),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (row.canSnooze)
-                                    IconButton(
-                                      tooltip: 'inbox.snooze'.tr(),
-                                      onPressed: () => _snooze(row),
-                                      icon: const Icon(Icons.snooze),
-                                    ),
-                                  FeatureGate(
-                                    module: GestoriaModule.messaging,
-                                    child: TextButton(
-                                      onPressed: () => _pedir(row, canAsk),
-                                      child: Text('inbox.askClient'.tr()),
-                                    ),
-                                  ),
-                                ],
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final key in inboxFilterKeys)
+                            AppStamp(
+                              label: key == 'all'
+                                  ? 'inbox.filterAll'.tr()
+                                  : key == 'no_channel'
+                                      ? 'inbox.noChannel'.tr()
+                                      : 'inbox.kind.$key'.tr(),
+                              selected: _filter == key,
+                              onTap: () => setState(() => _filter = key),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      if (shown.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 48),
+                          child: Text(
+                            rows.isEmpty
+                                ? 'inbox.empty'.tr()
+                                : 'inbox.emptyFilter'.tr(),
+                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                  color: AppTheme.pencil,
+                                ),
+                          ),
+                        )
+                      else
+                        for (final row in shown)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: _InboxSheet(
+                              row: row,
+                              onOpen: () => _open(context, row),
+                              onSnooze: row.canSnooze ? () => _snooze(row) : null,
+                              onAsk: () => _pedir(
+                                row,
+                                row.canPedir(nudgeIntervalDays: nudgeDays),
                               ),
                             ),
-                          );
-                        },
-                      ),
+                          ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -116,18 +107,6 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
         },
       ),
     );
-  }
-
-  String _subtitle(InboxRow row) {
-    final block = (row.plazoNote != null && row.plazoNote!.isNotEmpty)
-        ? row.plazoNote!
-        : 'blocks.${row.bloqueKey}'.tr();
-    final kind = 'inbox.kind.${row.itemKind}'.tr();
-    final parts = <String>[kind, block];
-    final day = inboxFechaIso(row.dueOn);
-    if (day.isNotEmpty) parts.add(day);
-    if (!row.hasChannel) parts.add('inbox.noChannel'.tr());
-    return parts.join(' · ');
   }
 
   Future<void> _snooze(InboxRow row) async {
@@ -256,5 +235,93 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
       return;
     }
     context.go('/clientes/${row.clienteId}/carpeta');
+  }
+}
+
+Color _inboxStripe(String kind) {
+  switch (kind) {
+    case 'overdue':
+      return AppTheme.urgent;
+    case 'due_today':
+      return AppTheme.accent;
+    case 'missing_document':
+    case 'missing_data':
+      return AppTheme.proposal;
+    case 'stale_expediente':
+      return AppTheme.pencil;
+    default:
+      return AppTheme.accent;
+  }
+}
+
+class _InboxSheet extends StatelessWidget {
+  const _InboxSheet({
+    required this.row,
+    required this.onOpen,
+    required this.onAsk,
+    this.onSnooze,
+  });
+
+  final InboxRow row;
+  final VoidCallback onOpen;
+  final VoidCallback onAsk;
+  final VoidCallback? onSnooze;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = row.clienteNombre.isEmpty
+        ? 'inbox.unnamed'.tr()
+        : row.clienteNombre;
+    final block = (row.plazoNote != null && row.plazoNote!.isNotEmpty)
+        ? row.plazoNote!
+        : 'blocks.${row.bloqueKey}'.tr();
+    final due = row.dueOn == null
+        ? null
+        : DateFormat.yMMMd(context.locale.toString()).format(row.dueOn!);
+    return AppCard(
+      stripe: _inboxStripe(row.itemKind),
+      onTap: onOpen,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 8, 12),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    [
+                      'inbox.kind.${row.itemKind}'.tr(),
+                      block,
+                      if (due != null) due,
+                      if (!row.hasChannel) 'inbox.noChannel'.tr(),
+                    ].join(' · '),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+            if (onSnooze != null)
+              IconButton(
+                tooltip: 'inbox.snooze'.tr(),
+                onPressed: onSnooze,
+                icon: const Icon(Icons.snooze_outlined),
+              ),
+            FeatureGate(
+              module: GestoriaModule.messaging,
+              child: TextButton(
+                onPressed: onAsk,
+                child: Text('inbox.askClient'.tr()),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

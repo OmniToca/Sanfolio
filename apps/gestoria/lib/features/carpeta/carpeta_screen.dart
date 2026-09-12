@@ -18,6 +18,7 @@ import '../ai/extract_text.dart';
 import '../expedientes/expediente_controller.dart';
 import '../expedientes/expediente_estado.dart';
 import '../inbox/inbox_providers.dart';
+import '../clientes/cliente_audit.dart';
 import '../settings/office_settings_controller.dart';
 import 'bloque_template.dart';
 import 'carpeta_controller.dart';
@@ -378,7 +379,7 @@ class _BloqueCardState extends ConsumerState<_BloqueCard> {
                   templateKey: template.key,
                   doc: doc,
                   clienteNombre: widget.clienteNombre,
-                  onOpen: () => _openDoc(context, ctrl, doc.storagePath),
+                  onOpen: () => _openDoc(context, ctrl, doc),
                   onRemove: () => _removeDoc(
                     context,
                     ctrl,
@@ -454,11 +455,20 @@ class _BloqueCardState extends ConsumerState<_BloqueCard> {
   Future<void> _openDoc(
     BuildContext context,
     CarpetaController ctrl,
-    String path,
+    CarpetaDocumento doc,
   ) async {
     try {
-      final url = await ctrl.signedUrl(path);
+      final url = await ctrl.signedUrl(doc.storagePath);
       if (url == null) throw StateError('url');
+      final tenantId = ctrl.state.valueOrNull?.tenantId;
+      if (tenantId != null) {
+        await auditDocumentoOpen(
+          documentId: doc.id,
+          tenantId: tenantId,
+          tipo: doc.tipo,
+          originalName: doc.originalName,
+        );
+      }
       await launchUrl(Uri.parse(url));
     } on Object {
       if (context.mounted) {

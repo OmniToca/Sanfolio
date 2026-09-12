@@ -23,18 +23,21 @@ class AppTheme {
   static const double radiusLg = 22;
   static const double radiusPill = 999;
   static const double railWidth = 92;
+  static const double aiPanelWidth = 360;
   static const double contentMax = 920;
   static const double contentWide = 1360;
   static const Color proposal = Color(0xFFFFF4C2);
+  static const Color urgent = Color(0xFFB42318);
+  static const Color scrim = Color(0x3D161412);
 
   static const String _ui = 'Plus Jakarta Sans';
   static const String _display = 'Fraunces';
 
   static List<BoxShadow> get cardShadow => const [
         BoxShadow(
-          color: Color(0x14000000),
-          blurRadius: 18,
-          offset: Offset(0, 8),
+          color: Color(0x0F000000),
+          blurRadius: 10,
+          offset: Offset(0, 3),
         ),
       ];
 
@@ -48,7 +51,7 @@ class AppTheme {
       onSurface: ink,
       onSurfaceVariant: pencil,
       outline: rule,
-      error: Color(0xFFB42318),
+      error: urgent,
     );
     final text = TextTheme(
       headlineSmall: const TextStyle(
@@ -116,7 +119,27 @@ class AppTheme {
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
+        titleSpacing: 24,
+        toolbarHeight: 64,
         titleTextStyle: text.titleLarge,
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: surface,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(radiusMd),
+          side: const BorderSide(color: rule),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: accent,
+          minimumSize: const Size(44, 40),
+          side: const BorderSide(color: rule),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(radiusSm),
+          ),
+        ),
       ),
       cardTheme: CardThemeData(
         color: surface,
@@ -179,7 +202,7 @@ class AppTheme {
         selectedShadowColor: Colors.transparent,
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(radiusPill),
+          borderRadius: BorderRadius.circular(radiusSm),
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
@@ -211,6 +234,18 @@ class AppTheme {
         labelStyle: text.labelLarge,
         unselectedLabelStyle: text.bodyMedium,
         tabAlignment: TabAlignment.start,
+      ),
+      searchBarTheme: SearchBarThemeData(
+        backgroundColor: const WidgetStatePropertyAll(surface),
+        elevation: const WidgetStatePropertyAll(0),
+        shadowColor: const WidgetStatePropertyAll(Colors.transparent),
+        overlayColor: const WidgetStatePropertyAll(surfaceMuted),
+        side: const WidgetStatePropertyAll(BorderSide(color: rule)),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(radiusSm),
+          ),
+        ),
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,

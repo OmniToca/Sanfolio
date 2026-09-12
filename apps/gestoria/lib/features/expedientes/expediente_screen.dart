@@ -10,6 +10,7 @@ import '../../core/auth/staff_role.dart';
 
 import '../../core/presentation/widgets/app_widgets.dart';
 import '../carpeta/carpeta_controller.dart';
+import '../clientes/cliente_audit.dart';
 import 'expediente_controller.dart';
 import 'expediente_estado.dart';
 import '../inbox/inbox_providers.dart';
@@ -144,7 +145,7 @@ class _ExpedienteScreenState extends ConsumerState<ExpedienteScreen> {
                         IconButton(
                           tooltip: 'folder.open'.tr(),
                           icon: const Icon(Icons.open_in_new),
-                          onPressed: () => _openDoc(doc.storagePath),
+                          onPressed: () => _openDoc(doc),
                         ),
                         IconButton(
                           tooltip: 'folder.remove'.tr(),
@@ -271,12 +272,22 @@ class _ExpedienteScreenState extends ConsumerState<ExpedienteScreen> {
     }
   }
 
-  Future<void> _openDoc(String path) async {
+  Future<void> _openDoc(CarpetaDocumento doc) async {
     try {
       final url = await ref
           .read(thinExpedienteProvider(widget.expedienteId).notifier)
-          .signedUrl(path);
+          .signedUrl(doc.storagePath);
       if (url == null) throw StateError('url');
+      final view =
+          ref.read(thinExpedienteProvider(widget.expedienteId)).valueOrNull;
+      if (view != null) {
+        await auditDocumentoOpen(
+          documentId: doc.id,
+          tenantId: view.tenantId,
+          tipo: doc.tipo,
+          originalName: doc.originalName,
+        );
+      }
       await launchUrl(Uri.parse(url));
     } on Object {
       if (mounted) _toast('folder.openError'.tr());

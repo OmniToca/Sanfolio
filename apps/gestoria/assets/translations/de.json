@@ -34,6 +34,11 @@
     "staffLocale": "Sprache der Oberfläche",
     "staffLocaleHint": "Gilt nur für Sie. Die Mandantensprache steht auf der Karte.",
     "cronHint": "Entwürfe entstehen jeden Morgen um 7:00 Madrid. Sie senden, nicht der Cron.",
+    "groupTax": "Steuern und IBI / SUMA",
+    "groupCover": "Versicherung, Alarm und Poder",
+    "groupFollowup": "Erinnerungen und Akten",
+    "outboundTitle": "Ausgangsnachrichten",
+    "inviteTitle": "Kollegen einladen",
     "team": "Büro-Personen",
     "teamHint": "Der Owner lädt Gestor oder Asistente ein. Höchstens drei. Asistente blendet keine Akte aus.",
     "invite": "Einladen",
@@ -93,6 +98,7 @@
   },
   "inbox": {
     "title": "Heute",
+    "onDesk": "{count} auf dem Schreibtisch",
     "empty": "Keine Fristen und keine Lücken. Öffnen Sie eine Mappe oder legen Sie einen Mandanten an.",
     "loadError": "Der Posteingang konnte nicht geladen werden.",
     "unnamed": "Mandant",
@@ -130,6 +136,7 @@
   },
   "clients": {
     "title": "Mandanten",
+    "onShelf": "{count} Mappen",
     "searchHint": "NIE, Name, Y123**6E…",
     "empty": "Noch keine Mappe.",
     "newFolder": "Neue Mappe",
@@ -143,6 +150,7 @@
     "createError": "Die Mappe konnte nicht angelegt werden.",
     "locale": "Sprache des Mandanten",
     "cardTitle": "Mandant",
+    "identity": "Angaben",
     "cardLoadError": "Die Mandantenkarte konnte nicht geladen werden.",
     "openFolder": "Mappe öffnen",
     "save": "Speichern",
@@ -171,7 +179,7 @@
   },
   "audit": {
     "title": "Audit",
-    "hint": "Wer geöffnet, geändert oder gesendet hat. Einträge werden nicht gelöscht.",
+    "hint": "Wer Karte, Mappe oder Datei geöffnet hat. Uploads zeigen welches Dokument. Einträge werden nicht gelöscht.",
     "empty": "Noch keine Einträge.",
     "loadError": "Das Audit konnte nicht geladen werden.",
     "system": "System",
@@ -179,6 +187,7 @@
     "action": {
       "clientes": {
         "open": "Karte geöffnet",
+        "openCarpeta": "Mappe geöffnet",
         "insert": "Mandant angelegt",
         "update": "Karte geändert",
         "soft_delete": "Mappe versteckt",
@@ -192,6 +201,7 @@
       },
       "documentos": {
         "insert": "Dokument hochgeladen",
+        "open": "Dokument geöffnet",
         "update": "Dokument geändert",
         "soft_delete": "Dokument versteckt"
       },
@@ -376,12 +386,12 @@
       "otros": "Otros"
     },
     "estado": {
-      "abierto": "Abierto",
-      "en_curso": "En curso",
-      "espera_cliente": "Espera cliente",
-      "espera_admin": "Espera admin",
-      "hecho": "Hecho",
-      "archivado": "Archivado"
+      "abierto": "Offen",
+      "en_curso": "In Bearbeitung",
+      "espera_cliente": "Wartet auf Mandanten",
+      "espera_admin": "Wartet auf Behörde",
+      "hecho": "Erledigt",
+      "archivado": "Archiviert"
     },
     "periodicidad": {
       "trimestral": "Trimestral",
@@ -430,6 +440,12 @@
     "ask": "Zu Dokumenten fragen",
     "factsTitle": "Gespeicherte Dokumente — {name}",
     "factsEmpty": "Für diesen Mandanten sind noch keine Dokumentfelder gespeichert. Datei anhängen und den Vorschlag speichern.",
-    "factsNone": "Zu diesem Namen wurde niemand gefunden."
+    "factsNone": "Zu diesem Namen wurde niemand gefunden.",
+    "newThread": "Neuer Verlauf",
+    "closePanel": "Assistent ausblenden",
+    "emptyThread": "Fragen Sie nach einem Mandanten, NIE oder Dokument. Sie speichern — nichts schreibt oder sendet von selbst.",
+    "send": "Senden",
+    "savedHint": "Dieser Verlauf wird in Ihrem Büro gespeichert.",
+    "writeError": "Der Verlauf konnte nicht gespeichert werden."
   }
 }

@@ -34,6 +34,11 @@
     "staffLocale": "Jazyk obrazovky",
     "staffLocaleHint": "Platí jen pro vás. Jazyk klienta je na jeho kartě.",
     "cronHint": "Návrhy výzev se chystají každé ráno v 7:00 Madrid. Odesíláte vy, ne cron.",
+    "groupTax": "Daně a IBI / SUMA",
+    "groupCover": "Pojištění, alarm a poder",
+    "groupFollowup": "Výzvy a spisy",
+    "outboundTitle": "Odchozí zprávy",
+    "inviteTitle": "Pozvat kolegu",
     "team": "Lidé kanceláře",
     "teamHint": "Owner zve gestor nebo asistente. Nejvýš tři. Asistente neschová spis.",
     "invite": "Pozvat",
@@ -93,6 +98,7 @@
   },
   "inbox": {
     "title": "Dnes",
+    "onDesk": "{count} na stole",
     "empty": "Žádné termíny ani díry. Otevřete složku nebo založte klienta.",
     "loadError": "Inbox se nepodařilo načíst.",
     "unnamed": "Klient",
@@ -130,6 +136,7 @@
   },
   "clients": {
     "title": "Klienti",
+    "onShelf": "{count} složek",
     "searchHint": "NIE, jméno, Y123**6E…",
     "empty": "Zatím žádná složka.",
     "newFolder": "Nová složka",
@@ -143,6 +150,7 @@
     "createError": "Složku se nepodařilo založit.",
     "locale": "Jazyk klienta",
     "cardTitle": "Klient",
+    "identity": "Údaje",
     "cardLoadError": "Kartu klienta se nepodařilo načíst.",
     "openFolder": "Otevřít složku",
     "save": "Uložit",
@@ -171,7 +179,7 @@
   },
   "audit": {
     "title": "Audit",
-    "hint": "Kdo otevřel, změnil nebo odeslal. Záznam se nemaže.",
+    "hint": "Kdo otevřel kartu, složku nebo dokument. U nahrání je vidět který soubor. Záznam se nemaže.",
     "empty": "Zatím žádný záznam.",
     "loadError": "Audit se nepodařilo načíst.",
     "system": "Systém",
@@ -179,6 +187,7 @@
     "action": {
       "clientes": {
         "open": "Otevření karty",
+        "openCarpeta": "Otevření složky",
         "insert": "Založení klienta",
         "update": "Změna karty",
         "soft_delete": "Schování složky",
@@ -192,6 +201,7 @@
       },
       "documentos": {
         "insert": "Nahrání dokumentu",
+        "open": "Otevření dokumentu",
         "update": "Úprava dokumentu",
         "soft_delete": "Schování dokumentu"
       },
@@ -376,12 +386,12 @@
       "otros": "Otros"
     },
     "estado": {
-      "abierto": "Abierto",
-      "en_curso": "En curso",
-      "espera_cliente": "Espera cliente",
-      "espera_admin": "Espera admin",
-      "hecho": "Hecho",
-      "archivado": "Archivado"
+      "abierto": "Otevřený",
+      "en_curso": "Probíhá",
+      "espera_cliente": "Čeká na klienta",
+      "espera_admin": "Čeká na úřad",
+      "hecho": "Hotovo",
+      "archivado": "Archivováno"
     },
     "periodicidad": {
       "trimestral": "Trimestral",
@@ -430,6 +440,12 @@
     "ask": "Zeptat se na doklady",
     "factsTitle": "Uložené doklady — {name}",
     "factsEmpty": "U tohoto klienta zatím nejsou uložená pole z dokladů. Nejdřív přiložte soubor a uložte návrh.",
-    "factsNone": "Nikoho s takovým jménem jsem nenašel."
+    "factsNone": "Nikoho s takovým jménem jsem nenašel.",
+    "newThread": "Nové vlákno",
+    "closePanel": "Skrýt asistenta",
+    "emptyThread": "Zeptejte se na klienta, NIE nebo doklad. Uložíte vy — nic se samo nezapíše ani neodešle.",
+    "send": "Odeslat",
+    "savedHint": "Rozhovor se ukládá u vás v kanceláři.",
+    "writeError": "Rozhovor se nepodařilo uložit."
   }
 }

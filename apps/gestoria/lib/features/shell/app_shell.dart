@@ -7,7 +7,8 @@ import 'package:go_router/go_router.dart';
 import '../../core/modules/feature_gate.dart';
 import '../../core/modules/module_catalog.dart';
 import '../../core/theme/app_theme.dart';
-import '../ai/ai_sheet.dart';
+import '../ai/ai_chat.dart';
+import '../ai/ai_panel.dart';
 
 class AppShell extends ConsumerWidget {
   const AppShell({super.key, required this.child});
@@ -26,11 +27,31 @@ class AppShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final location = GoRouterState.of(context).uri.path;
     final selected = _indexFor(location);
-    final wide = MediaQuery.sizeOf(context).width >= 720;
-    final impersonation =
-        ref.watch(authControllerProvider).valueOrNull?.impersonation;
+    final size = MediaQuery.sizeOf(context);
+    final wide = size.width >= 720;
+    final impersonation = ref
+        .watch(authControllerProvider)
+        .valueOrNull
+        ?.impersonation;
+    final aiOn = ref
+        .watch(tenantConfigProvider)
+        .maybeWhen(
+          data: (c) => c.isOn(GestoriaModule.aiCopilot),
+          orElse: () => false,
+        );
+    final panelOpen =
+        aiOn &&
+        aiPanelVisible(
+          width: size.width,
+          preference: ref.watch(aiPanelOpenProvider),
+        );
+    final docked = panelOpen && aiPanelDocked(size.width);
 
     void goIndex(int i) => context.go(_paths[i]);
+
+    void toggleAi() {
+      ref.read(aiPanelOpenProvider.notifier).state = !panelOpen;
+    }
 
     final destinations = [
       NavigationDestination(
@@ -39,15 +60,21 @@ class AppShell extends ConsumerWidget {
         label: 'nav.inbox'.tr(),
       ),
       NavigationDestination(
-        icon: const Icon(Icons.people_outline),
-        selectedIcon: const Icon(Icons.people),
+        icon: const Icon(Icons.folder_outlined),
+        selectedIcon: const Icon(Icons.folder),
         label: 'nav.clients'.tr(),
       ),
       NavigationDestination(
-        icon: const Icon(Icons.settings_outlined),
-        selectedIcon: const Icon(Icons.settings),
+        icon: const Icon(Icons.tune_outlined),
+        selectedIcon: const Icon(Icons.tune),
         label: 'nav.settings'.tr(),
       ),
+      if (aiOn)
+        NavigationDestination(
+          icon: const Icon(Icons.auto_awesome_outlined),
+          selectedIcon: const Icon(Icons.auto_awesome),
+          label: 'ai.title'.tr(),
+        ),
     ];
 
     final banner = impersonation == null
@@ -78,36 +105,77 @@ class AppShell extends ConsumerWidget {
       );
     }
 
-    Widget fab() => FeatureGate(
-          module: GestoriaModule.aiCopilot,
-          child: FloatingActionButton(
-            tooltip: 'ai.title'.tr(),
-            onPressed: () => openAiSheet(context, ref),
-            child: const Icon(Icons.auto_awesome),
-          ),
-        );
+    Widget wrapPanel({required double width}) {
+      return DecoratedBox(
+        decoration: const BoxDecoration(
+          border: Border(left: BorderSide(color: AppTheme.rule)),
+        ),
+        child: SizedBox(
+          width: width,
+          child: AiPanel(onClose: toggleAi),
+        ),
+      );
+    }
+
+    Widget withOverlay(Widget body, {required bool show}) {
+      if (!show) return body;
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth < AppTheme.aiPanelWidth
+              ? constraints.maxWidth
+              : AppTheme.aiPanelWidth;
+          return Stack(
+            children: [
+              body,
+              Positioned.fill(
+                child: GestureDetector(
+                  onTap: toggleAi,
+                  child: const ColoredBox(color: AppTheme.scrim),
+                ),
+              ),
+              Positioned(
+                top: 0,
+                right: 0,
+                bottom: 0,
+                width: width,
+                child: wrapPanel(width: width),
+              ),
+            ],
+          );
+        },
+      );
+    }
 
     if (!wide) {
       return Scaffold(
-        body: withBanner(child),
-        floatingActionButton: fab(),
-        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+        body: withBanner(withOverlay(child, show: panelOpen)),
         bottomNavigationBar: NavigationBar(
-          selectedIndex: selected,
-          onDestinationSelected: goIndex,
+          selectedIndex: panelOpen ? destinations.length - 1 : selected,
+          onDestinationSelected: (i) {
+            if (aiOn && i == 3) {
+              toggleAi();
+              return;
+            }
+            goIndex(i);
+          },
           destinations: destinations,
         ),
       );
     }
 
     return Scaffold(
-      floatingActionButton: fab(),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       body: withBanner(
         Row(
           children: [
-            _OfficeRail(selected: selected, onSelect: goIndex),
-            Expanded(child: child),
+            _OfficeRail(
+              selected: selected,
+              aiSelected: panelOpen,
+              showAi: aiOn,
+              onSelect: goIndex,
+              onAi: toggleAi,
+            ),
+            Expanded(child: withOverlay(child, show: panelOpen && !docked)),
+            if (docked) wrapPanel(width: AppTheme.aiPanelWidth),
           ],
         ),
       ),
@@ -117,17 +185,26 @@ class AppShell extends ConsumerWidget {
 
 /// Levý pruh. Tmavý kvůli kontrastu k papírové ploše, ne kvůli dark mode.
 class _OfficeRail extends StatelessWidget {
-  const _OfficeRail({required this.selected, required this.onSelect});
+  const _OfficeRail({
+    required this.selected,
+    required this.aiSelected,
+    required this.showAi,
+    required this.onSelect,
+    required this.onAi,
+  });
 
   final int selected;
+  final bool aiSelected;
+  final bool showAi;
   final ValueChanged<int> onSelect;
+  final VoidCallback onAi;
 
   @override
   Widget build(BuildContext context) {
     final items = [
       (Icons.inbox_outlined, Icons.inbox, 'nav.inbox'.tr()),
-      (Icons.people_outline, Icons.people, 'nav.clients'.tr()),
-      (Icons.settings_outlined, Icons.settings, 'nav.settings'.tr()),
+      (Icons.folder_outlined, Icons.folder, 'nav.clients'.tr()),
+      (Icons.tune_outlined, Icons.tune, 'nav.settings'.tr()),
     ];
     return ColoredBox(
       color: AppTheme.nav,
@@ -136,18 +213,21 @@ class _OfficeRail extends StatelessWidget {
         child: SafeArea(
           child: Column(
             children: [
-              const SizedBox(height: 20),
+              const SizedBox(height: 22),
               Container(
-                width: 40,
-                height: 40,
+                width: 42,
+                height: 42,
+                alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: AppTheme.navSelected,
+                  color: AppTheme.navInk,
                   borderRadius: BorderRadius.circular(AppTheme.radiusSm),
                 ),
-                child: const Icon(
-                  Icons.folder_open_rounded,
-                  color: AppTheme.navInk,
-                  size: 22,
+                child: Text(
+                  'S',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: AppTheme.nav,
+                    height: 1,
+                  ),
                 ),
               ),
               const SizedBox(height: 28),
@@ -158,6 +238,18 @@ class _OfficeRail extends StatelessWidget {
                   selected: selected == i,
                   onTap: () => onSelect(i),
                 ),
+              const Spacer(),
+              if (showAi)
+                FeatureGate(
+                  module: GestoriaModule.aiCopilot,
+                  child: _RailItem(
+                    icon: Icons.auto_awesome,
+                    label: 'ai.title'.tr(),
+                    selected: aiSelected,
+                    onTap: onAi,
+                  ),
+                ),
+              const SizedBox(height: 16),
             ],
           ),
         ),
@@ -198,13 +290,15 @@ class _RailItem extends StatelessWidget {
                   Icon(
                     icon,
                     color: selected ? AppTheme.navInk : AppTheme.navMuted,
+                    size: 22,
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 6),
                   Text(
                     label,
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 11,
+                      letterSpacing: 0.2,
                       fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
                       color: selected ? AppTheme.navInk : AppTheme.navMuted,
                     ),

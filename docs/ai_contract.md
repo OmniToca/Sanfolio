@@ -149,7 +149,11 @@ Přílohy: jen Storage paths tenantu. Max velikost a MIME: jpeg, png, webp, pdf.
 
 ## 6. UI kontrakt (Flutter)
 
-Globální chat (FAB, vzor OmniToca Cloud). Stream textu + side-effects:
+Trvalý panel vpravo (na širokém stole dockovaný, na úzkém překryv). Žádný FAB — ať se nepřekrývá s „Nová složka“. Lišta / položka Asistent panel jen přepíná.
+
+Turny se ukládají do `ai_conversations` + `ai_messages` (soft-delete, scoped na uživatele v UI). Stream `ai-assistant` je smlouva níže; dokud funkce není, panel ukládá search / facts / extract jako čitelné zprávy.
+
+Side-effects:
 
 | Event | Klient |
 | --- | --- |
