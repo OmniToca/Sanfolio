@@ -1,0 +1,20 @@
+name: gestoria_auth
+description: Společné přihlášení, PortalUrls a handoff Support → kancelář.
+publish_to: "none"
+version: 0.1.0
+
+environment:
+  sdk: ^3.12.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  easy_localization: ^3.0.7
+  flutter_riverpod: ^2.6.1
+  supabase_flutter: ^2.9.1
+  web: ^1.1.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0

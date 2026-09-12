@@ -1,0 +1,29 @@
+---
+description: Clean Architecture, Riverpod, feature-first, žádné feature-to-feature zkratky
+globs: apps/**/*.dart
+alwaysApply: false
+---
+
+# Clean Architecture
+
+```
+apps/gestoria/lib/
+  app/                 # composition root
+  core/                # theme, routing, i18n, widgets kit, modules/registry
+  features/<name>/{domain,data,presentation}
+```
+
+`presentation → domain ← data`. Feature A nesmí importovat `data/` ani `presentation/` feature B. Sdílet přes `core/` nebo domain entity.
+
+Každá mutace = use-case (i když zatím volá Supabase přímo v data vrstvě). UI nevolá `supabase.from`.
+
+```dart
+// BAD
+await supabase.from('clientes').update(map);
+
+// GOOD
+await ref.read(updateClienteProvider).execute(cmd);
+```
+
+Riverpod: Notifier / AsyncNotifier. Žádný Bloc, GetX, app-wide `setState`.
+Aditivní vývoj: nemazat funkční kód. Migrace jen ADD COLUMN / nové tabulky.

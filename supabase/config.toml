@@ -1,0 +1,34 @@
+# Gestoría OS — Supabase projekt (EU). Po `supabase link` stačí `supabase db push`.
+
+project_id = "pjkxfdukqaehgwivetfs"
+
+[api]
+enabled = true
+
+[auth]
+enabled = true
+site_url = "http://localhost:5555"
+additional_redirect_urls = [
+  "http://localhost:5555",
+  "http://localhost:5555/**",
+  "http://localhost:5555/#/reset-password",
+  "http://localhost:5556/**",
+]
+
+[functions.create-office]
+verify_jwt = true
+
+[functions.translate-message]
+verify_jwt = true
+
+[functions.plazo-reminders]
+verify_jwt = false
+
+[functions.invite-staff]
+verify_jwt = true
+
+[functions.extract-document]
+verify_jwt = true
+
+[functions.ai-draft-message]
+verify_jwt = true

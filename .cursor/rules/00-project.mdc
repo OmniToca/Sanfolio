@@ -1,0 +1,16 @@
+---
+description: Gestoría OS — pilíře, stack, co nesmíme
+alwaysApply: true
+---
+
+# Gestoría OS
+
+SaaS pro španělské gestoría. Flutter web je tenký klient. Žádný offline, žádný Drift.
+
+Pilíře: papírová složka; tužka = blok; AI jen search/open/prefill; soft-delete; append-only audit; i18n JSON od dne 1; moduly + sloty, ne JSON layout engine.
+
+Stack: Flutter web, Riverpod, go_router, easy_localization, Supabase (Postgres, RLS, Edge Functions). Peníze = integer cents. ID = UUID. Čas v DB = timestamptz UTC, termíny `date` v Europe/Madrid.
+
+Kancelář (staff) UI: cs / en / es / de / fr. Klient má `locale`. Úřední názvy (NIE, escritura) se nepřekládají pryč.
+
+NIKDY: hard delete, AI save/delete/send, VeriFactu vlastní SIF, IndexedDB, nativní app, volný page-builder, hardcoded UI text.

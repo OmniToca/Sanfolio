@@ -1,0 +1,17 @@
+---
+description: Design kit, tokeny AppTheme, žádné nahodilé barvy ve features
+globs: apps/**/*.dart
+alwaysApply: false
+---
+
+# UI kit
+
+Jediné tokeny: `lib/core/theme/app_theme.dart`.
+Ve `features/` zákaz `Color(0xFF…)` a `BorderRadius.circular(<číslo>)`.
+
+Obrazovky skládají kit (`AppCard`, `AppTextField`, `AppButton`, `FeatureGate`) + data.
+Hit target ≥ 44. TextScaler honit. Nepoužívat FittedBox na celou obrazovku.
+
+Copy jen `.tr()`. Po změně JSON překladů Hot Restart.
+
+Modul nesmí kreslit vlastní shell. Přispívá jen do slotu.

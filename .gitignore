@@ -1,0 +1,29 @@
+# Dart
+.dart_tool/
+.packages
+build/
+pubspec.lock
+
+# Flutter
+**/doc/api/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+**/flutter_*.log
+
+# IDE
+.idea/
+*.iml
+
+# Env / secrets
+.env
+env.txt
+**/env.txt
+config.json
+
+# OS
+.DS_Store
+
+# Supabase
+supabase/.temp/

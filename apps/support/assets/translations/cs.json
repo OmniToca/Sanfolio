@@ -1,0 +1,28 @@
+{
+  "app": { "title": "Gestoría Support" },
+  "error": { "notFound": "Stránka neexistuje" },
+  "auth": {
+    "intro": "Interní HQ. Bez impersonace nevidíte klienty kanceláře.",
+    "email": "E-mail",
+    "password": "Heslo",
+    "signIn": "Přihlásit",
+    "signOut": "Odhlásit",
+    "cancel": "Zrušit",
+    "notConfigured": "Chybí config.json (SUPABASE_URL a SUPABASE_ANON_KEY).",
+    "forbidden": "Tento účet není Support."
+  },
+  "tenants": {
+    "title": "Kanceláře",
+    "empty": "Zatím žádná kancelář.",
+    "new": "Nová kancelář",
+    "create": "Založit",
+    "officeName": "Název",
+    "ownerEmail": "E-mail ownera",
+    "detail": "Kancelář",
+    "impersonate": "Převtělit se",
+    "impersonateHint": "Otevře kancelářskou aplikaci se stejným účtem. Do URL jde refresh_token (hash), jinak druhá origin nemá přihlášení.",
+    "reason": "Důvod (povinný)",
+    "note": "Poznámka",
+    "reasonRequired": "Důvod je povinný."
+  }
+}

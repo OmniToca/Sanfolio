@@ -1,0 +1,19 @@
+---
+description: i18n, jazyk klienta, moduly, sloty, tenant settings
+alwaysApply: true
+---
+
+# i18n, moduly, nastavení
+
+## Jazyky
+- Zákaz hardcoded UI textů. Jen `easy_localization` + `assets/translations/{cs,en,es,de,fr}.json`.
+- Staff locale (kancelář) ≠ `clientes.locale` (klient).
+- Zpráva: ulož `body_original` + `locale_original`. Při odeslání Edge Function doplní `translations[client.locale]`. E-mail/WhatsApp = kopie. Klientská zóna (až bude) ukáže originál i překlad. AI nesmí odeslat.
+
+## Moduly
+Každý modul = klíč + FeatureGate + widgety do **pojmenovaných slotů** (`inbox.feed`, `cliente.tabs`, `carpeta.blocks`, `settings.section`).
+Kancelář zapíná moduly v `organization_modules`. Pořadí widgetů ve slotu = `tenant_settings.slot_order`.
+**Zákaz JSON layout engine** (lekce OmniToca). Žádný drag-drop builder, dokud sloty + kit nestačí.
+
+## Nastavení kanceláře
+Lhůty, povinné dokumenty, dny připomínek žijí v `tenant_settings` / override `plazo_rules`. Default v katalogu, kancelář přepíše. Nehardcodovat 30 dní plusvalía v UI.

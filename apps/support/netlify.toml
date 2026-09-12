@@ -1,0 +1,10 @@
+# Flutter web SPA. Build env: dart-define-from-file with SUPABASE_* and app URLs.
+
+[build]
+  command = "flutter build web --release --dart-define-from-file=../../config.json"
+  publish = "build/web"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

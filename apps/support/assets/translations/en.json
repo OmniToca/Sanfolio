@@ -1,0 +1,28 @@
+{
+  "app": { "title": "Gestoría Support" },
+  "error": { "notFound": "Page not found" },
+  "auth": {
+    "intro": "Internal HQ. Without impersonation you cannot see office clients.",
+    "email": "Email",
+    "password": "Password",
+    "signIn": "Sign in",
+    "signOut": "Sign out",
+    "cancel": "Cancel",
+    "notConfigured": "Missing config.json (SUPABASE_URL and SUPABASE_ANON_KEY).",
+    "forbidden": "This account is not Support."
+  },
+  "tenants": {
+    "title": "Offices",
+    "empty": "No office yet.",
+    "new": "New office",
+    "create": "Create",
+    "officeName": "Name",
+    "ownerEmail": "Owner email",
+    "detail": "Office",
+    "impersonate": "Impersonate",
+    "impersonateHint": "Opens the office app with the same account. The refresh_token goes in the URL hash; otherwise the other origin has no session.",
+    "reason": "Reason (required)",
+    "note": "Note",
+    "reasonRequired": "A reason is required."
+  }
+}

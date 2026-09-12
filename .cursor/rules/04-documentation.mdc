@@ -1,0 +1,16 @@
+---
+description: Dokumentace, české komentáře, slovnik_modulu, schema
+alwaysApply: true
+---
+
+# Dokumentace
+
+Před novým modulem/tabulkou tiše přečti `docs/ai_context/slovnik_modulu.md` a `docs/database_schema.md`. Nevymýšlej duplicitu.
+
+- Změna SQL → `docs/database_schema.md`
+- Nový modul / slot / provider → `docs/ai_context/slovnik_modulu.md`
+- Změna architektury → `docs/modules_settings_i18n.md` nebo `docs/product_bible.md`
+
+Komentáře v kódu česky, `///` u tříd a netriviální logiky. Vysvětluj PROČ.
+
+Na konci úkolu musí jít `flutter test` (nebo analyze) bez červených chyb. Nehádej.
