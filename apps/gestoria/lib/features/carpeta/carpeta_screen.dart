@@ -91,11 +91,14 @@ class CarpetaScreen extends ConsumerWidget {
             actions: [
               FeatureGate(
                 module: GestoriaModule.messaging,
-                child: IconButton(
-                  tooltip: 'messages.title'.tr(),
-                  icon: const Icon(Icons.mail_outline),
-                  onPressed: () =>
-                      context.go('/clientes/$clienteId/mensaje'),
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: FilledButton.tonalIcon(
+                    onPressed: () =>
+                        context.go('/clientes/$clienteId/mensaje'),
+                    icon: const Icon(Icons.mail_outline, size: 18),
+                    label: Text('clients.writeEmail'.tr()),
+                  ),
                 ),
               ),
             ],
@@ -581,6 +584,7 @@ class _BloqueCardState extends ConsumerState<_BloqueCard> {
     final state = widget.state;
     final status = bloqueUiStatus(state.dbStatus);
     final ctrl = ref.read(carpetaControllerProvider(widget.target).notifier);
+    final papers = _sortedPapers(state.documents);
     return AppCard(
       margin: const EdgeInsets.only(bottom: 12),
       emphasized: state.enabled,
@@ -675,7 +679,7 @@ class _BloqueCardState extends ConsumerState<_BloqueCard> {
                     ),
                   ),
                 ),
-              if (state.documents.isNotEmpty)
+              if (state.documents.isNotEmpty) ...[
                 Padding(
                   padding: const EdgeInsets.only(top: 4, bottom: 8),
                   child: Text(
@@ -683,20 +687,29 @@ class _BloqueCardState extends ConsumerState<_BloqueCard> {
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
-              for (final doc in _sortedPapers(state.documents))
-                _DocumentoForm(
-                  target: widget.target,
-                  templateKey: template.key,
-                  doc: doc,
-                  clienteNombre: widget.clienteNombre,
-                  onOpen: () => _openDoc(context, ctrl, doc),
-                  onRemove: () => _removeDoc(
-                    context,
-                    ctrl,
-                    template.key,
-                    doc.id,
-                  ),
+                PreviewThenHistory(
+                  itemCount: papers.length,
+                  gap: 0,
+                  expandLabel: 'common.history'.tr(),
+                  collapseLabel: 'common.historyHide'.tr(),
+                  builder: (context, i) {
+                    final doc = papers[i];
+                    return _DocumentoForm(
+                      target: widget.target,
+                      templateKey: template.key,
+                      doc: doc,
+                      clienteNombre: widget.clienteNombre,
+                      onOpen: () => _openDoc(context, ctrl, doc),
+                      onRemove: () => _removeDoc(
+                        context,
+                        ctrl,
+                        template.key,
+                        doc.id,
+                      ),
+                    );
+                  },
                 ),
+              ],
             ],
           ],
         ),

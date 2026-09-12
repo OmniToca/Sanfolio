@@ -7,6 +7,10 @@
     "clients": "Clients",
     "settings": "Settings"
   },
+  "common": {
+    "history": "History",
+    "historyHide": "Show less"
+  },
   "settings": {
     "title": "Office settings",
     "tabOffice": "Office",
@@ -153,6 +157,7 @@
     "identity": "Details",
     "cardLoadError": "Could not load the client card.",
     "openFolder": "Open folder",
+    "writeEmail": "Email",
     "save": "Save",
     "saved": "Saved.",
     "saveError": "Could not save the card.",

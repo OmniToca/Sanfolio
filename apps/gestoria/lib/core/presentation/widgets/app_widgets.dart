@@ -349,3 +349,71 @@ class AppStamp extends StatelessWidget {
     );
   }
 }
+
+/// Kolik řádků ukázat, než je zbytek pod Historie.
+int historyPreviewCount(
+  int total, {
+  required bool expanded,
+  int preview = 10,
+}) {
+  if (total <= 0) return 0;
+  if (expanded || total <= preview) return total;
+  return preview;
+}
+
+/// Posledních [preview] řádků na stole. Starší pod tlačítkem, ať karta nenabobtná.
+class PreviewThenHistory extends StatefulWidget {
+  const PreviewThenHistory({
+    super.key,
+    required this.itemCount,
+    required this.builder,
+    required this.expandLabel,
+    required this.collapseLabel,
+    this.preview = 10,
+    this.gap = 8,
+  });
+
+  final int itemCount;
+  final Widget Function(BuildContext context, int index) builder;
+  final String expandLabel;
+  final String collapseLabel;
+  final int preview;
+  final double gap;
+
+  @override
+  State<PreviewThenHistory> createState() => _PreviewThenHistoryState();
+}
+
+class _PreviewThenHistoryState extends State<PreviewThenHistory> {
+  var _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final visible = historyPreviewCount(
+      widget.itemCount,
+      expanded: _expanded,
+      preview: widget.preview,
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var i = 0; i < visible; i++) ...[
+          if (i > 0) SizedBox(height: widget.gap),
+          widget.builder(context, i),
+        ],
+        if (widget.itemCount > widget.preview) ...[
+          const SizedBox(height: 4),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: () => setState(() => _expanded = !_expanded),
+              child: Text(
+                _expanded ? widget.collapseLabel : widget.expandLabel,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}

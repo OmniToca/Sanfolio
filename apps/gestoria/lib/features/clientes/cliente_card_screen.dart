@@ -104,35 +104,11 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
       data: (card) {
         _fill(card);
         _scheduleExtracts(card);
+        final messagingOn = ref.watch(tenantConfigProvider).maybeWhen(
+          data: (c) => c.isOn(GestoriaModule.messaging),
+          orElse: () => false,
+        );
         return Scaffold(
-          appBar: AppBar(
-            title: Text(
-              card.nombre.isEmpty ? 'clients.cardTitle'.tr() : card.nombre,
-            ),
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back),
-              onPressed: () => context.go('/clientes'),
-            ),
-            actions: [
-              if (!card.deleted)
-                IconButton(
-                  tooltip: 'clients.openFolder'.tr(),
-                  icon: const Icon(Icons.folder_open),
-                  onPressed: () =>
-                      context.go('/clientes/${widget.clienteId}/carpeta'),
-                ),
-              if (!card.deleted)
-                FeatureGate(
-                  module: GestoriaModule.messaging,
-                  child: IconButton(
-                    tooltip: 'messages.title'.tr(),
-                    icon: const Icon(Icons.mail_outline),
-                    onPressed: () =>
-                        context.go('/clientes/${widget.clienteId}/mensaje'),
-                  ),
-                ),
-            ],
-          ),
           body: LayoutBuilder(
             builder: (context, constraints) {
               final wide = constraints.maxWidth >= 1100;
@@ -147,6 +123,7 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
+                          _cardHeader(card, messagingOn: messagingOn),
                           if (card.deleted) ...[
                             AppCard(
                               child: ListTile(
@@ -225,6 +202,60 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
           ),
         );
       },
+    );
+  }
+
+  /// Složka a e-mail jako popsaná tlačítka, ne jako dvě ikony v AppBar.
+  Widget _cardHeader(ClienteCard card, {required bool messagingOn}) {
+    final nie = card.nie?.trim();
+    final subtitle = [
+      if ((card.email ?? '').trim().isNotEmpty) card.email!.trim(),
+      if ((card.tel ?? '').trim().isNotEmpty) card.tel!.trim(),
+    ].join(' · ');
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: () => context.go('/clientes'),
+            icon: const Icon(Icons.arrow_back, size: 18),
+            label: Text('nav.clients'.tr()),
+          ),
+        ),
+        AppPageHeader(
+          kicker: nie == null || nie.isEmpty ? 'clients.cardTitle'.tr() : nie,
+          title: card.nombre.isEmpty ? 'clients.cardTitle'.tr() : card.nombre,
+          subtitle: subtitle.isEmpty ? null : subtitle,
+          bottom: card.deleted
+              ? null
+              : Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: () => context.go(
+                          '/clientes/${widget.clienteId}/carpeta',
+                        ),
+                        icon: const Icon(Icons.folder_open, size: 18),
+                        label: Text('clients.openFolder'.tr()),
+                      ),
+                    ),
+                    if (messagingOn) ...[
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => context.go(
+                            '/clientes/${widget.clienteId}/mensaje',
+                          ),
+                          icon: const Icon(Icons.mail_outline, size: 18),
+                          label: Text('clients.writeEmail'.tr()),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+        ),
+      ],
     );
   }
 
@@ -1361,9 +1392,11 @@ class _ClienteAuditSection extends ConsumerWidget {
           }
           return Column(
             children: [
-              for (var i = 0; i < events.length; i++) ...[
-                if (i > 0) const SizedBox(height: 8),
-                _InsetRow(
+              PreviewThenHistory(
+                itemCount: events.length,
+                expandLabel: 'common.history'.tr(),
+                collapseLabel: 'common.historyHide'.tr(),
+                builder: (context, i) => _InsetRow(
                   title: events[i].actionI18nKey.tr(),
                   subtitle: [
                     if (_auditSubject(events[i]) case final subject?) subject,
@@ -1372,7 +1405,7 @@ class _ClienteAuditSection extends ConsumerWidget {
                     if (events[i].impersonating) 'audit.impersonation'.tr(),
                   ].join(' · '),
                 ),
-              ],
+              ),
             ],
           );
         },

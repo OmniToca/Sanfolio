@@ -7,6 +7,10 @@
     "clients": "Klienti",
     "settings": "Nastavení"
   },
+  "common": {
+    "history": "Historie",
+    "historyHide": "Méně"
+  },
   "settings": {
     "title": "Nastavení kanceláře",
     "tabOffice": "Kancelář",
@@ -153,6 +157,7 @@
     "identity": "Údaje",
     "cardLoadError": "Kartu klienta se nepodařilo načíst.",
     "openFolder": "Otevřít složku",
+    "writeEmail": "E-mail",
     "save": "Uložit",
     "saved": "Uloženo.",
     "saveError": "Kartu se nepodařilo uložit.",

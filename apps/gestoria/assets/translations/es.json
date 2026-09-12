@@ -7,6 +7,10 @@
     "clients": "Clientes",
     "settings": "Ajustes"
   },
+  "common": {
+    "history": "Historial",
+    "historyHide": "Menos"
+  },
   "settings": {
     "title": "Ajustes del despacho",
     "tabOffice": "Despacho",
@@ -153,6 +157,7 @@
     "identity": "Datos",
     "cardLoadError": "No se pudo cargar la ficha del cliente.",
     "openFolder": "Abrir carpeta",
+    "writeEmail": "Email",
     "save": "Guardar",
     "saved": "Guardado.",
     "saveError": "No se pudo guardar la ficha.",

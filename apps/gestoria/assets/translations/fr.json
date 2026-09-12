@@ -7,6 +7,10 @@
     "clients": "Clients",
     "settings": "Paramètres"
   },
+  "common": {
+    "history": "Historique",
+    "historyHide": "Moins"
+  },
   "settings": {
     "title": "Paramètres du cabinet",
     "tabOffice": "Cabinet",
@@ -153,6 +157,7 @@
     "identity": "Coordonnées",
     "cardLoadError": "Impossible de charger la fiche client.",
     "openFolder": "Ouvrir le dossier",
+    "writeEmail": "E-mail",
     "save": "Enregistrer",
     "saved": "Enregistré.",
     "saveError": "Impossible d’enregistrer la fiche.",

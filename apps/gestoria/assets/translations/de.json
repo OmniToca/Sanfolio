@@ -7,6 +7,10 @@
     "clients": "Mandanten",
     "settings": "Einstellungen"
   },
+  "common": {
+    "history": "Verlauf",
+    "historyHide": "Weniger"
+  },
   "settings": {
     "title": "Büro-Einstellungen",
     "tabOffice": "Büro",
@@ -153,6 +157,7 @@
     "identity": "Angaben",
     "cardLoadError": "Die Mandantenkarte konnte nicht geladen werden.",
     "openFolder": "Mappe öffnen",
+    "writeEmail": "E-Mail",
     "save": "Speichern",
     "saved": "Gespeichert.",
     "saveError": "Die Karte konnte nicht gespeichert werden.",

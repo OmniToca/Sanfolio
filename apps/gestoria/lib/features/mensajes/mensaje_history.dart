@@ -48,17 +48,15 @@ class ClienteMensajeHistory extends ConsumerWidget {
                           ),
                     );
                   }
-                  return Column(
-                    children: [
-                      for (var i = 0; i < rows.length; i++) ...[
-                        if (i > 0) const SizedBox(height: 8),
-                        _MensajeTile(
-                          mensaje: rows[i],
-                          clientLocale: clientLocale,
-                          onDiscard: () => _discard(context, ref, rows[i]),
-                        ),
-                      ],
-                    ],
+                  return PreviewThenHistory(
+                    itemCount: rows.length,
+                    expandLabel: 'common.history'.tr(),
+                    collapseLabel: 'common.historyHide'.tr(),
+                    builder: (context, i) => _MensajeTile(
+                      mensaje: rows[i],
+                      clientLocale: clientLocale,
+                      onDiscard: () => _discard(context, ref, rows[i]),
+                    ),
                   );
                 },
               ),
