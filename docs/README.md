@@ -25,5 +25,6 @@ Pořadí čtení pro další vývoj. Tyto soubory jsou smlouva produktu. Kód se
 | 9 | [partner/](partner/README.md) | Dotazník + **odpovědi Gestorie Jarka** |
 | 10 | [database_schema.md](database_schema.md) | Odkaz na SQL migraci |
 | 11 | [modules_settings_i18n.md](modules_settings_i18n.md) | Moduly, sloty, jazyky — jak se nezamotat |
+| 12 | [roadmap_dokumenty_ai.md](roadmap_dokumenty_ai.md) | Fáze A–G: přepis, PDF, koš, asistent, otevřený blok |
 
 Impuestos v katalogu: **IBI/SUMA**, **modelo 210**, **renta/IRPF**. V MVP jen plazo + checklist, ne výpočet daně.

@@ -203,6 +203,7 @@ class AppTextField extends StatelessWidget {
     super.key,
     required this.label,
     this.controller,
+    this.focusNode,
     this.onChanged,
     this.minLines,
     this.maxLines = 1,
@@ -213,6 +214,7 @@ class AppTextField extends StatelessWidget {
 
   final String label;
   final TextEditingController? controller;
+  final FocusNode? focusNode;
   final ValueChanged<String>? onChanged;
   final int? minLines;
   final int maxLines;
@@ -224,6 +226,7 @@ class AppTextField extends StatelessWidget {
   Widget build(BuildContext context) {
     return TextField(
       controller: controller,
+      focusNode: focusNode,
       onChanged: onChanged,
       minLines: minLines,
       maxLines: maxLines,

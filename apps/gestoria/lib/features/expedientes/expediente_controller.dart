@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gestoria_auth/gestoria_auth.dart';
 
+import '../../core/documents/documento_storage.dart';
 import '../carpeta/carpeta_controller.dart';
 import 'expediente_catalog.dart';
 
@@ -207,24 +208,31 @@ class ThinExpedienteController
         break;
       }
     }
-    final safe = originalName.replaceAll(RegExp(r'[/\\]'), '_').trim();
-    final name = safe.isEmpty ? 'file' : safe;
-    final path =
-        '${current.tenantId}/${current.clienteId}/$bloqueId/${DateTime.now().microsecondsSinceEpoch}_$name';
-    await client.storage.from('documentos').uploadBinary(path, bytes);
-    final inserted = await client
-        .from('documentos')
-        .insert({
-          'tenant_id': current.tenantId,
-          'cliente_id': current.clienteId,
-          'bloque_id': bloqueId,
-          'tipo': tipo,
-          'storage_path': path,
-          'original_name': originalName,
-          if (auth?.profile?.id != null) 'created_by': auth!.profile!.id,
-        })
-        .select('id')
-        .single();
+    final path = documentoStoragePath(
+      tenantId: current.tenantId,
+      clienteId: current.clienteId,
+      originalName: originalName,
+    );
+    await uploadDocumentoBytes(path: path, bytes: bytes);
+    Map inserted;
+    try {
+      inserted = await client
+          .from('documentos')
+          .insert({
+            'tenant_id': current.tenantId,
+            'cliente_id': current.clienteId,
+            'bloque_id': bloqueId,
+            'tipo': tipo,
+            'storage_path': path,
+            'original_name': originalName,
+            if (auth?.profile?.id != null) 'created_by': auth!.profile!.id,
+          })
+          .select('id')
+          .single();
+    } on Object {
+      await rollbackDocumentoUpload(path);
+      rethrow;
+    }
     final next = current.bloque.copyWith(
       documents: [
         ...current.bloque.documents,

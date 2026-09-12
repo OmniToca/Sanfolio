@@ -22,6 +22,16 @@ import '../clientes/cliente_audit.dart';
 import '../settings/office_settings_controller.dart';
 import 'bloque_template.dart';
 import 'carpeta_controller.dart';
+import 'carpeta_routes.dart';
+
+/// Text v políčku. Cents z DB se formátují; surové `100` by při sync smažalo eura.
+String displayBloqueField(String field, String raw) {
+  if (field == 'fields.received' || field == 'fields.invoiced') {
+    if (raw.trim().isEmpty) return '';
+    return formatCents(centsFromStored(raw));
+  }
+  return raw;
+}
 
 class CarpetaScreen extends ConsumerWidget {
   const CarpetaScreen({
@@ -125,6 +135,14 @@ class CarpetaScreen extends ConsumerWidget {
                 Widget cardFor(BloqueTemplate template, {required bool compact}) {
                   final state = view.bloques[template.key] ??
                       const BloqueState(enabled: false);
+                  if (!compact && template.opensFromDesk) {
+                    return _BloqueCover(
+                      key: ValueKey(template.key),
+                      target: _target,
+                      template: template,
+                      state: state,
+                    );
+                  }
                   return _BloqueCard(
                     key: ValueKey(template.key),
                     target: _target,
@@ -225,6 +243,276 @@ class CarpetaScreen extends ConsumerWidget {
   }
 }
 
+/// Kryt bloku na deskách. Tužka a stoh papírů jsou na `/carpeta/:key`.
+class _BloqueCover extends ConsumerWidget {
+  const _BloqueCover({
+    super.key,
+    required this.target,
+    required this.template,
+    required this.state,
+  });
+
+  final CarpetaTarget target;
+  final BloqueTemplate template;
+  final BloqueState state;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final status = bloqueUiStatus(state.dbStatus);
+    final ctrl = ref.read(carpetaControllerProvider(target).notifier);
+    final summary = _coverSummary(template, state);
+    final papers = state.documents.length;
+    final canOpen = state.enabled || papers > 0;
+    return AppCard(
+      margin: const EdgeInsets.only(bottom: 12),
+      emphasized: state.enabled,
+      onTap: canOpen
+          ? () => context.go(
+                carpetaBloqueRoute(
+                  target.clienteId,
+                  template.key,
+                  expedienteId: target.expedienteId,
+                ),
+              )
+          : null,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 10, 8, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    template.labelI18n.tr(),
+                    style: const TextStyle(
+                      letterSpacing: 0.8,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+                Flexible(
+                  child: Chip(
+                    label: Text(
+                      statusLabel(status),
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    visualDensity: VisualDensity.compact,
+                    backgroundColor: status == BloqueUiStatus.off
+                        ? AppTheme.chipOff
+                        : AppTheme.chipOn,
+                  ),
+                ),
+                Switch(
+                  value: state.enabled,
+                  onChanged: (v) => _toggleCover(context, ctrl, v),
+                ),
+              ],
+            ),
+            if (summary.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                  summary,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+            Text(
+              'folder.paperCount'.tr(
+                namedArgs: {'count': '$papers'},
+              ),
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            if (canOpen)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  onPressed: () => context.go(
+                    carpetaBloqueRoute(
+                      target.clienteId,
+                      template.key,
+                      expedienteId: target.expedienteId,
+                    ),
+                  ),
+                  child: Text('folder.openBlock'.tr()),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _toggleCover(
+    BuildContext context,
+    CarpetaController ctrl,
+    bool on,
+  ) async {
+    if (on) {
+      await ctrl.setEnabled(template.key, true);
+      return;
+    }
+    final reasonCtrl = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('folder.offReason'.tr()),
+        content: TextField(
+          controller: reasonCtrl,
+          decoration: InputDecoration(
+            hintText: 'folder.offReasonHint'.tr(),
+          ),
+          maxLines: 2,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('ai.discard'.tr()),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('folder.offConfirm'.tr()),
+          ),
+        ],
+      ),
+    );
+    final reason = reasonCtrl.text.trim();
+    reasonCtrl.dispose();
+    if (ok != true || reason.isEmpty) return;
+    await ctrl.setEnabled(template.key, false, reason: reason);
+  }
+}
+
+String _coverSummary(BloqueTemplate template, BloqueState state) {
+  final parts = <String>[];
+  for (final key in template.fieldKeys) {
+    if (key == 'fields.remaining') continue;
+    final v = (state.values[key] ?? '').trim();
+    if (v.isEmpty) continue;
+    parts.add(v);
+    if (parts.length >= 3) break;
+  }
+  return parts.join(' · ');
+}
+
+List<CarpetaDocumento> _sortedPapers(List<CarpetaDocumento> docs) {
+  final out = [...docs];
+  out.sort((a, b) {
+    final byDate =
+        paperSortStamp(b.extracted).compareTo(paperSortStamp(a.extracted));
+    if (byDate != 0) return byDate;
+    return b.originalName.compareTo(a.originalName);
+  });
+  return out;
+}
+
+/// Šanon jednoho bloku: identita + papíry. Není to druhé ERP.
+class BloqueScreen extends ConsumerWidget {
+  const BloqueScreen({
+    super.key,
+    required this.clienteId,
+    required this.bloqueKey,
+    this.expedienteId,
+  });
+
+  final String clienteId;
+  final String bloqueKey;
+  final String? expedienteId;
+
+  CarpetaTarget get _target =>
+      CarpetaTarget(clienteId: clienteId, expedienteId: expedienteId);
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(carpetaControllerProvider(_target));
+    BloqueTemplate? template;
+    for (final t in compraventaBloques) {
+      if (t.key == bloqueKey) template = t;
+    }
+    return async.when(
+      loading: () => Scaffold(
+        appBar: AppBar(title: Text('folder.title'.tr())),
+        body: const Center(child: CircularProgressIndicator()),
+      ),
+      error: (e, st) => Scaffold(
+        appBar: AppBar(
+          title: Text('folder.title'.tr()),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => context.go(carpetaRoute(clienteId)),
+          ),
+        ),
+        body: Center(child: Text('folder.loadError'.tr())),
+      ),
+      data: (view) {
+        if (template == null) {
+          return Scaffold(
+            appBar: AppBar(
+              title: Text('folder.title'.tr()),
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => context.go(
+                  carpetaRoute(clienteId, expedienteId: expedienteId),
+                ),
+              ),
+            ),
+            body: Center(child: Text('folder.loadError'.tr())),
+          );
+        }
+        final bloque = template;
+        final state =
+            view.bloques[bloqueKey] ?? const BloqueState(enabled: false);
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(bloque.labelI18n.tr()),
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () => context.go(
+                carpetaRoute(clienteId, expedienteId: expedienteId),
+              ),
+            ),
+            bottom: PreferredSize(
+              preferredSize: const Size.fromHeight(28),
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  view.nombre.isEmpty ? 'folder.subtitle'.tr() : view.nombre,
+                  style: const TextStyle(color: AppTheme.pencil, fontSize: 13),
+                ),
+              ),
+            ),
+          ),
+          body: FeatureGate(
+            module: GestoriaModule.carpetaInmueble,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 48),
+              children: [
+                Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxWidth: AppTheme.contentWide,
+                    ),
+                    child: _BloqueCard(
+                      target: _target,
+                      template: bloque,
+                      state: state,
+                      movements: view.movements,
+                      clienteNombre: view.nombre,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _BloqueCard extends ConsumerStatefulWidget {
   const _BloqueCard({
     super.key,
@@ -249,6 +537,7 @@ class _BloqueCard extends ConsumerStatefulWidget {
 
 class _BloqueCardState extends ConsumerState<_BloqueCard> {
   late final Map<String, TextEditingController> _fields;
+  late final Map<String, FocusNode> _focus;
 
   @override
   void initState() {
@@ -258,14 +547,20 @@ class _BloqueCardState extends ConsumerState<_BloqueCard> {
         if (f != 'fields.remaining')
           f: TextEditingController(text: _displayField(f)),
     };
+    _focus = {
+      for (final f in _fields.keys) f: FocusNode(),
+    };
   }
 
   @override
   void didUpdateWidget(covariant _BloqueCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    for (final e in widget.state.values.entries) {
-      final c = _fields[e.key];
-      if (c != null && c.text != e.value) c.text = e.value;
+    // Focusnuté pole je tužka. Parent rebuild / persist sem nesmí sahat —
+    // na Flutter web to maže rozepsaný text (cents vs. zobrazení, starý snapshot).
+    for (final e in _fields.entries) {
+      if (_focus[e.key]?.hasFocus ?? false) continue;
+      final shown = _displayField(e.key);
+      if (e.value.text != shown) e.value.text = shown;
     }
   }
 
@@ -273,6 +568,9 @@ class _BloqueCardState extends ConsumerState<_BloqueCard> {
   void dispose() {
     for (final c in _fields.values) {
       c.dispose();
+    }
+    for (final f in _focus.values) {
+      f.dispose();
     }
     super.dispose();
   }
@@ -344,6 +642,7 @@ class _BloqueCardState extends ConsumerState<_BloqueCard> {
                       padding: const EdgeInsets.only(bottom: 8),
                       child: AppTextField(
                         controller: _fields[field],
+                        focusNode: _focus[field],
                         label: field.tr(),
                         onChanged: (v) => _onField(ctrl, template.key, field, v),
                       ),
@@ -373,7 +672,15 @@ class _BloqueCardState extends ConsumerState<_BloqueCard> {
                     ),
                   ),
                 ),
-              for (final doc in state.documents)
+              if (state.documents.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4, bottom: 8),
+                  child: Text(
+                    'folder.papers'.tr(),
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+              for (final doc in _sortedPapers(state.documents))
                 _DocumentoForm(
                   target: widget.target,
                   templateKey: template.key,
@@ -457,6 +764,14 @@ class _BloqueCardState extends ConsumerState<_BloqueCard> {
     CarpetaController ctrl,
     CarpetaDocumento doc,
   ) async {
+    if (doc.storagePurged) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('folder.purged'.tr())),
+        );
+      }
+      return;
+    }
     try {
       final url = await ctrl.signedUrl(doc.storagePath);
       if (url == null) throw StateError('url');
@@ -515,12 +830,7 @@ class _BloqueCardState extends ConsumerState<_BloqueCard> {
   }
 
   String _displayField(String field) {
-    final raw = widget.state.values[field] ?? '';
-    if (field == 'fields.received' || field == 'fields.invoiced') {
-      if (raw.trim().isEmpty) return '';
-      return formatCents(centsFromStored(raw));
-    }
-    return raw;
+    return displayBloqueField(field, widget.state.values[field] ?? '');
   }
 
   Future<void> _toggle(CarpetaController ctrl, String key, bool on) async {
@@ -835,6 +1145,7 @@ class _DocumentoForm extends ConsumerWidget {
     final nombre = (values['fields.nombre'] ?? '').trim();
     final mismatch =
         nombre.isNotEmpty && !namesLikelyMatch(clienteNombre, nombre);
+    final headline = _invoiceHeadline(values);
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: DecoratedBox(
@@ -853,14 +1164,21 @@ class _DocumentoForm extends ConsumerWidget {
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.insert_drive_file_outlined, size: 18),
                 title: Text(doc.originalName),
-                subtitle: Text('docs.${doc.tipo}'.tr()),
+                subtitle: Text(
+                  [
+                    'docs.${doc.tipo}'.tr(),
+                    if (headline != null) headline,
+                  ].join(' · '),
+                ),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
-                      tooltip: 'folder.open'.tr(),
+                      tooltip: doc.storagePurged
+                          ? 'folder.purged'.tr()
+                          : 'folder.original'.tr(),
                       icon: const Icon(Icons.open_in_new, size: 18),
-                      onPressed: onOpen,
+                      onPressed: doc.storagePurged ? null : onOpen,
                     ),
                     IconButton(
                       tooltip: 'folder.remove'.tr(),
@@ -890,6 +1208,20 @@ class _DocumentoForm extends ConsumerWidget {
                   padding: const EdgeInsets.only(bottom: 4),
                   child: Text('${k.tr()}: ${values[k]}'),
                 ),
+              if ((doc.bodyText ?? '').trim().isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    '${'folder.bodyText'.tr()}: ${doc.bodyText!.trim()}',
+                    maxLines: 8,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              if (doc.storagePurged)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text('folder.purged'.tr()),
+                ),
               if (pending != null)
                 Align(
                   alignment: Alignment.centerLeft,
@@ -917,5 +1249,20 @@ class _DocumentoForm extends ConsumerWidget {
       ),
     );
   }
+}
+
+String? _invoiceHeadline(Map<String, String> values) {
+  final from = (values['fields.periodFrom'] ?? '').trim();
+  final to = (values['fields.periodTo'] ?? '').trim();
+  final period = [from, to].where((s) => s.isNotEmpty).join(' – ');
+  final amountRaw = (values['fields.amount'] ?? '').trim();
+  final amount =
+      amountRaw.isEmpty ? '' : formatCents(centsFromStored(amountRaw));
+  final bits = [
+    if (period.isNotEmpty) period,
+    if (amount.isNotEmpty) amount,
+  ];
+  if (bits.isEmpty) return null;
+  return bits.join(' · ');
 }
 

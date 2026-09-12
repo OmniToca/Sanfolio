@@ -122,8 +122,9 @@ Založení kanceláře: Edge Function `create-office` (service_role). Flutter IN
 
 ## 7. Storage
 
-Bucket `tenant-docs` v EU. Cesta `{tenant_id}/{cliente_id}/{documento_id}`.  
-Policy: membership tenantu. Žádné veřejné URL. Signed URL max 10 min.
+Bucket `documentos` v EU. Cesta `{tenant_id}/{cliente_id}/{id}_{název}`.  
+Policy: membership tenantu. Žádné veřejné URL. Signed URL 2 minuty.  
+INSERT cesty hlídá trigger (nesmí ven z tenanta/klienta). DELETE blobu: orphan rollback, jinak jen `purge_documento_storage` (owner, dokument v koši).
 
 ## 8. GDPR / LOPDGDD vs. „100 % soft-delete“
 

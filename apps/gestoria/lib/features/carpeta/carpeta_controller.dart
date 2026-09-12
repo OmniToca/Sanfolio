@@ -5,8 +5,11 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gestoria_auth/gestoria_auth.dart';
 
+import '../../core/documents/documento_storage.dart';
 import '../../core/money/cents.dart';
 import '../../core/money/provision.dart';
+import '../ai/documento_fields.dart';
+import '../ai/extract_text.dart';
 import '../clientes/cliente_audit.dart';
 import 'bloque_template.dart';
 
@@ -19,6 +22,8 @@ class CarpetaDocumento {
     required this.storagePath,
     required this.originalName,
     this.extracted = const {},
+    this.bodyText,
+    this.storagePurged = false,
   });
 
   final String id;
@@ -26,14 +31,22 @@ class CarpetaDocumento {
   final String storagePath;
   final String originalName;
   final Map<String, String> extracted;
+  final String? bodyText;
+  final bool storagePurged;
 
-  CarpetaDocumento copyWith({Map<String, String>? extracted}) {
+  CarpetaDocumento copyWith({
+    Map<String, String>? extracted,
+    String? bodyText,
+    bool? storagePurged,
+  }) {
     return CarpetaDocumento(
       id: id,
       tipo: tipo,
       storagePath: storagePath,
       originalName: originalName,
       extracted: extracted ?? this.extracted,
+      bodyText: bodyText ?? this.bodyText,
+      storagePurged: storagePurged ?? this.storagePurged,
     );
   }
 }
@@ -139,6 +152,11 @@ class CarpetaTarget {
 /// Tužka na desce. Stav bloků je v `bloques`; kontakt na `clientes`.
 class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> {
   final _debounce = <String, Timer>{};
+  /// Rozepsaná pole, dokud neproběhne persist. Nesmí jít do Riverpod hned —
+  /// rebuild celé desky na webu maže TextField.
+  final _draft = <String, Map<String, String>>{};
+  final _persisting = <String>{};
+  final _persistAgain = <String>{};
 
   @override
   Future<CarpetaView> build(CarpetaTarget target) async {
@@ -218,7 +236,10 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
 
     final docsRows = await client
         .from('documentos')
-        .select('id, bloque_id, tipo, storage_path, original_name, extracted')
+        .select(
+          'id, bloque_id, tipo, storage_path, original_name, extracted, '
+          'body_text, storage_purged_at',
+        )
         .eq('cliente_id', clienteId)
         .isFilter('deleted_at', null);
     final docsByBloque = <String, List<CarpetaDocumento>>{};
@@ -226,13 +247,18 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
       if (raw is! Map) continue;
       final bid = '${raw['bloque_id']}';
       docsByBloque.putIfAbsent(bid, () => []).add(
-            CarpetaDocumento(
-              id: '${raw['id']}',
-              tipo: '${raw['tipo']}',
-              storagePath: '${raw['storage_path']}',
-              originalName: '${raw['original_name'] ?? raw['tipo']}',
-              extracted: _fieldsMap(raw['extracted']),
-            ),
+            () {
+              final t = transcriptFromDocumentoRow(raw);
+              return CarpetaDocumento(
+                id: '${raw['id']}',
+                tipo: '${raw['tipo']}',
+                storagePath: '${raw['storage_path']}',
+                originalName: '${raw['original_name'] ?? raw['tipo']}',
+                extracted: t.fields,
+                bodyText: t.bodyText,
+                storagePurged: storagePurgedFromRow(raw),
+              );
+            }(),
           );
     }
 
@@ -301,10 +327,19 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
     );
   }
 
+  /// Tužka v poli má přednost před posledním stavem z provideru.
+  BloqueState _bloqueLive(String key) {
+    final stored =
+        state.valueOrNull?.bloques[key] ?? const BloqueState(enabled: false);
+    final draft = _draft[key];
+    if (draft == null) return stored;
+    return stored.copyWith(enabled: true, values: draft);
+  }
+
   Future<void> setEnabled(String key, bool enabled, {String? reason}) async {
     final current = state.valueOrNull;
     if (current == null) return;
-    final bloque = current.bloques[key] ?? const BloqueState(enabled: false);
+    final bloque = _bloqueLive(key);
     final id = bloque.id;
     final client = trySupabaseClient();
     if (client == null || id == null) return;
@@ -334,49 +369,81 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
   void setField(String key, String field, String value) {
     final current = state.valueOrNull;
     if (current == null) return;
-    final bloque = current.bloques[key] ?? const BloqueState(enabled: true);
-    var values = {...bloque.values, field: value};
     if (key == 'provision_factura') {
       // Přijato / vyúčtováno se needituje — jen pohyby.
       return;
     }
-    final next = bloque.copyWith(
-      enabled: true,
-      values: values,
-    );
-    state = AsyncData(current.withBloque(key, next));
+    final bloque = _bloqueLive(key);
+    // Nevolat state = … tady: Flutter web při rebuildu celé desky maže input.
+    _draft[key] = {...bloque.values, field: value};
     _debounce[key]?.cancel();
     _debounce[key] = Timer(const Duration(milliseconds: 450), () {
-      unawaited(_persistBloque(key, next));
+      unawaited(_persistBloque(key));
     });
   }
 
-  Future<void> _persistBloque(String key, BloqueState bloque) async {
+  Future<void> _persistBloque(String key) async {
+    if (_persisting.contains(key)) {
+      _persistAgain.add(key);
+      return;
+    }
     final client = trySupabaseClient();
-    final id = bloque.id;
+    final id = _bloqueLive(key).id;
     if (client == null || id == null) return;
+    _persisting.add(key);
     try {
-      await client.from('bloques').update({
-        'fields': bloque.values,
-      }).eq('id', id);
-      final status = await client.rpc(
-        'recompute_bloque_status',
-        params: {'p_bloque_id': id},
-      );
-      final view = state.valueOrNull;
-      if (view != null && status != null) {
-        final next = bloque.copyWith(dbStatus: '$status');
-        state = AsyncData(view.withBloque(key, next));
-      }
-      if (key == 'cliente_snapshot') {
-        await _persistCliente(bloque.values);
-      }
-      if (key == 'escritura') {
-        await _persistEscrituraFecha(id, bloque.values['fields.date']);
-      }
+      do {
+        _persistAgain.remove(key);
+        final bloque = _bloqueLive(key);
+        await client.from('bloques').update({
+          'fields': bloque.values,
+        }).eq('id', id);
+        final status = await client.rpc(
+          'recompute_bloque_status',
+          params: {'p_bloque_id': id},
+        );
+        final view = state.valueOrNull;
+        final live = _bloqueLive(key);
+        if (view != null) {
+          // Jen chip z RPC. Hodnoty z aktuální tužky, ne ze snímku před await.
+          state = AsyncData(
+            view.withBloque(
+              key,
+              live.copyWith(
+                dbStatus: status == null ? live.dbStatus : '$status',
+              ),
+            ),
+          );
+        }
+        if (!_mapsEqual(live.values, bloque.values)) {
+          _persistAgain.add(key);
+        }
+        if (!_persistAgain.contains(key)) {
+          _draft.remove(key);
+        }
+        if (key == 'cliente_snapshot') {
+          await _persistCliente(_bloqueLive(key).values);
+        }
+        if (key == 'escritura') {
+          await _persistEscrituraFecha(
+            id,
+            _bloqueLive(key).values['fields.date'],
+          );
+        }
+      } while (_persistAgain.contains(key));
     } on Object {
       // Tužka musí zůstat použitelná i když jeden zápis spadne.
+    } finally {
+      _persisting.remove(key);
     }
+  }
+
+  bool _mapsEqual(Map<String, String> a, Map<String, String> b) {
+    if (a.length != b.length) return false;
+    for (final e in a.entries) {
+      if (b[e.key] != e.value) return false;
+    }
+    return true;
   }
 
   Future<CarpetaDocumento?> attachDocument({
@@ -387,34 +454,42 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
     final view = state.valueOrNull;
     final client = trySupabaseClient();
     final auth = ref.read(authControllerProvider).valueOrNull;
-    final bloque = view?.bloques[templateKey];
+    final bloque = view == null ? null : _bloqueLive(templateKey);
     final bloqueId = bloque?.id;
     if (view == null || client == null || bloque == null || bloqueId == null) {
       return null;
     }
     final template = _templateByKey(templateKey);
-    final tipo = _nextDocTipo(template, bloque);
-    final safe = originalName.replaceAll(RegExp(r'[/\\]'), '_').trim();
-    final name = safe.isEmpty ? 'file' : safe;
-    final path =
-        '${view.tenantId}/${view.clienteId}/$bloqueId/${DateTime.now().microsecondsSinceEpoch}_$name';
-    await client.storage.from('documentos').uploadBinary(
-          path,
-          bytes,
-        );
-    final inserted = await client
-        .from('documentos')
-        .insert({
-          'tenant_id': view.tenantId,
-          'cliente_id': view.clienteId,
-          'bloque_id': bloqueId,
-          'tipo': tipo,
-          'storage_path': path,
-          'original_name': originalName,
-          if (auth?.profile?.id != null) 'created_by': auth!.profile!.id,
-        })
-        .select('id')
-        .single();
+    final tipo = guessDocumentoTipo(
+      requiredDocTypes: template.requiredDocTypes,
+      alreadyHave: {for (final d in bloque.documents) d.tipo},
+      originalName: originalName,
+    );
+    final path = documentoStoragePath(
+      tenantId: view.tenantId,
+      clienteId: view.clienteId,
+      originalName: originalName,
+    );
+    await uploadDocumentoBytes(path: path, bytes: bytes);
+    Map inserted;
+    try {
+      inserted = await client
+          .from('documentos')
+          .insert({
+            'tenant_id': view.tenantId,
+            'cliente_id': view.clienteId,
+            'bloque_id': bloqueId,
+            'tipo': tipo,
+            'storage_path': path,
+            'original_name': originalName,
+            if (auth?.profile?.id != null) 'created_by': auth!.profile!.id,
+          })
+          .select('id')
+          .single();
+    } on Object {
+      await rollbackDocumentoUpload(path);
+      rethrow;
+    }
     final doc = CarpetaDocumento(
       id: '${inserted['id']}',
       tipo: tipo,
@@ -426,7 +501,7 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
       documents: [...bloque.documents, doc],
     );
     state = AsyncData(view.withBloque(templateKey, next));
-    await _persistBloque(templateKey, next);
+    await _persistBloque(templateKey);
     return doc;
   }
 
@@ -438,28 +513,40 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
   }) async {
     final view = state.valueOrNull;
     final client = trySupabaseClient();
-    final bloque = view?.bloques[templateKey];
-    if (view == null || client == null || bloque == null || fields.isEmpty) {
+    final bloque = view == null ? null : _bloqueLive(templateKey);
+    if (view == null || client == null || bloque == null || bloque.id == null || fields.isEmpty) {
       return;
     }
+    final t = splitDocumentoTranscript(fields);
+    if (t.fields.isEmpty && t.bodyText == null) return;
     await client.from('documentos').update({
-      'extracted': fields,
+      'extracted': t.fields,
+      if (t.bodyText != null) 'body_text': t.bodyText,
     }).eq('id', documentId);
     final docs = [
       for (final d in bloque.documents)
-        d.id == documentId ? d.copyWith(extracted: fields) : d,
+        d.id == documentId
+            ? d.copyWith(extracted: t.fields, bodyText: t.bodyText)
+            : d,
     ];
-    final merged = {...bloque.values, ...fields};
+    final merged = promotePaperToDesk(
+      deskFieldKeys: _templateByKey(templateKey).fieldKeys,
+      desk: bloque.values,
+      paper: t.fields,
+    );
+    _draft[templateKey] = merged;
     final next = bloque.copyWith(values: merged, documents: docs);
     state = AsyncData(view.withBloque(templateKey, next));
-    await _persistBloque(templateKey, next);
+    await _persistBloque(templateKey);
   }
 
   Future<void> removeDocument(String templateKey, String documentId) async {
     final view = state.valueOrNull;
     final client = trySupabaseClient();
-    final bloque = view?.bloques[templateKey];
-    if (view == null || client == null || bloque == null) return;
+    final bloque = view == null ? null : _bloqueLive(templateKey);
+    if (view == null || client == null || bloque == null || bloque.id == null) {
+      return;
+    }
     await client.from('documentos').update({
       'deleted_at': DateTime.now().toUtc().toIso8601String(),
     }).eq('id', documentId);
@@ -467,7 +554,7 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
       documents: bloque.documents.where((d) => d.id != documentId).toList(),
     );
     state = AsyncData(view.withBloque(templateKey, next));
-    await _persistBloque(templateKey, next);
+    await _persistBloque(templateKey);
   }
 
   Future<void> addProvisionMovement({
@@ -639,15 +726,4 @@ BloqueTemplate _templateByKey(String key) {
     if (b.key == key) return b;
   }
   return BloqueTemplate(key: key, fieldKeys: const []);
-}
-
-String _nextDocTipo(BloqueTemplate template, BloqueState bloque) {
-  final have = {for (final d in bloque.documents) d.tipo};
-  for (final t in template.requiredDocTypes) {
-    if (!have.contains(t)) return t;
-  }
-  if (template.requiredDocTypes.isNotEmpty) {
-    return template.requiredDocTypes.first;
-  }
-  return 'other';
 }

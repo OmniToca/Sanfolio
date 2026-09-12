@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { extractPdfPages, pdfTextUsable } from "../_shared/pdf_extract.ts";
 
 /**
  * Fotka / PDF → návrh do ai_drafts. Nikdy neukládá klienta ani neodesílá.
@@ -61,6 +62,9 @@ Deno.serve(async (req) => {
   if (!storagePath.startsWith(`${tenantId}/`)) {
     return json(403, { ok: false, error: "path outside tenant" });
   }
+  if (!storagePath.startsWith(`${tenantId}/${clienteId}/`)) {
+    return json(403, { ok: false, error: "path outside cliente" });
+  }
 
   const { data: allowed, error: accessErr } = await userClient.rpc(
     "can_access_tenant",
@@ -81,25 +85,53 @@ Deno.serve(async (req) => {
   }
 
   const isPdf = mime === "application/pdf" || /\.pdf$/i.test(storagePath);
-  const latin = isPdf ? "" : latinText(bytes);
-  let fields = isPdf ? {} : sanitizeFields(fieldsFromText(latin));
-  let extracted = Object.keys(fields).length > 0;
+  const identity = docTipo === "dni_nie" || docTipo === "pasaporte";
+  let fields: Record<string, string> = {};
+  if (!isPdf) {
+    fields = sanitizeFields(fieldsFromText(latinText(bytes)));
+  } else {
+    try {
+      const pages = await extractPdfPages(bytes);
+      if (pdfTextUsable(pages.text)) {
+        fields = sanitizeFields(fieldsFromText(pages.text));
+        fields.body_text = pages.text.slice(0, 100000);
+      }
+    } catch (err) {
+      console.warn("extract-document: unpdf selhal", err);
+    }
+  }
 
   const apiKey = Deno.env.get("OPENAI_API_KEY")?.trim();
   const isImage = IMAGE_MIME.has(mime) || looksLikeImage(storagePath);
-  if (apiKey && (isImage || isPdf)) {
+  // Vision: fotka / průkaz / PDF bez textu. Textové PDF (Iberdrola, voda) vision
+  // přeskočilo a zůstal jen regex → prázdný návrh.
+  const needVision = apiKey && (
+    isImage ||
+    (isPdf && (identity || !fields.body_text))
+  );
+  if (needVision) {
     const vision = await visionExtract(
-      apiKey,
+      apiKey!,
       bytes,
       mime || guessMime(storagePath),
       docTipo,
       isPdf,
     );
     if (vision) {
+      const body = fields.body_text;
       fields = { ...fields, ...sanitizeFields(vision) };
-      extracted = Object.keys(fields).length > 0;
+      if (body && !fields.body_text) fields.body_text = body;
     }
   }
+  if (apiKey && fields.body_text && !identity) {
+    const llm = await llmExtractFromText(apiKey, fields.body_text, docTipo);
+    if (llm) {
+      const body = fields.body_text;
+      fields = { ...fields, ...sanitizeFields(llm) };
+      fields.body_text = body;
+    }
+  }
+  const extracted = Object.keys(fields).length > 0;
 
   const { data: draft, error: insErr } = await userClient
     .from("ai_drafts")
@@ -140,6 +172,62 @@ Deno.serve(async (req) => {
   });
 });
 
+const FIELD_MAP: Record<string, string> = {
+  nie: "fields.nie",
+  nombre: "fields.nombre",
+  email: "fields.email",
+  tel: "fields.tel",
+  docNumber: "fields.docNumber",
+  issued: "fields.issued",
+  expiry: "fields.expiry",
+  nationality: "fields.nationality",
+  holder: "fields.holder",
+  clientNo: "fields.clientNo",
+  contractNo: "fields.contractNo",
+  invoiceNo: "fields.invoiceNo",
+  cups: "fields.cups",
+  period: "fields.period",
+  periodFrom: "fields.periodFrom",
+  periodTo: "fields.periodTo",
+  consumption: "fields.consumption",
+  amount: "fields.amount",
+  notary: "fields.notary",
+  protocol: "fields.protocol",
+  date: "fields.date",
+  company: "fields.company",
+  policy: "fields.policy",
+  attorney: "fields.attorney",
+  body_text: "body_text",
+};
+
+const EXTRACT_KEY_LIST = Object.keys(FIELD_MAP).join(",");
+
+function extractSystemPrompt(docTipo: string, includeBody: boolean): string {
+  return (
+    `Extract fields from a Spanish gestoría document (declared type: ${docTipo || "unknown"}). ` +
+    "It may be a factura even if the type says contrato. Keep official terms (NIE, CUPS, escritura). " +
+    `Return JSON only with keys you actually see: ${EXTRACT_KEY_LIST}. ` +
+    "Nº de contrato / póliza → contractNo. Nº de cliente → clientNo. Nº factura → invoiceNo. " +
+    "Periodo de facturación → periodFrom and periodTo (YYYY-MM-DD), not period (period is IBI year only). " +
+    "Fecha de emisión → issued. Importe total → amount as 188.85 (dot, no currency). " +
+    "Consumo kWh or m³ → consumption. Compañía / comercializadora → company. Titular → holder. " +
+    "Dates YYYY-MM-DD. Omit unknown. Do not invent." +
+    (includeBody
+      ? " body_text = readable text with --- Strana n --- page marks, max 20000 chars."
+      : " Do not return body_text.")
+  );
+}
+
+function mapLlmFields(parsed: Record<string, unknown>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [src, dest] of Object.entries(FIELD_MAP)) {
+    const v = str(parsed[src]);
+    if (!v) continue;
+    out[dest] = src === "nie" ? v.toUpperCase() : src === "email" ? v.toLowerCase() : v;
+  }
+  return out;
+}
+
 function fieldsFromText(text: string): Record<string, string> {
   const out: Record<string, string> = {};
   const nie = text.match(/\b(?:[XYZ][0-9*]{7}[A-Z]|[0-9*]{8}[A-Z])\b/i);
@@ -155,6 +243,18 @@ function fieldsFromText(text: string): Record<string, string> {
   if (iso) out["fields.date"] = iso[0].replace(/[/]/g, "-");
   const kwh = text.match(/(\d+[.,]?\d*)\s*kWh/i);
   if (kwh) out["fields.consumption"] = kwh[1].replace(",", ".");
+  const m3 = text.match(/(\d+[.,]?\d*)\s*m[³3]/i);
+  if (m3 && !out["fields.consumption"]) {
+    out["fields.consumption"] = m3[1].replace(",", ".");
+  }
+  const cups = text.match(
+    /\b(ES\s*\d{4}\s*\d{4}\s*\d{4}\s*\d{4}\s*[A-Z]{2})\b/i,
+  );
+  if (cups) out["fields.cups"] = cups[1].replace(/\s+/g, " ").toUpperCase();
+  const contrato = text.match(
+    /n[ºo°.]?\s*(?:de\s+)?contrato\s*[:.\s]+([0-9][0-9.\-\/]{4,24})/i,
+  );
+  if (contrato) out["fields.contractNo"] = contrato[1].replace(/[^\d]/g, "");
   return sanitizeFields(out);
 }
 
@@ -187,9 +287,57 @@ function sanitizeFields(raw: Record<string, string>): Record<string, string> {
       if (v.includes("@") && v.length <= 120) out[key] = v.toLowerCase();
       continue;
     }
+    if (key === "body_text") {
+      out[key] = v.slice(0, 100000);
+      continue;
+    }
     if (v.length <= 200) out[key] = v;
   }
   return out;
+}
+
+async function llmExtractFromText(
+  apiKey: string,
+  text: string,
+  docTipo: string,
+): Promise<Record<string, string> | null> {
+  const clipped = text.slice(0, 16000);
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      temperature: 0,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: extractSystemPrompt(docTipo, false) },
+        { role: "user", content: clipped },
+      ],
+    }),
+  });
+  if (!res.ok) {
+    console.warn("extract-document: text LLM HTTP", res.status);
+    return null;
+  }
+  const data = await res.json() as {
+    choices?: Array<{ message?: { content?: string } }>;
+  };
+  const raw = data.choices?.[0]?.message?.content?.trim() ?? "";
+  return parseLlmJson(raw);
+}
+
+function parseLlmJson(raw: string): Record<string, string> | null {
+  const jsonMatch = raw.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) return null;
+  try {
+    const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
+    return mapLlmFields(parsed);
+  } catch {
+    return null;
+  }
 }
 
 async function visionExtract(
@@ -230,11 +378,7 @@ async function visionExtract(
       messages: [
         {
           role: "system",
-          content:
-            `Extract fields from a Spanish gestoría document (type: ${docTipo || "unknown"}). ` +
-            "Keep official terms (NIE, escritura). Return JSON only with keys you actually see: " +
-            "nombre,nie,docNumber,issued,expiry,nationality,holder,clientNo,cups,period,consumption,amount,notary,protocol,date,company,policy,attorney,email,tel. " +
-            "Dates YYYY-MM-DD. Amounts like 123.45. Omit unknown. Do not invent.",
+          content: extractSystemPrompt(docTipo, true),
         },
         {
           role: "user",
@@ -248,42 +392,9 @@ async function visionExtract(
     choices?: Array<{ message?: { content?: string } }>;
   };
   const raw = data.choices?.[0]?.message?.content?.trim() ?? "";
-  const jsonMatch = raw.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) return fieldsFromText(raw);
-  try {
-    const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
-    const map: Record<string, string> = {
-      nie: "fields.nie",
-      nombre: "fields.nombre",
-      email: "fields.email",
-      tel: "fields.tel",
-      docNumber: "fields.docNumber",
-      issued: "fields.issued",
-      expiry: "fields.expiry",
-      nationality: "fields.nationality",
-      holder: "fields.holder",
-      clientNo: "fields.clientNo",
-      cups: "fields.cups",
-      period: "fields.period",
-      consumption: "fields.consumption",
-      amount: "fields.amount",
-      notary: "fields.notary",
-      protocol: "fields.protocol",
-      date: "fields.date",
-      company: "fields.company",
-      policy: "fields.policy",
-      attorney: "fields.attorney",
-    };
-    const out: Record<string, string> = {};
-    for (const [src, dest] of Object.entries(map)) {
-      const v = str(parsed[src]);
-      if (!v) continue;
-      out[dest] = src === "nie" ? v.toUpperCase() : src === "email" ? v.toLowerCase() : v;
-    }
-    return { ...fieldsFromText(raw), ...out };
-  } catch {
-    return fieldsFromText(raw);
-  }
+  const mapped = parseLlmJson(raw);
+  if (!mapped) return fieldsFromText(raw);
+  return { ...fieldsFromText(raw), ...mapped };
 }
 
 function str(v: unknown): string {

@@ -133,6 +133,8 @@ Chybějící dokument = v šabloně bloku je `required_document_types` a žádn�
 
 AI může navrhnout `tipo` a pole z OCR. Zařazení potvrdí gestor.
 
+Dokument = **originál ve Storage** + **přepis v DB** (pole po Guardar, později text PDF). Chat kanceláře čte pole a `plazos`, ne binárku. Fáze: [roadmap_dokumenty_ai.md](roadmap_dokumenty_ai.md).
+
 ## 9. Plazo
 
 Termín je řádek s `due_on`, `source` (`derived` \| `manual`), `kind`, `bloque_id` / `expediente_id`.

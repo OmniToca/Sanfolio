@@ -19,6 +19,9 @@ class BloqueTemplate {
   String get labelI18n => 'blocks.$key';
 
   List<String> get requiredKeys => requiredFieldKeys ?? fieldKeys;
+
+  /// Klient na deskách zůstane. Ostatní bloky se otevřou jako šanon papírů.
+  bool get opensFromDesk => key != 'cliente_snapshot';
 }
 
 const compraventaBloques = <BloqueTemplate>[

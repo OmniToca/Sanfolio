@@ -5,15 +5,20 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | Klíč | Kde | Účel |
 | --- | --- | --- |
 | `core` | shell, clientes, search | vždy zapnuto |
-| `carpeta_inmueble` | `features/carpeta` | deska 1:1 s tiskem, slot `carpeta.blocks` |
+| `carpeta_inmueble` | `features/carpeta` | deska 1:1 s tiskem, slot `carpeta.blocks`; klik na blok → `/carpeta/:key` |
 | `impuestos` | `features/expedientes` | tenké 210 / renta, checklist + plazo |
 | `policia` / `ayuntamiento` / `testament` | moduly zapnuté u Jarky | desky až po složce koupě |
 | `translate-message` | Edge Function | překlad výzvy při kliknutí gestora |
 | `nie_poder` | bloky na desce | extras NIE = samostatný úkol |
 | `ai_copilot` | `features/ai` | search / open / prefill; uživatel ukládá |
 | `AiPanel` / `aiChatProvider` | `features/ai/ai_panel.dart` | trvalý chat; zápis `ai_conversations` + `ai_messages` |
-| `extract-document` | Edge Function | fotka/PDF → `ai_drafts` (TTL); Guardar je gestor. Nahrání na kartě taky. |
+| `extract-document` | Edge Function | fotka/PDF → text LLM (faktura) nebo vision (průkaz) → `ai_drafts`; Guardar je gestor |
 | `documentos.extracted` | JSONB na dokladu | uložená pole po Guardar; AI sem nezapisuje |
+| `documentos.body_text` | TEXT na dokladu | přepis PDF po Guardar |
+| `purge_documento_storage` | SQL RPC | owner vysype blob schovaného dokumentu |
+| `query_suministro` / `query_plazos_office` / `query_escritura` | SQL RPC | office-wide čtení desky pro chat |
+| `ai-assistant` | Edge Function | whitelist tools; žádný save/send |
+| `roadmap_dokumenty_ai` | `docs/roadmap_dokumenty_ai.md` | Fáze A–G: přepis, PDF, koš, office-wide tools, otevřený blok; později FTS |
 | `ai-draft-message` | Edge Function | díry složky → `mensajes.draft`; odesílá gestor |
 | `client_portal` | není | v2, čte `mensajes.translations` |
 | `gestoria_auth` | `packages/gestoria_auth` | login, PortalUrls, hash `setSession` |

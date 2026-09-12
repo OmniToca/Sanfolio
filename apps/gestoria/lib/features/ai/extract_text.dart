@@ -97,12 +97,43 @@ Map<String, String> sanitizeExtractedFields(Map<String, String> raw) {
         if (looksLikeTel(v)) out[e.key] = compactTel(v);
       case 'fields.email':
         if (v.contains('@') && v.length <= 120) out[e.key] = v.toLowerCase();
+      case 'body_text':
+        out[e.key] = v.length > 100000 ? v.substring(0, 100000) : v;
       default:
         if (v.length <= 200) out[e.key] = v;
     }
   }
   return out;
 }
+
+/// Pole desky vs. plný text PDF. Guardar zapisuje zvlášť.
+class DocumentoTranscript {
+  const DocumentoTranscript({this.fields = const {}, this.bodyText});
+
+  final Map<String, String> fields;
+  final String? bodyText;
+}
+
+DocumentoTranscript splitDocumentoTranscript(Map<String, String> raw) {
+  final fields = Map<String, String>.from(sanitizeExtractedFields(raw));
+  final body = fields.remove('body_text')?.trim();
+  return DocumentoTranscript(
+    fields: fields,
+    bodyText: body == null || body.isEmpty ? null : body,
+  );
+}
+
+/// Řádek `documentos`: pole + přepis + jestli je blob vysypaný.
+DocumentoTranscript transcriptFromDocumentoRow(Map raw) {
+  final extracted = stringFieldMap(raw['extracted']);
+  final col = '${raw['body_text'] ?? ''}'.trim();
+  return splitDocumentoTranscript({
+    ...extracted,
+    if (col.isNotEmpty) 'body_text': col,
+  });
+}
+
+bool storagePurgedFromRow(Map raw) => raw['storage_purged_at'] != null;
 
 final _nie = RegExp(
   r'\b(?:[XYZ][0-9*]{7}[A-Z]|[0-9*]{8}[A-Z])\b',

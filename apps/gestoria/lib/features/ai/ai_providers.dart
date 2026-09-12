@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gestoria_auth/gestoria_auth.dart';
 
+import 'ai_chat.dart';
 import 'extract_text.dart';
 
 class AiHit {
@@ -249,6 +250,7 @@ class AiDocFact {
     this.amount,
     this.consumption,
     this.docNumber,
+    this.bodyExcerpt,
   });
 
   final String tipo;
@@ -257,6 +259,7 @@ class AiDocFact {
   final String? amount;
   final String? consumption;
   final String? docNumber;
+  final String? bodyExcerpt;
 }
 
 class AiFactAnswer {
@@ -326,6 +329,7 @@ Future<AiFactAnswer?> askClienteFactsForId(
             amount: extracted['fields.amount'],
             consumption: extracted['fields.consumption'],
             docNumber: extracted['fields.docNumber'],
+            bodyExcerpt: raw['body_excerpt']?.toString(),
           ),
         );
       }
@@ -375,5 +379,216 @@ Future<AiFactAnswer?> askClienteFactsForId(
     );
   } on Object {
     return AiFactAnswer(clienteId: clienteId, nombre: nombre);
+  }
+}
+
+class AiOfficeHit {
+  const AiOfficeHit({
+    required this.clienteId,
+    required this.nombre,
+    this.detail,
+  });
+
+  final String clienteId;
+  final String nombre;
+  final String? detail;
+}
+
+class AiOfficeAnswer {
+  const AiOfficeAnswer({
+    required this.total,
+    this.items = const [],
+    this.filledOnDesk = true,
+  });
+
+  final int total;
+  final List<AiOfficeHit> items;
+  final bool filledOnDesk;
+}
+
+AiOfficeAnswer? _parseOfficeJson(Object? data) {
+  if (data is! Map) return null;
+  final total = int.tryParse('${data['total'] ?? 0}') ?? 0;
+  final filled = data['filled_on_desk'] != false;
+  final items = <AiOfficeHit>[];
+  final rawItems = data['items'];
+  if (rawItems is List) {
+    for (final raw in rawItems) {
+      if (raw is! Map) continue;
+      final id = '${raw['cliente_id'] ?? ''}';
+      if (id.isEmpty) continue;
+      final nombre = '${raw['nombre'] ?? ''}'.trim();
+      final detail = [
+        if ('${raw['company'] ?? ''}'.trim().isNotEmpty) '${raw['company']}',
+        if ('${raw['notary'] ?? ''}'.trim().isNotEmpty) '${raw['notary']}',
+        if ('${raw['due_on'] ?? ''}'.trim().isNotEmpty) '${raw['due_on']}',
+        if ('${raw['kind'] ?? ''}'.trim().isNotEmpty) '${raw['kind']}',
+      ].join(' · ');
+      items.add(
+        AiOfficeHit(
+          clienteId: id,
+          nombre: nombre.isEmpty ? id : nombre,
+          detail: detail.isEmpty ? null : detail,
+        ),
+      );
+    }
+  }
+  return AiOfficeAnswer(total: total, items: items, filledOnDesk: filled);
+}
+
+/// Office-wide čtení z desky. Nic se nezapisuje.
+Future<AiOfficeAnswer?> askOfficeFacts({
+  required String tenantId,
+  required String q,
+}) async {
+  final client = trySupabaseClient();
+  if (client == null || tenantId.isEmpty) return null;
+  return _askOfficeWithClient(client, tenantId, q);
+}
+
+Future<AiOfficeAnswer?> _askOfficeWithClient(
+  dynamic client,
+  String tenantId,
+  String q,
+) async {
+  if (tenantId.isEmpty) return null;
+  final lower = q.toLowerCase();
+  try {
+    if (_looksLikePlazo(lower)) {
+      final data = await client.rpc(
+        'query_plazos_office',
+        params: {
+          'p_tenant_id': tenantId,
+          'p_kind': _plazoKind(lower),
+          'p_within_days': _withinDays(lower),
+        },
+      );
+      return _parseOfficeJson(data);
+    }
+    if (_looksLikeEscritura(lower)) {
+      final data = await client.rpc(
+        'query_escritura',
+        params: {
+          'p_tenant_id': tenantId,
+          'p_notary': q.trim(),
+        },
+      );
+      return _parseOfficeJson(data);
+    }
+    if (_looksLikeSuministro(lower)) {
+      final data = await client.rpc(
+        'query_suministro',
+        params: {
+          'p_tenant_id': tenantId,
+          'p_company': q.trim(),
+          'p_bloque_key': _suministroKey(lower),
+        },
+      );
+      return _parseOfficeJson(data);
+    }
+  } on Object {
+    return null;
+  }
+  return null;
+}
+
+bool _looksLikePlazo(String q) {
+  return q.contains('seguro') ||
+      q.contains('poji') ||
+      q.contains('insur') ||
+      q.contains('versicher') ||
+      q.contains('assurance') ||
+      q.contains('alarm') ||
+      q.contains('poder');
+}
+
+String _plazoKind(String q) {
+  if (q.contains('alarm')) return 'alarma_renovacion';
+  if (q.contains('poder')) return 'poder_caducidad';
+  return 'seguro_renovacion';
+}
+
+int _withinDays(String q) {
+  if (q.contains('měsíc') ||
+      q.contains('mes') ||
+      q.contains('month') ||
+      q.contains('Monat') ||
+      q.contains('mois')) {
+    return 90;
+  }
+  return 90;
+}
+
+bool _looksLikeEscritura(String q) {
+  return q.contains('notari') ||
+      q.contains('notář') ||
+      q.contains('notary') ||
+      q.contains('escritura');
+}
+
+bool _looksLikeSuministro(String q) {
+  return q.contains('luz') ||
+      q.contains('agua') ||
+      q.contains('gaz') ||
+      q.contains('gas') ||
+      q.contains('elekt') ||
+      q.contains('iberdrola') ||
+      q.contains('endesa') ||
+      q.contains('naturgy') ||
+      q.contains('dodavatel') ||
+      q.contains('compañ') ||
+      q.contains('company');
+}
+
+String _suministroKey(String q) {
+  if (q.contains('agua') || q.contains('vod')) return 'agua';
+  if (q.contains('gaz') || q.contains('plyn') || q.contains('gas')) {
+    return 'gaz';
+  }
+  return 'luz';
+}
+
+/// Edge `ai-assistant`. Selhání = null, panel spadne na facts / office RPC.
+Future<AiChatPayload?> askAiAssistant({
+  required String message,
+  required String locale,
+  String? clienteId,
+  String? tenantId,
+}) async {
+  final client = trySupabaseClient();
+  if (client == null || message.trim().isEmpty) return null;
+  try {
+    final response = await client.functions.invoke(
+      'ai-assistant',
+      body: {
+        'message': message,
+        'locale': locale,
+        if (clienteId != null) 'cliente_id': clienteId,
+        if (tenantId != null) 'tenant_id': tenantId,
+      },
+    );
+    final data = response.data;
+    if (data is! Map || data['ok'] != true) return null;
+    final text = '${data['text'] ?? ''}'.trim();
+    if (text.isEmpty) return null;
+    final opens = <AiChatOpen>[];
+    final rawOpens = data['opens'];
+    if (rawOpens is List) {
+      for (final raw in rawOpens) {
+        if (raw is! Map) continue;
+        final id = '${raw['cliente_id'] ?? ''}';
+        if (id.isEmpty) continue;
+        opens.add(
+          AiChatOpen(
+            clienteId: id,
+            label: '${raw['label'] ?? id}',
+            carpeta: raw['carpeta'] == true,
+          ),
+        );
+      }
+    }
+    return AiChatPayload(text: text, opens: opens);
+  } on Object {
+    return null;
   }
 }

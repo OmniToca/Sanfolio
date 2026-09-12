@@ -105,6 +105,8 @@ Stejný tvar, jiný katalog dokumentu a volitelné pole sítě.
 | `gaz` | `contrato_gaz` + `factura_gaz` |
 | `comunidad` | `certificado_comunidad` (správce, účet, papír) |
 
+Přepis dokladu a tužka na desce se neslévají. Faktura má v `documentos.extracted` číslo, datum vystavení, období od–do, spotřebu, částku. Na blok jdou jen identita (compañía, contrato, CUPS / číslo klienta, titular). `fields.period` je rok IBI, ne období faktury. Stoh papírů je `/clientes/:id/carpeta/:bloque`, ne 15 polí na deskách.
+
 Plazo: v MVP žádné, pokud kancelář nedoplní datum obnovy. Stav po kompletnosti = `done`.
 
 ### 3.4 `suma` — SUMA / IBI

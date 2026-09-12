@@ -17,6 +17,10 @@ bool canInviteStaff(AuthSnapshot snap) => currentOfficeRole(snap) == 'owner';
 bool canViewClienteAudit(AuthSnapshot snap) =>
     currentOfficeRole(snap) == 'owner';
 
+/// Vysypat originál ze Storage: jen owner (impersonace Supportu = owner).
+bool canPurgeDocumento(AuthSnapshot snap) =>
+    currentOfficeRole(snap) == 'owner';
+
 /// Asistente spis neschová. Owner, gestor a impersonace ano.
 bool canSoftDeleteExpediente(AuthSnapshot snap) {
   final role = currentOfficeRole(snap);

@@ -56,9 +56,9 @@ Volá RPC z [search_spec.md](search_spec.md). Vrací id, jméno, skóre, matched
 }
 ```
 
-Runtime ověří, že ids patří tenantu. Odpověď klientovi: `{ "type": "navigate", "route": "/clientes/{id}?bloque=luz" }`. Flutter GoRouter to otevře. AI **ne** fetchuje celou kartu do chatu zbytečně — na to je `get_cliente`.
+Runtime ověří, že ids patří tenantu. Odpověď klientovi: `{ "type": "navigate", "route": "/clientes/{id}/carpeta/luz" }`. Flutter GoRouter to otevře. AI **ne** fetchuje celou kartu do chatu zbytečně — na to je `get_cliente`.
 
-Povolené routy: `/inbox`, `/clientes/:id`, `/inmuebles/:id`, `/expedientes/:id`. Nic v Support app.
+Povolené routy: `/inbox`, `/clientes/:id`, `/clientes/:id/carpeta`, `/clientes/:id/carpeta/:bloque`, `/inmuebles/:id`, `/expedientes/:id`. Nic v Support app.
 
 ### 2.3 `get_cliente`
 
@@ -151,7 +151,9 @@ Přílohy: jen Storage paths tenantu. Max velikost a MIME: jpeg, png, webp, pdf.
 
 Trvalý panel vpravo (na širokém stole dockovaný, na úzkém překryv). Žádný FAB — ať se nepřekrývá s „Nová složka“. Lišta / položka Asistent panel jen přepíná.
 
-Turny se ukládají do `ai_conversations` + `ai_messages` (soft-delete, scoped na uživatele v UI). Stream `ai-assistant` je smlouva níže; dokud funkce není, panel ukládá search / facts / extract jako čitelné zprávy.
+Turny se ukládají do `ai_conversations` + `ai_messages` (soft-delete, scoped na uživatele v UI). Stream / HTTP `ai-assistant` volá whitelist tools (`search_clients`, `get_cliente`, `query_suministro`, `query_plazos_office`, `query_escritura`). Dokud funkce není nasazená, panel skládá facts + office RPC ve Flutter.
+
+Office-wide otázky (dodavatel, konce seguro, notář) = read-only tools / RPC, viz [roadmap_dokumenty_ai.md](roadmap_dokumenty_ai.md). Žádný `execute_sql`. Vektory až fáze F.
 
 Side-effects:
 

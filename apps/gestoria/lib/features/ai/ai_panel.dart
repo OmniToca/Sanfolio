@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gestoria_auth/gestoria_auth.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/documents/documento_storage.dart';
 import '../../core/theme/app_theme.dart';
 import 'ai_chat.dart';
 import 'ai_providers.dart';
@@ -163,19 +164,41 @@ class _AiPanelState extends ConsumerState<AiPanel> {
     final q = _q.text.trim();
     if (q.isEmpty) return;
     setState(() => _working = true);
+    final locale = context.locale.languageCode;
     try {
       await ref.read(aiChatProvider.notifier).addUser(q);
       _q.clear();
       final openId = _clienteId();
-      final hits = openId == null ? await aiSearchClients(q) : <AiHit>[];
-      final facts = openId != null
-          ? await askClienteFactsForId(openId)
-          : (hits.isEmpty ? null : await askClienteFacts(q));
-      await ref
-          .read(aiChatProvider.notifier)
-          .addAssistant(
-            encodeAiChatPayload(_replyPayload(hits: hits, facts: facts)),
-          );
+      final tenantId = ref
+          .read(authControllerProvider)
+          .valueOrNull
+          ?.currentTenantId;
+      final assistant = await askAiAssistant(
+        message: q,
+        locale: locale,
+        clienteId: openId,
+        tenantId: tenantId,
+      );
+      if (assistant != null) {
+        await ref
+            .read(aiChatProvider.notifier)
+            .addAssistant(encodeAiChatPayload(assistant));
+      } else {
+        final hits = openId == null ? await aiSearchClients(q) : <AiHit>[];
+        final facts = openId != null
+            ? await askClienteFactsForId(openId)
+            : (hits.isEmpty ? null : await askClienteFacts(q));
+        final office = tenantId == null
+            ? null
+            : await askOfficeFacts(tenantId: tenantId, q: q);
+        await ref
+            .read(aiChatProvider.notifier)
+            .addAssistant(
+              encodeAiChatPayload(
+                _replyPayload(hits: hits, facts: facts, office: office),
+              ),
+            );
+      }
       _jumpToEnd();
     } on Object {
       if (mounted) {
@@ -191,8 +214,9 @@ class _AiPanelState extends ConsumerState<AiPanel> {
   AiChatPayload _replyPayload({
     required List<AiHit> hits,
     required AiFactAnswer? facts,
+    AiOfficeAnswer? office,
   }) {
-    if (facts == null && hits.isEmpty) {
+    if (facts == null && hits.isEmpty && office == null) {
       return AiChatPayload(text: 'ai.factsNone'.tr());
     }
     final lines = <String>[];
@@ -221,6 +245,9 @@ class _AiPanelState extends ConsumerState<AiPanel> {
               '${'fields.amount'.tr()}: ${doc.amount}',
             if (doc.nombre != null && doc.nombre!.isNotEmpty)
               '${'fields.nombre'.tr()}: ${doc.nombre}',
+            if (doc.bodyExcerpt != null &&
+                doc.bodyExcerpt!.trim().isNotEmpty)
+              '${'folder.bodyText'.tr()}: ${doc.bodyExcerpt!.trim()}',
           ];
           lines.add(bits.join(' · '));
         }
@@ -232,6 +259,25 @@ class _AiPanelState extends ConsumerState<AiPanel> {
           carpeta: true,
         ),
       );
+    }
+    if (office != null) {
+      if (lines.isNotEmpty) lines.add('');
+      lines.add('ai.officeHits'.tr());
+      if (!office.filledOnDesk || office.items.isEmpty) {
+        lines.add('ai.officeEmpty'.tr());
+      } else {
+        lines.add('ai.officePartial'.tr());
+        for (final hit in office.items) {
+          lines.add(
+            [hit.nombre, if (hit.detail != null) hit.detail!].join(' · '),
+          );
+          if (opens.any((o) => o.clienteId == hit.clienteId)) continue;
+          opens.add(AiChatOpen(clienteId: hit.clienteId, label: hit.nombre));
+        }
+        if (office.total > office.items.length) {
+          lines.add('${office.items.length}/${office.total}');
+        }
+      }
     }
     if (hits.isNotEmpty) {
       if (lines.isNotEmpty) lines.add('');
@@ -357,11 +403,24 @@ class _AiPanelState extends ConsumerState<AiPanel> {
     try {
       final client = trySupabaseClient();
       if (client == null) throw StateError('not configured');
-      final safe = file.name.replaceAll(RegExp(r'[/\\]'), '_').trim();
-      final name = safe.isEmpty ? 'scan' : safe;
-      final path =
-          '$tenantId/$id/ai/${DateTime.now().microsecondsSinceEpoch}_$name';
-      await client.storage.from('documentos').uploadBinary(path, bytes);
+      final path = documentoStoragePath(
+        tenantId: tenantId,
+        clienteId: id,
+        originalName: file.name,
+      );
+      await uploadDocumentoBytes(path: path, bytes: bytes);
+      try {
+        await client.from('documentos').insert({
+          'tenant_id': tenantId,
+          'cliente_id': id,
+          'tipo': 'other',
+          'storage_path': path,
+          'original_name': file.name,
+        });
+      } on Object {
+        await rollbackDocumentoUpload(path);
+        rethrow;
+      }
       final mime = mimeForOfficeFile(file.name, extension: file.extension);
       final draft = await extractDocumentDraft(
         tenantId: tenantId,
@@ -369,7 +428,7 @@ class _AiPanelState extends ConsumerState<AiPanel> {
         storagePath: path,
         mime: mime,
       );
-      await ref.read(aiChatProvider.notifier).addUser(name);
+      await ref.read(aiChatProvider.notifier).addUser(file.name);
       if (draft == null) {
         await ref
             .read(aiChatProvider.notifier)
@@ -386,7 +445,9 @@ class _AiPanelState extends ConsumerState<AiPanel> {
               AiChatPayload(
                 text: 'ai.proposal'.tr(),
                 fields: draft.fields,
-                opens: [AiChatOpen(clienteId: id, label: name, carpeta: true)],
+                opens: [
+                  AiChatOpen(clienteId: id, label: file.name, carpeta: true),
+                ],
               ),
             ),
           );

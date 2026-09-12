@@ -109,6 +109,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
+            path: '/clientes/:id/carpeta/:bloque',
+            pageBuilder: (context, state) => NoTransitionPage(
+              child: BloqueScreen(
+                clienteId: state.pathParameters['id']!,
+                bloqueKey: state.pathParameters['bloque']!,
+                expedienteId: state.uri.queryParameters['exp'],
+              ),
+            ),
+          ),
+          GoRoute(
             path: '/clientes/:id/carpeta',
             pageBuilder: (context, state) => NoTransitionPage(
               child: CarpetaScreen(

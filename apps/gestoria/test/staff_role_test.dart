@@ -35,6 +35,8 @@ void main() {
     expect(canViewClienteAudit(owner), isTrue);
     expect(canViewClienteAudit(gestor), isFalse);
     expect(canViewClienteAudit(asistente), isFalse);
+    expect(canPurgeDocumento(owner), isTrue);
+    expect(canPurgeDocumento(gestor), isFalse);
     expect(ClienteAuditEvent(
       id: '1',
       createdAt: DateTime.utc(2026, 9, 12),

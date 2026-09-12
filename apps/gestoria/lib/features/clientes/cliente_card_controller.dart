@@ -3,10 +3,11 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gestoria_auth/gestoria_auth.dart';
 
-import 'clientes_providers.dart';
-import 'cliente_audit.dart';
+import '../../core/documents/documento_storage.dart';
 import '../ai/ai_providers.dart';
 import '../ai/extract_text.dart';
+import 'cliente_audit.dart';
+import 'clientes_providers.dart';
 
 class ClienteContact {
   const ClienteContact({
@@ -33,6 +34,8 @@ class ClienteDocumento {
     required this.storagePath,
     required this.originalName,
     this.extracted = const {},
+    this.bodyText,
+    this.storagePurged = false,
   });
 
   final String id;
@@ -40,14 +43,22 @@ class ClienteDocumento {
   final String storagePath;
   final String originalName;
   final Map<String, String> extracted;
+  final String? bodyText;
+  final bool storagePurged;
 
-  ClienteDocumento copyWith({Map<String, String>? extracted}) {
+  ClienteDocumento copyWith({
+    Map<String, String>? extracted,
+    String? bodyText,
+    bool? storagePurged,
+  }) {
     return ClienteDocumento(
       id: id,
       tipo: tipo,
       storagePath: storagePath,
       originalName: originalName,
       extracted: extracted ?? this.extracted,
+      bodyText: bodyText ?? this.bodyText,
+      storagePurged: storagePurged ?? this.storagePurged,
     );
   }
 }
@@ -71,6 +82,7 @@ class ClienteCard {
     this.nie,
     this.contacts = const [],
     this.documents = const [],
+    this.hiddenDocuments = const [],
   });
 
   final String id;
@@ -86,6 +98,7 @@ class ClienteCard {
   final String? nie;
   final List<ClienteContact> contacts;
   final List<ClienteDocumento> documents;
+  final List<ClienteDocumento> hiddenDocuments;
 }
 
 class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
@@ -155,25 +168,25 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
 
     final docsRaw = await client
         .from('documentos')
-        .select('id, tipo, storage_path, original_name, extracted')
+        .select(
+          'id, tipo, storage_path, original_name, extracted, body_text, '
+          'storage_purged_at, deleted_at',
+        )
         .eq('cliente_id', clienteId)
         .eq('tenant_id', tenantId)
         .isFilter('bloque_id', null)
-        .isFilter('deleted_at', null)
         .order('created_at');
 
     final documents = <ClienteDocumento>[];
+    final hidden = <ClienteDocumento>[];
     for (final raw in docsRaw as List) {
       if (raw is! Map) continue;
-      documents.add(
-        ClienteDocumento(
-          id: '${raw['id']}',
-          tipo: '${raw['tipo'] ?? 'other'}',
-          storagePath: '${raw['storage_path'] ?? ''}',
-          originalName: '${raw['original_name'] ?? ''}'.trim(),
-          extracted: stringFieldMap(raw['extracted']),
-        ),
-      );
+      final doc = _clienteDocumentoFromRow(raw);
+      if (raw['deleted_at'] != null) {
+        hidden.add(doc);
+      } else {
+        documents.add(doc);
+      }
     }
 
     return ClienteCard(
@@ -190,6 +203,7 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
       nie: nie,
       contacts: contacts,
       documents: documents,
+      hiddenDocuments: hidden,
     );
   }
 
@@ -315,19 +329,25 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
     final client = trySupabaseClient();
     final auth = ref.read(authControllerProvider).valueOrNull;
     if (client == null) throw StateError('not configured');
-    final safe = originalName.replaceAll(RegExp(r'[/\\]'), '_').trim();
-    final name = safe.isEmpty ? 'file' : safe;
-    final path =
-        '${current.tenantId}/${current.id}/card/${DateTime.now().microsecondsSinceEpoch}_$name';
-    await client.storage.from('documentos').uploadBinary(path, bytes);
-    await client.from('documentos').insert({
-      'tenant_id': current.tenantId,
-      'cliente_id': current.id,
-      'tipo': tipo,
-      'storage_path': path,
-      'original_name': originalName,
-      if (auth?.profile?.id != null) 'created_by': auth!.profile!.id,
-    });
+    final path = documentoStoragePath(
+      tenantId: current.tenantId,
+      clienteId: current.id,
+      originalName: originalName,
+    );
+    await uploadDocumentoBytes(path: path, bytes: bytes);
+    try {
+      await client.from('documentos').insert({
+        'tenant_id': current.tenantId,
+        'cliente_id': current.id,
+        'tipo': tipo,
+        'storage_path': path,
+        'original_name': originalName,
+        if (auth?.profile?.id != null) 'created_by': auth!.profile!.id,
+      });
+    } on Object {
+      await rollbackDocumentoUpload(path);
+      rethrow;
+    }
     await extractDocumentDraft(
       tenantId: current.tenantId,
       clienteId: current.id,
@@ -348,11 +368,12 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
     if (current == null || current.deleted || fields.isEmpty) return;
     final client = trySupabaseClient();
     if (client == null) throw StateError('not configured');
-    await client
-        .from('documentos')
-        .update({'extracted': fields})
-        .eq('id', documentId)
-        .eq('tenant_id', current.tenantId);
+    final t = splitDocumentoTranscript(fields);
+    if (t.fields.isEmpty && t.bodyText == null) return;
+    await client.from('documentos').update({
+      'extracted': t.fields,
+      if (t.bodyText != null) 'body_text': t.bodyText,
+    }).eq('id', documentId).eq('tenant_id', current.tenantId);
     _refresh();
   }
 
@@ -383,6 +404,32 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
     _refresh();
   }
 
+  Future<void> restoreDocument(String documentId) async {
+    final current = state.valueOrNull;
+    if (current == null || current.deleted) return;
+    final client = trySupabaseClient();
+    if (client == null) throw StateError('not configured');
+    await client
+        .from('documentos')
+        .update({'deleted_at': null})
+        .eq('id', documentId)
+        .eq('tenant_id', current.tenantId);
+    _refresh();
+  }
+
+  /// Owner maže blob schovaného dokumentu. Řádek zůstane.
+  Future<void> purgeDocumentStorage(String documentId) async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    final client = trySupabaseClient();
+    if (client == null) throw StateError('not configured');
+    await client.rpc(
+      'purge_documento_storage',
+      params: {'p_documento_id': documentId},
+    );
+    _refresh();
+  }
+
   Future<String?> signedUrl(String storagePath) async {
     final client = trySupabaseClient();
     if (client == null) return null;
@@ -405,6 +452,19 @@ String? _trimOrNull(Object? value) {
   final s = '$value'.trim();
   if (s.isEmpty || s == 'null') return null;
   return s;
+}
+
+ClienteDocumento _clienteDocumentoFromRow(Map raw) {
+  final t = transcriptFromDocumentoRow(raw);
+  return ClienteDocumento(
+    id: '${raw['id']}',
+    tipo: '${raw['tipo'] ?? 'other'}',
+    storagePath: '${raw['storage_path'] ?? ''}',
+    originalName: '${raw['original_name'] ?? ''}'.trim(),
+    extracted: t.fields,
+    bodyText: t.bodyText,
+    storagePurged: storagePurgedFromRow(raw),
+  );
 }
 
 String? _nullIfEmpty(String? value) {

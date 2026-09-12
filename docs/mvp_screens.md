@@ -15,7 +15,8 @@ Všechny texty UI z i18n (`cs` default). Layout: rail vlevo (desktop) + top bar.
 | `/inbox` | denní smyčka |
 | `/clientes` | seznam + nové (NIE není povinné) |
 | `/clientes/:id` | deska klienta |
-| `/clientes/:id/carpeta` | dva listy (tužka) |
+| `/clientes/:id/carpeta` | dva listy (tužka); bloky kromě klienta jsou kryty |
+| `/clientes/:id/carpeta/:bloque` | šanon jednoho bloku: identita + papíry |
 | `/clientes/:id/inmuebles/:inmuebleId` | deska nemovitosti |
 | `/expedientes/:id` | úkon (daně, NIE, poder) |
 | `/mensajes/:id` | editor draftu; odeslat = překlad |
@@ -99,15 +100,15 @@ ALARMA
 EXTRAS      NIE    PODER
 ```
 
-Každý blok:
+Každý blok na **deskách**:
 
 - switch No aplica / Activo (tužka)
-- stavový chip (Faltan datos / Falta documento / En seguimiento / Hecho / Vencido)
-- pole
-- dropzóna dokumentu + seznam souborů
-- pokud watching: datum plazo
+- stavový chip
+- kryt (dodavatel / CUPS, počet papírů) — klik otevře šanon
 
-To je obrazovka, která zabíjí tiskárnu. Desktop: 1 sloupec scroll. AI prefill zvýrazní žlutě změněná pole do Guardar / Descartar.
+Uvnitř `/carpeta/:bloque`: pole identity, dropzóna, stoh dokladů (faktury s obdobím a částkou). To zabíjí tiskárnu, aniž by deska byla SAP.
+
+AI prefill zvýrazní žlutě změněná pole do Guardar / Descartar.
 
 ## 6. Expediente daně / NIE (`/expedientes/:id`)
 

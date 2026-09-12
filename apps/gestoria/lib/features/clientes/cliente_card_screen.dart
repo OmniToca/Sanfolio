@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/auth/staff_role.dart';
+import '../../core/documents/bloque_field_keys.dart';
 import '../../core/i18n/app_locales.dart';
 import '../../core/modules/feature_gate.dart';
 import '../../core/modules/module_catalog.dart';
@@ -366,6 +367,24 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
                 (d) => d.tipo == types[t],
               )) ...[_cardDocumentTile(card, doc), const SizedBox(height: 8)],
             ],
+          if (canPurgeDocumento(
+                ref.watch(authControllerProvider).valueOrNull ??
+                    const AuthSnapshot(),
+              ) &&
+              card.hiddenDocuments.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Text(
+              'folder.trash'.tr(),
+              style: Theme.of(
+                context,
+              ).textTheme.labelSmall?.copyWith(color: AppTheme.pencil),
+            ),
+            const SizedBox(height: 6),
+            for (final doc in card.hiddenDocuments) ...[
+              _hiddenDocumentTile(doc),
+              const SizedBox(height: 8),
+            ],
+          ],
         ],
       ),
     );
@@ -804,9 +823,13 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   IconButton(
-                    tooltip: 'folder.open'.tr(),
+                    tooltip: doc.storagePurged
+                        ? 'folder.purged'.tr()
+                        : 'folder.original'.tr(),
                     icon: const Icon(Icons.open_in_new),
-                    onPressed: () => _openDoc(doc),
+                    onPressed: doc.storagePurged
+                        ? null
+                        : () => _openDoc(doc),
                   ),
                   IconButton(
                     tooltip: 'folder.remove'.tr(),
@@ -832,14 +855,37 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
                 child: Text(
                   _extractStarted.contains(doc.id)
                       ? 'ai.readingDoc'.tr()
-                      : 'ai.fileOnly'.tr(),
+                      : 'folder.transcriptEmpty'.tr(),
                   style: Theme.of(context).textTheme.bodySmall,
+                ),
+              )
+            else if (shown.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+                child: Text(
+                  'folder.transcript'.tr(),
+                  style: Theme.of(context).textTheme.labelSmall,
                 ),
               ),
             for (final k in shown)
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
                 child: Text('${k.tr()}: ${values[k]}'),
+              ),
+            if ((doc.bodyText ?? '').trim().isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                child: Text(
+                  '${'folder.bodyText'.tr()}: ${doc.bodyText!.trim()}',
+                  maxLines: 8,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+            if (doc.storagePurged)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                child: Text('folder.purged'.tr()),
               ),
             if (pending != null)
               Padding(
@@ -911,6 +957,10 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
   }
 
   Future<void> _openDoc(ClienteDocumento doc) async {
+    if (doc.storagePurged) {
+      _toast('folder.purged'.tr());
+      return;
+    }
     try {
       final url = await ref
           .read(clienteCardProvider(widget.clienteId).notifier)
@@ -961,6 +1011,100 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
       await ref
           .read(clienteCardProvider(widget.clienteId).notifier)
           .removeDocument(documentId);
+    } on Object {
+      if (mounted) _toast('folder.removeError'.tr());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Widget _hiddenDocumentTile(ClienteDocumento doc) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceMuted,
+        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+        border: Border.all(color: AppTheme.rule),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 4, 4, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _InsetRow(
+              leading: const Icon(Icons.delete_outline),
+              title: doc.originalName.isEmpty
+                  ? 'docs.${doc.tipo}'.tr()
+                  : doc.originalName,
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextButton(
+                    onPressed: _busy ? null : () => _restoreDoc(doc.id),
+                    child: Text('folder.restore'.tr()),
+                  ),
+                  TextButton(
+                    onPressed: _busy || doc.storagePurged
+                        ? null
+                        : () => _purgeDoc(doc),
+                    child: Text('folder.purge'.tr()),
+                  ),
+                ],
+              ),
+            ),
+            if (doc.storagePurged)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                child: Text('folder.purged'.tr()),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _restoreDoc(String documentId) async {
+    setState(() => _busy = true);
+    try {
+      await ref
+          .read(clienteCardProvider(widget.clienteId).notifier)
+          .restoreDocument(documentId);
+    } on Object {
+      if (mounted) _toast('folder.removeError'.tr());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _purgeDoc(ClienteDocumento doc) async {
+    final legal = documentoPurgeWarnTypes.contains(doc.tipo);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('folder.purge'.tr()),
+        content: Text(
+          [
+            'folder.purgeConfirm'.tr(),
+            if (legal) 'folder.purgeWarnLegal'.tr(),
+          ].join('\n\n'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('clients.cancel'.tr()),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('folder.purge'.tr()),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    setState(() => _busy = true);
+    try {
+      await ref
+          .read(clienteCardProvider(widget.clienteId).notifier)
+          .purgeDocumentStorage(doc.id);
     } on Object {
       if (mounted) _toast('folder.removeError'.tr());
     } finally {

@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gestoria_os/features/ai/documento_fields.dart';
 import 'package:gestoria_os/features/ai/extract_text.dart';
+import 'package:gestoria_os/features/carpeta/bloque_template.dart';
+import 'package:gestoria_os/features/carpeta/carpeta_routes.dart';
 
 void main() {
   test('extract najde NIE, e-mail a tel, nic neukládá', () {
@@ -51,5 +53,68 @@ void main() {
   test('jméno na pase pozná stejného člověka', () {
     expect(namesLikelyMatch('Petr Sokol', 'SOKOL, PETR'), isTrue);
     expect(namesLikelyMatch('Petr Sokol', 'Ana García'), isFalse);
+  });
+
+  test('facturas-5.pdf je factura_agua, ne první díra contrato', () {
+    expect(
+      guessDocumentoTipo(
+        requiredDocTypes: const ['contrato_agua', 'factura_agua'],
+        alreadyHave: {},
+        originalName: 'facturas-5.pdf',
+      ),
+      'factura_agua',
+    );
+    expect(
+      guessDocumentoTipo(
+        requiredDocTypes: const ['contrato_luz', 'factura_luz'],
+        alreadyHave: {},
+        originalName: '31_07_2026.pdf',
+      ),
+      'contrato_luz',
+    );
+  });
+
+  test('Guardar faktury nepřeje částku na desku elektřiny', () {
+    final desk = promotePaperToDesk(
+      deskFieldKeys: const [
+        'fields.company',
+        'fields.cups',
+        'fields.contractNo',
+        'fields.holder',
+      ],
+      desk: const {'fields.cups': 'ES 0021'},
+      paper: const {
+        'fields.contractNo': '810921765',
+        'fields.amount': '188.85',
+        'fields.periodFrom': '2026-06-26',
+      },
+    );
+    expect(desk['fields.contractNo'], '810921765');
+    expect(desk['fields.cups'], 'ES 0021');
+    expect(desk.containsKey('fields.amount'), isFalse);
+  });
+
+  test('stoh faktur řadí od nejnovějšího období', () {
+    expect(isInvoiceDocTipo('factura_agua'), isTrue);
+    expect(isInvoiceDocTipo('contrato_agua'), isFalse);
+    expect(
+      paperSortStamp({'fields.periodTo': '2024-09-30', 'fields.issued': '2024-09-23'}),
+      '2024-09-30',
+    );
+  });
+
+  test('klient zůstane na deskách, voda se otevírá', () {
+    expect(
+      compraventaBloques.firstWhere((b) => b.key == 'cliente_snapshot').opensFromDesk,
+      isFalse,
+    );
+    expect(
+      compraventaBloques.firstWhere((b) => b.key == 'agua').opensFromDesk,
+      isTrue,
+    );
+    expect(
+      carpetaBloqueRoute('c1', 'agua', expedienteId: 'e1'),
+      '/clientes/c1/carpeta/agua?exp=e1',
+    );
   });
 }
