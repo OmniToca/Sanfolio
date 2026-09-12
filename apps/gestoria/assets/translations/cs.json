@@ -441,6 +441,8 @@
     "factsTitle": "Uložené doklady — {name}",
     "factsEmpty": "U tohoto klienta zatím nejsou uložená pole z dokladů. Nejdřív přiložte soubor a uložte návrh.",
     "factsNone": "Nikoho s takovým jménem jsem nenašel.",
+    "fileOnly": "Soubor je ve spisu. Údaje se načtou jako návrh — uložíte vy.",
+    "readingDoc": "Načítám údaje z dokladu…",
     "newThread": "Nové vlákno",
     "closePanel": "Skrýt asistenta",
     "emptyThread": "Zeptejte se na klienta, NIE nebo doklad. Uložíte vy — nic se samo nezapíše ani neodešle.",

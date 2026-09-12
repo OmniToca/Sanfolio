@@ -12,6 +12,8 @@ import '../../core/modules/feature_gate.dart';
 import '../../core/modules/module_catalog.dart';
 import '../../core/presentation/widgets/app_widgets.dart';
 import '../../core/theme/app_theme.dart';
+import '../ai/ai_providers.dart';
+import '../ai/documento_fields.dart';
 import 'cliente_audit.dart';
 import 'cliente_card_controller.dart';
 import 'clientes_providers.dart';
@@ -39,6 +41,7 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
   var _filledFor = '';
   var _busy = false;
   var _openLoggedFor = '';
+  final _extractStarted = <String>{};
 
   @override
   void didUpdateWidget(ClienteCardScreen oldWidget) {
@@ -46,6 +49,7 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
     if (oldWidget.clienteId != widget.clienteId) {
       _filledFor = '';
       _openLoggedFor = '';
+      _extractStarted.clear();
     }
   }
 
@@ -98,6 +102,7 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
       ),
       data: (card) {
         _fill(card);
+        _scheduleExtracts(card);
         return Scaffold(
           appBar: AppBar(
             title: Text(
@@ -144,8 +149,7 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
                           if (card.deleted) ...[
                             AppCard(
                               child: ListTile(
-                                leading:
-                                    const Icon(Icons.inventory_2_outlined),
+                                leading: const Icon(Icons.inventory_2_outlined),
                                 title: Text('clients.deletedBanner'.tr()),
                                 subtitle: owner
                                     ? null
@@ -166,10 +170,7 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
                               Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Expanded(
-                                    flex: 5,
-                                    child: _identityCard(card),
-                                  ),
+                                  Expanded(flex: 5, child: _identityCard(card)),
                                   const SizedBox(width: 16),
                                   Expanded(
                                     flex: 4,
@@ -211,9 +212,7 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
                           ],
                           if (showAudit) ...[
                             const SizedBox(height: 16),
-                            _ClienteAuditSection(
-                              clienteId: widget.clienteId,
-                            ),
+                            _ClienteAuditSection(clienteId: widget.clienteId),
                           ],
                         ],
                       ),
@@ -234,10 +233,7 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
     if (tenantId == null || _openLoggedFor == widget.clienteId) return;
     _openLoggedFor = widget.clienteId;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await auditClienteOpen(
-        clienteId: widget.clienteId,
-        tenantId: tenantId,
-      );
+      await auditClienteOpen(clienteId: widget.clienteId, tenantId: tenantId);
       if (mounted) {
         ref.invalidate(clienteAuditProvider(widget.clienteId));
       }
@@ -258,9 +254,9 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
               child: Text(
                 '${'fields.nie'.tr()} $nie',
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: AppTheme.accent,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  color: AppTheme.accent,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             )
           : null,
@@ -268,10 +264,7 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _FieldPair(
-            left: AppTextField(
-              label: 'clients.name'.tr(),
-              controller: _nombre,
-            ),
+            left: AppTextField(label: 'clients.name'.tr(), controller: _nombre),
             right: AppTextField(
               label: 'fields.email'.tr(),
               controller: _email,
@@ -285,10 +278,7 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
               controller: _tel,
               keyboardType: TextInputType.phone,
             ),
-            right: AppTextField(
-              label: 'fields.iban'.tr(),
-              controller: _iban,
-            ),
+            right: AppTextField(label: 'fields.iban'.tr(), controller: _iban),
           ),
           const SizedBox(height: 12),
           _LocaleMenu(
@@ -358,46 +348,23 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
           if (card.documents.isEmpty)
             Text(
               'clients.documentsEmpty'.tr(),
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppTheme.pencil,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppTheme.pencil),
             )
           else
             for (var t = 0; t < types.length; t++) ...[
               if (t > 0) const SizedBox(height: 8),
               Text(
                 'docs.${types[t]}'.tr(),
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: AppTheme.pencil,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.labelSmall?.copyWith(color: AppTheme.pencil),
               ),
               const SizedBox(height: 6),
-              for (final doc
-                  in card.documents.where((d) => d.tipo == types[t])) ...[
-                _InsetRow(
-                  leading: const Icon(Icons.insert_drive_file_outlined),
-                  title: doc.originalName.isEmpty
-                      ? 'docs.${doc.tipo}'.tr()
-                      : doc.originalName,
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        tooltip: 'folder.open'.tr(),
-                        icon: const Icon(Icons.open_in_new),
-                        onPressed: () => _openDoc(doc),
-                      ),
-                      IconButton(
-                        tooltip: 'folder.remove'.tr(),
-                        icon: const Icon(Icons.delete_outline),
-                        onPressed:
-                            _busy ? null : () => _removeDoc(doc.id),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 8),
-              ],
+              for (final doc in card.documents.where(
+                (d) => d.tipo == types[t],
+              )) ...[_cardDocumentTile(card, doc), const SizedBox(height: 8)],
             ],
         ],
       ),
@@ -413,9 +380,9 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
           if (card.contacts.isEmpty)
             Text(
               'clients.contactEmpty'.tr(),
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppTheme.pencil,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppTheme.pencil),
             )
           else
             for (var i = 0; i < card.contacts.length; i++) ...[
@@ -432,8 +399,9 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
                 trailing: IconButton(
                   tooltip: 'clients.contactRemove'.tr(),
                   icon: const Icon(Icons.delete_outline),
-                  onPressed:
-                      _busy ? null : () => _removeContact(card.contacts[i].id),
+                  onPressed: _busy
+                      ? null
+                      : () => _removeContact(card.contacts[i].id),
                 ),
               ),
             ],
@@ -466,9 +434,9 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
               if (list.isEmpty) {
                 return Text(
                   'expedientes.empty'.tr(),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppTheme.pencil,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: AppTheme.pencil),
                 );
               }
               return Column(
@@ -525,13 +493,15 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
                   runSpacing: 8,
                   children: [
                     OutlinedButton(
-                      onPressed:
-                          _busy ? null : () => _openThin('impuestos_210'),
+                      onPressed: _busy
+                          ? null
+                          : () => _openThin('impuestos_210'),
                       child: Text('expedientes.open210'.tr()),
                     ),
                     OutlinedButton(
-                      onPressed:
-                          _busy ? null : () => _openThin('impuestos_renta'),
+                      onPressed: _busy
+                          ? null
+                          : () => _openThin('impuestos_renta'),
                       child: Text('expedientes.openRenta'.tr()),
                     ),
                   ],
@@ -558,7 +528,7 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
   Future<void> _addManualPlazo() async {
     final list =
         ref.read(clienteExpedientesProvider(widget.clienteId)).valueOrNull ??
-            [];
+        [];
     if (list.isEmpty) {
       _toast('inbox.noExpediente'.tr());
       return;
@@ -655,11 +625,7 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
     }
     setState(() => _busy = true);
     try {
-      await addManualPlazo(
-        expedienteId: expId,
-        dueOn: due,
-        note: text,
-      );
+      await addManualPlazo(expedienteId: expId, dueOn: due, note: text);
       ref.invalidate(inboxFeedProvider);
       if (mounted) _toast('inbox.manualSaved'.tr());
     } on Object {
@@ -678,9 +644,7 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
         content: TextField(
           controller: dir,
           autofocus: true,
-          decoration: InputDecoration(
-            labelText: 'fields.address'.tr(),
-          ),
+          decoration: InputDecoration(labelText: 'fields.address'.tr()),
         ),
         actions: [
           TextButton(
@@ -719,8 +683,10 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
   }
 
   Future<void> _softDeleteExpediente(String expedienteId) async {
-    final tenantId =
-        ref.read(authControllerProvider).valueOrNull?.currentTenantId;
+    final tenantId = ref
+        .read(authControllerProvider)
+        .valueOrNull
+        ?.currentTenantId;
     if (tenantId == null) return;
     final ok = await showDialog<bool>(
       context: context,
@@ -742,10 +708,7 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
     if (ok != true) return;
     setState(() => _busy = true);
     try {
-      await hideThinExpediente(
-        tenantId: tenantId,
-        expedienteId: expedienteId,
-      );
+      await hideThinExpediente(tenantId: tenantId, expedienteId: expedienteId);
       ref.invalidate(clienteExpedientesProvider(widget.clienteId));
     } on Object {
       if (mounted) _toast('expedientes.asistenteNoDelete'.tr());
@@ -756,8 +719,10 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
 
   Future<void> _openThin(String tipo) async {
     final kind = thinKindByTipo(tipo);
-    final tenantId =
-        ref.read(authControllerProvider).valueOrNull?.currentTenantId;
+    final tenantId = ref
+        .read(authControllerProvider)
+        .valueOrNull
+        ?.currentTenantId;
     if (kind == null || tenantId == null) return;
     setState(() => _busy = true);
     try {
@@ -775,6 +740,150 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
     }
   }
 
+  void _scheduleExtracts(ClienteCard card) {
+    final drafts =
+        ref.read(liveAiDraftsProvider(card.id)).valueOrNull ?? const [];
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      for (final doc in card.documents) {
+        if (doc.extracted.isNotEmpty) continue;
+        if (drafts.any((d) => d.storagePath == doc.storagePath)) continue;
+        if (!_extractStarted.add(doc.id)) continue;
+        try {
+          await ref
+              .read(clienteCardProvider(card.id).notifier)
+              .extractDocument(doc);
+        } on Object {
+          _extractStarted.remove(doc.id);
+        }
+      }
+    });
+  }
+
+  Widget _cardDocumentTile(ClienteCard card, ClienteDocumento doc) {
+    final drafts =
+        ref.watch(liveAiDraftsProvider(card.id)).valueOrNull ?? const [];
+    final memory = ref.watch(aiPrefillProvider);
+    AiPrefillDraft? pending;
+    if (memory != null && memory.storagePath == doc.storagePath) {
+      pending = memory;
+    } else {
+      for (final d in drafts) {
+        if (d.storagePath == doc.storagePath) {
+          pending = d;
+          break;
+        }
+      }
+    }
+    final values = pending?.fields ?? doc.extracted;
+    final keys = fieldsForDocTipo(doc.tipo);
+    final shown = [
+      for (final k in keys)
+        if ((values[k] ?? '').trim().isNotEmpty) k,
+    ];
+    final nombre = (values['fields.nombre'] ?? '').trim();
+    final mismatch =
+        nombre.isNotEmpty && !namesLikelyMatch(card.nombre, nombre);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: pending != null ? AppTheme.proposal : AppTheme.surfaceMuted,
+        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+        border: Border.all(color: AppTheme.rule),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 4, 4, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _InsetRow(
+              leading: const Icon(Icons.insert_drive_file_outlined),
+              title: doc.originalName.isEmpty
+                  ? 'docs.${doc.tipo}'.tr()
+                  : doc.originalName,
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    tooltip: 'folder.open'.tr(),
+                    icon: const Icon(Icons.open_in_new),
+                    onPressed: () => _openDoc(doc),
+                  ),
+                  IconButton(
+                    tooltip: 'folder.remove'.tr(),
+                    icon: const Icon(Icons.delete_outline),
+                    onPressed: _busy ? null : () => _removeDoc(doc.id),
+                  ),
+                ],
+              ),
+            ),
+            if (mismatch)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                child: Text(
+                  'folder.nameMismatch'.tr(
+                    namedArgs: {'doc': nombre, 'card': card.nombre},
+                  ),
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ),
+            if (shown.isEmpty && pending == null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                child: Text(
+                  _extractStarted.contains(doc.id)
+                      ? 'ai.readingDoc'.tr()
+                      : 'ai.fileOnly'.tr(),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+            for (final k in shown)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+                child: Text('${k.tr()}: ${values[k]}'),
+              ),
+            if (pending != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: FilledButton(
+                    onPressed: _busy
+                        ? null
+                        : () async {
+                            final draft = pending!;
+                            setState(() => _busy = true);
+                            try {
+                              await ref
+                                  .read(
+                                    clienteCardProvider(
+                                      widget.clienteId,
+                                    ).notifier,
+                                  )
+                                  .saveDocumentExtracted(
+                                    documentId: doc.id,
+                                    fields: draft.fields,
+                                  );
+                              await discardAiDraft(draft.draftId);
+                              ref.read(aiPrefillProvider.notifier).state = null;
+                              ref.invalidate(
+                                liveAiDraftsProvider(widget.clienteId),
+                              );
+                            } on Object {
+                              if (mounted) _toast('clients.saveError'.tr());
+                            } finally {
+                              if (mounted) setState(() => _busy = false);
+                            }
+                          },
+                    child: Text('ai.apply'.tr()),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _attachDoc(String tipo) async {
     final picked = await FilePicker.platform.pickFiles(
       withData: true,
@@ -790,11 +899,10 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
     }
     setState(() => _busy = true);
     try {
-      await ref.read(clienteCardProvider(widget.clienteId).notifier).attachDocument(
-            tipo: tipo,
-            bytes: bytes,
-            originalName: file.name,
-          );
+      await ref
+          .read(clienteCardProvider(widget.clienteId).notifier)
+          .attachDocument(tipo: tipo, bytes: bytes, originalName: file.name);
+      ref.invalidate(liveAiDraftsProvider(widget.clienteId));
     } on Object {
       if (mounted) _toast('folder.uploadError'.tr());
     } finally {
@@ -808,8 +916,10 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
           .read(clienteCardProvider(widget.clienteId).notifier)
           .signedUrl(doc.storagePath);
       if (url == null) throw StateError('url');
-      final tenantId =
-          ref.read(authControllerProvider).valueOrNull?.currentTenantId;
+      final tenantId = ref
+          .read(authControllerProvider)
+          .valueOrNull
+          ?.currentTenantId;
       if (tenantId != null) {
         await auditDocumentoOpen(
           documentId: doc.id,
@@ -866,7 +976,9 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
     }
     setState(() => _busy = true);
     try {
-      await ref.read(clienteCardProvider(widget.clienteId).notifier).save(
+      await ref
+          .read(clienteCardProvider(widget.clienteId).notifier)
+          .save(
             nombre: name,
             locale: _locale,
             email: _email.text,
@@ -972,9 +1084,7 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
                     TextField(
                       controller: tel,
                       keyboardType: TextInputType.phone,
-                      decoration: InputDecoration(
-                        labelText: 'fields.tel'.tr(),
-                      ),
+                      decoration: InputDecoration(labelText: 'fields.tel'.tr()),
                     ),
                     TextField(
                       controller: email,
@@ -1020,7 +1130,9 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
     }
     setState(() => _busy = true);
     try {
-      await ref.read(clienteCardProvider(widget.clienteId).notifier).addContact(
+      await ref
+          .read(clienteCardProvider(widget.clienteId).notifier)
+          .addContact(
             nombre: name,
             locale: locale,
             relacion: rel,
@@ -1097,9 +1209,9 @@ class _ClienteAuditSection extends ConsumerWidget {
           if (events.isEmpty) {
             return Text(
               'audit.empty'.tr(),
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppTheme.pencil,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppTheme.pencil),
             );
           }
           return Column(
@@ -1143,7 +1255,8 @@ class _ClienteAuditSection extends ConsumerWidget {
 
     final fields = [
       for (final key in e.changedFields)
-        if (auditClienteFieldI18n[key] != null) auditClienteFieldI18n[key]!.tr(),
+        if (auditClienteFieldI18n[key] != null)
+          auditClienteFieldI18n[key]!.tr(),
     ];
     if (fields.isNotEmpty) return fields.join(', ');
     return null;
@@ -1187,9 +1300,9 @@ class _SectionCard extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 hint!,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppTheme.pencil,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: AppTheme.pencil),
               ),
             ],
             const SizedBox(height: 16),
@@ -1238,9 +1351,9 @@ class _InsetRow extends StatelessWidget {
                 if (subtitle != null && subtitle!.isNotEmpty)
                   Text(
                     subtitle!,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppTheme.pencil,
-                        ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: AppTheme.pencil),
                   ),
               ],
             ),
@@ -1277,11 +1390,7 @@ class _FieldPair extends StatelessWidget {
         if (constraints.maxWidth < 520) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              left,
-              const SizedBox(height: 12),
-              right,
-            ],
+            children: [left, const SizedBox(height: 12), right],
           );
         }
         return Row(

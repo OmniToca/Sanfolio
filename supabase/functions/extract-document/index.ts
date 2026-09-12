@@ -14,7 +14,7 @@ const corsHeaders: Record<string, string> = {
 };
 
 const IMAGE_MIME = new Set(["image/jpeg", "image/png", "image/webp", "image/heic"]);
-const MAX_BYTES = 4 * 1024 * 1024;
+const MAX_BYTES = 12 * 1024 * 1024;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -86,12 +86,14 @@ Deno.serve(async (req) => {
 
   const apiKey = Deno.env.get("OPENAI_API_KEY")?.trim();
   const isImage = IMAGE_MIME.has(mime) || looksLikeImage(storagePath);
-  if (apiKey && isImage) {
+  const isPdf = mime === "application/pdf" || /\.pdf$/i.test(storagePath);
+  if (apiKey && (isImage || isPdf)) {
     const vision = await visionExtract(
       apiKey,
       bytes,
       mime || guessMime(storagePath),
       docTipo,
+      isPdf,
     );
     if (vision) {
       fields = { ...fields, ...vision };
@@ -161,8 +163,27 @@ async function visionExtract(
   bytes: Uint8Array,
   mime: string,
   docTipo: string,
+  isPdf = false,
 ): Promise<Record<string, string> | null> {
   const b64 = bytesToB64(bytes);
+  const userContent = isPdf
+    ? [
+      { type: "text", text: "Document PDF." },
+      {
+        type: "file",
+        file: {
+          filename: "document.pdf",
+          file_data: `data:application/pdf;base64,${b64}`,
+        },
+      },
+    ]
+    : [
+      { type: "text", text: "Document image." },
+      {
+        type: "image_url",
+        image_url: { url: `data:${mime};base64,${b64}` },
+      },
+    ];
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -183,13 +204,7 @@ async function visionExtract(
         },
         {
           role: "user",
-          content: [
-            { type: "text", text: "Document image." },
-            {
-              type: "image_url",
-              image_url: { url: `data:${mime};base64,${b64}` },
-            },
-          ],
+          content: userContent,
         },
       ],
     }),
@@ -259,6 +274,7 @@ function guessMime(path: string): string {
   if (/\.png$/i.test(path)) return "image/png";
   if (/\.webp$/i.test(path)) return "image/webp";
   if (/\.heic$/i.test(path)) return "image/heic";
+  if (/\.pdf$/i.test(path)) return "application/pdf";
   return "image/jpeg";
 }
 

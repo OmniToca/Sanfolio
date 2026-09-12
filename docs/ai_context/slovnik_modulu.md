@@ -12,7 +12,7 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `nie_poder` | bloky na desce | extras NIE = samostatný úkol |
 | `ai_copilot` | `features/ai` | search / open / prefill; uživatel ukládá |
 | `AiPanel` / `aiChatProvider` | `features/ai/ai_panel.dart` | trvalý chat; zápis `ai_conversations` + `ai_messages` |
-| `extract-document` | Edge Function | fotka/PDF → `ai_drafts` (TTL); Guardar je gestor |
+| `extract-document` | Edge Function | fotka/PDF → `ai_drafts` (TTL); Guardar je gestor. Nahrání na kartě taky. |
 | `documentos.extracted` | JSONB na dokladu | uložená pole po Guardar; AI sem nezapisuje |
 | `ai-draft-message` | Edge Function | díry složky → `mensajes.draft`; odesílá gestor |
 | `client_portal` | není | v2, čte `mensajes.translations` |

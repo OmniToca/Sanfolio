@@ -5,6 +5,8 @@ import 'package:gestoria_auth/gestoria_auth.dart';
 
 import 'clientes_providers.dart';
 import 'cliente_audit.dart';
+import '../ai/ai_providers.dart';
+import '../ai/extract_text.dart';
 
 class ClienteContact {
   const ClienteContact({
@@ -30,12 +32,24 @@ class ClienteDocumento {
     required this.tipo,
     required this.storagePath,
     required this.originalName,
+    this.extracted = const {},
   });
 
   final String id;
   final String tipo;
   final String storagePath;
   final String originalName;
+  final Map<String, String> extracted;
+
+  ClienteDocumento copyWith({Map<String, String>? extracted}) {
+    return ClienteDocumento(
+      id: id,
+      tipo: tipo,
+      storagePath: storagePath,
+      originalName: originalName,
+      extracted: extracted ?? this.extracted,
+    );
+  }
 }
 
 /// Typy papírů na kartě, ne na desce. Úřední názvy se nepřekládají pryč.
@@ -141,7 +155,7 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
 
     final docsRaw = await client
         .from('documentos')
-        .select('id, tipo, storage_path, original_name')
+        .select('id, tipo, storage_path, original_name, extracted')
         .eq('cliente_id', clienteId)
         .eq('tenant_id', tenantId)
         .isFilter('bloque_id', null)
@@ -157,6 +171,7 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
           tipo: '${raw['tipo'] ?? 'other'}',
           storagePath: '${raw['storage_path'] ?? ''}',
           originalName: '${raw['original_name'] ?? ''}'.trim(),
+          extracted: stringFieldMap(raw['extracted']),
         ),
       );
     }
@@ -194,15 +209,19 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
     if (trimmed.isEmpty) {
       throw ArgumentError('nombre');
     }
-    await client.from('clientes').update({
-      'nombre': trimmed,
-      'apellidos': null,
-      'locale': locale,
-      'email': _nullIfEmpty(email),
-      'tel': _nullIfEmpty(tel),
-      'iban': _nullIfEmpty(iban),
-      'notas': _nullIfEmpty(notas),
-    }).eq('id', current.id).eq('tenant_id', current.tenantId);
+    await client
+        .from('clientes')
+        .update({
+          'nombre': trimmed,
+          'apellidos': null,
+          'locale': locale,
+          'email': _nullIfEmpty(email),
+          'tel': _nullIfEmpty(tel),
+          'iban': _nullIfEmpty(iban),
+          'notas': _nullIfEmpty(notas),
+        })
+        .eq('id', current.id)
+        .eq('tenant_id', current.tenantId);
     _refresh(list: true);
   }
 
@@ -211,9 +230,11 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
     if (current == null || current.deleted) return;
     final client = trySupabaseClient();
     if (client == null) throw StateError('not configured');
-    await client.from('clientes').update({
-      'status': status,
-    }).eq('id', current.id).eq('tenant_id', current.tenantId);
+    await client
+        .from('clientes')
+        .update({'status': status})
+        .eq('id', current.id)
+        .eq('tenant_id', current.tenantId);
     _refresh(list: true);
   }
 
@@ -222,9 +243,11 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
     if (current == null || current.deleted) return;
     final client = trySupabaseClient();
     if (client == null) throw StateError('not configured');
-    await client.from('clientes').update({
-      'deleted_at': DateTime.now().toUtc().toIso8601String(),
-    }).eq('id', current.id).eq('tenant_id', current.tenantId);
+    await client
+        .from('clientes')
+        .update({'deleted_at': DateTime.now().toUtc().toIso8601String()})
+        .eq('id', current.id)
+        .eq('tenant_id', current.tenantId);
     _refresh(list: true);
   }
 
@@ -234,9 +257,11 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
     if (current == null || auth == null || !canRestoreDeleted(auth)) return;
     final client = trySupabaseClient();
     if (client == null) throw StateError('not configured');
-    await client.from('clientes').update({
-      'deleted_at': null,
-    }).eq('id', current.id).eq('tenant_id', current.tenantId);
+    await client
+        .from('clientes')
+        .update({'deleted_at': null})
+        .eq('id', current.id)
+        .eq('tenant_id', current.tenantId);
     _refresh(list: true);
   }
 
@@ -272,9 +297,11 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
     if (current == null || current.deleted) return;
     final client = trySupabaseClient();
     if (client == null) throw StateError('not configured');
-    await client.from('client_contacts').update({
-      'deleted_at': DateTime.now().toUtc().toIso8601String(),
-    }).eq('id', contactId).eq('tenant_id', current.tenantId);
+    await client
+        .from('client_contacts')
+        .update({'deleted_at': DateTime.now().toUtc().toIso8601String()})
+        .eq('id', contactId)
+        .eq('tenant_id', current.tenantId);
     _refresh();
   }
 
@@ -301,7 +328,46 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
       'original_name': originalName,
       if (auth?.profile?.id != null) 'created_by': auth!.profile!.id,
     });
+    await extractDocumentDraft(
+      tenantId: current.tenantId,
+      clienteId: current.id,
+      storagePath: path,
+      mime: mimeForOfficeFile(originalName),
+      docTipo: tipo,
+      bloqueKey: tipo,
+    );
     _refresh();
+  }
+
+  /// Gestor ukládá návrh z dokladu na kartě. AI sem nesmí.
+  Future<void> saveDocumentExtracted({
+    required String documentId,
+    required Map<String, String> fields,
+  }) async {
+    final current = state.valueOrNull;
+    if (current == null || current.deleted || fields.isEmpty) return;
+    final client = trySupabaseClient();
+    if (client == null) throw StateError('not configured');
+    await client
+        .from('documentos')
+        .update({'extracted': fields})
+        .eq('id', documentId)
+        .eq('tenant_id', current.tenantId);
+    _refresh();
+  }
+
+  Future<void> extractDocument(ClienteDocumento doc) async {
+    final current = state.valueOrNull;
+    if (current == null || current.deleted) return;
+    await extractDocumentDraft(
+      tenantId: current.tenantId,
+      clienteId: current.id,
+      storagePath: doc.storagePath,
+      mime: mimeForOfficeFile(doc.originalName),
+      docTipo: doc.tipo,
+      bloqueKey: doc.tipo,
+    );
+    ref.invalidate(liveAiDraftsProvider(current.id));
   }
 
   Future<void> removeDocument(String documentId) async {
@@ -309,9 +375,11 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
     if (current == null || current.deleted) return;
     final client = trySupabaseClient();
     if (client == null) throw StateError('not configured');
-    await client.from('documentos').update({
-      'deleted_at': DateTime.now().toUtc().toIso8601String(),
-    }).eq('id', documentId).eq('tenant_id', current.tenantId);
+    await client
+        .from('documentos')
+        .update({'deleted_at': DateTime.now().toUtc().toIso8601String()})
+        .eq('id', documentId)
+        .eq('tenant_id', current.tenantId);
     _refresh();
   }
 
@@ -330,8 +398,8 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
 
 final clienteCardProvider =
     AsyncNotifierProvider.family<ClienteCardController, ClienteCard, String>(
-  ClienteCardController.new,
-);
+      ClienteCardController.new,
+    );
 
 String? _trimOrNull(Object? value) {
   final s = '$value'.trim();

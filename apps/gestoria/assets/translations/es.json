@@ -441,6 +441,8 @@
     "factsTitle": "Documentos guardados — {name}",
     "factsEmpty": "Este cliente aún no tiene campos de documento guardados. Adjunte un archivo y guarde la propuesta.",
     "factsNone": "No encontré a nadie con ese nombre.",
+    "fileOnly": "El archivo está en la ficha. Los datos saldrán como propuesta — usted guarda.",
+    "readingDoc": "Leyendo el documento…",
     "newThread": "Hilo nuevo",
     "closePanel": "Ocultar asistente",
     "emptyThread": "Pregunte por un cliente, NIE o documento. Usted guarda — nada se escribe ni se envía solo.",

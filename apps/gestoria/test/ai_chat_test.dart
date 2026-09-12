@@ -1,20 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gestoria_os/features/ai/ai_chat.dart';
+import 'package:gestoria_os/features/ai/ai_providers.dart';
 
 void main() {
   test('panel je na širokém stole otevřený, dokud ho gestor neskryje', () {
-    expect(
-      aiPanelVisible(width: 1280, preference: null),
-      isTrue,
-    );
-    expect(
-      aiPanelVisible(width: 800, preference: null),
-      isFalse,
-    );
-    expect(
-      aiPanelVisible(width: 800, preference: true),
-      isTrue,
-    );
+    expect(aiPanelVisible(width: 1280, preference: null), isTrue);
+    expect(aiPanelVisible(width: 800, preference: null), isFalse);
+    expect(aiPanelVisible(width: 800, preference: true), isTrue);
     expect(aiPanelDocked(1280), isTrue);
     expect(aiPanelDocked(800), isFalse);
   });
@@ -70,5 +62,10 @@ void main() {
     expect(messages, hasLength(2));
     expect(messages.first.fromUser, isTrue);
     expect(parseAiChatMessage({'role': 'system'}), isNull);
+  });
+
+  test('MIME z přípony rozliší PDF od fotky', () {
+    expect(mimeForOfficeFile('nie.pdf'), 'application/pdf');
+    expect(mimeForOfficeFile('pas.jpeg'), 'image/jpeg');
   });
 }

@@ -441,6 +441,8 @@
     "factsTitle": "Gespeicherte Dokumente — {name}",
     "factsEmpty": "Für diesen Mandanten sind noch keine Dokumentfelder gespeichert. Datei anhängen und den Vorschlag speichern.",
     "factsNone": "Zu diesem Namen wurde niemand gefunden.",
+    "fileOnly": "Die Datei liegt in der Karte. Felder erscheinen als Vorschlag — Sie speichern.",
+    "readingDoc": "Dokument wird gelesen…",
     "newThread": "Neuer Verlauf",
     "closePanel": "Assistent ausblenden",
     "emptyThread": "Fragen Sie nach einem Mandanten, NIE oder Dokument. Sie speichern — nichts schreibt oder sendet von selbst.",

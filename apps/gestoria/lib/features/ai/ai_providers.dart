@@ -39,36 +39,39 @@ final aiPrefillProvider = StateProvider<AiPrefillDraft?>((ref) => null);
 /// Živé návrhy z DB (24 h). AI sem zapisuje, desku ne.
 final liveAiDraftsProvider =
     FutureProvider.family<List<AiPrefillDraft>, String>((ref, clienteId) async {
-  ref.watch(authControllerProvider);
-  final client = trySupabaseClient();
-  final tenantId = ref.read(authControllerProvider).valueOrNull?.currentTenantId;
-  if (client == null || tenantId == null) return const [];
-  final rows = await client
-      .from('ai_drafts')
-      .select('id, bloque_key, fields, storage_path, expires_at')
-      .eq('tenant_id', tenantId)
-      .eq('cliente_id', clienteId)
-      .isFilter('deleted_at', null)
-      .gt('expires_at', DateTime.now().toUtc().toIso8601String())
-      .order('created_at', ascending: false);
-  final out = <AiPrefillDraft>[];
-  if (rows is! List) return out;
-  for (final raw in rows) {
-    if (raw is! Map) continue;
-    final fields = stringFieldMap(raw['fields']);
-    if (fields.isEmpty) continue;
-    out.add(
-      AiPrefillDraft(
-        draftId: '${raw['id']}',
-        clienteId: clienteId,
-        bloqueKey: '${raw['bloque_key'] ?? 'cliente_snapshot'}',
-        fields: fields,
-        storagePath: raw['storage_path']?.toString(),
-      ),
-    );
-  }
-  return out;
-});
+      ref.watch(authControllerProvider);
+      final client = trySupabaseClient();
+      final tenantId = ref
+          .read(authControllerProvider)
+          .valueOrNull
+          ?.currentTenantId;
+      if (client == null || tenantId == null) return const [];
+      final rows = await client
+          .from('ai_drafts')
+          .select('id, bloque_key, fields, storage_path, expires_at')
+          .eq('tenant_id', tenantId)
+          .eq('cliente_id', clienteId)
+          .isFilter('deleted_at', null)
+          .gt('expires_at', DateTime.now().toUtc().toIso8601String())
+          .order('created_at', ascending: false);
+      final out = <AiPrefillDraft>[];
+      if (rows is! List) return out;
+      for (final raw in rows) {
+        if (raw is! Map) continue;
+        final fields = stringFieldMap(raw['fields']);
+        if (fields.isEmpty) continue;
+        out.add(
+          AiPrefillDraft(
+            draftId: '${raw['id']}',
+            clienteId: clienteId,
+            bloqueKey: '${raw['bloque_key'] ?? 'cliente_snapshot'}',
+            fields: fields,
+            storagePath: raw['storage_path']?.toString(),
+          ),
+        );
+      }
+      return out;
+    });
 
 Future<String?> persistAiDraft({
   required String tenantId,
@@ -104,9 +107,10 @@ Future<void> discardAiDraft(String? draftId) async {
   if (draftId == null || draftId.isEmpty) return;
   final client = trySupabaseClient();
   if (client == null) return;
-  await client.from('ai_drafts').update({
-    'deleted_at': DateTime.now().toUtc().toIso8601String(),
-  }).eq('id', draftId);
+  await client
+      .from('ai_drafts')
+      .update({'deleted_at': DateTime.now().toUtc().toIso8601String()})
+      .eq('id', draftId);
 }
 
 Future<AiPrefillDraft?> extractDocumentDraft({
@@ -216,10 +220,7 @@ Future<AiDraftMessage> draftMessageFromHoles({
   try {
     final response = await client.functions.invoke(
       'ai-draft-message',
-      body: {
-        'tenant_id': tenantId,
-        'cliente_id': clienteId,
-      },
+      body: {'tenant_id': tenantId, 'cliente_id': clienteId},
     );
     final data = response.data;
     if (data is! Map || data['ok'] != true) {
@@ -262,25 +263,54 @@ class AiFactAnswer {
   const AiFactAnswer({
     required this.clienteId,
     required this.nombre,
+    this.tel,
+    this.email,
     this.docs = const [],
   });
 
   final String clienteId;
   final String nombre;
+  final String? tel;
+  final String? email;
   final List<AiDocFact> docs;
+
+  bool get hasAnything =>
+      (tel != null && tel!.isNotEmpty) ||
+      (email != null && email!.isNotEmpty) ||
+      docs.isNotEmpty;
+}
+
+/// MIME z přípony. Edge Function podle toho volí vision vs. PDF.
+String mimeForOfficeFile(String name, {String? extension}) {
+  final e = (extension ?? name.split('.').last).toLowerCase();
+  return switch (e) {
+    'png' => 'image/png',
+    'webp' => 'image/webp',
+    'pdf' => 'application/pdf',
+    _ => 'image/jpeg',
+  };
 }
 
 /// Search + uložené doklady. Nic se nezapisuje.
 Future<AiFactAnswer?> askClienteFacts(String q) async {
   final hits = await aiSearchClients(q);
   if (hits.isEmpty) return null;
-  final hit = hits.first;
+  return askClienteFactsForId(hits.first.clienteId, nombre: hits.first.nombre);
+}
+
+/// Otevřená karta má přednost před hledáním z věty.
+Future<AiFactAnswer?> askClienteFactsForId(
+  String clienteId, {
+  String nombre = '',
+}) async {
   final client = trySupabaseClient();
-  if (client == null) return AiFactAnswer(clienteId: hit.clienteId, nombre: hit.nombre);
+  if (client == null) {
+    return AiFactAnswer(clienteId: clienteId, nombre: nombre);
+  }
   try {
     final snap = await client.rpc(
       'ai_get_cliente',
-      params: {'p_cliente_id': hit.clienteId},
+      params: {'p_cliente_id': clienteId},
     );
     final docs = <AiDocFact>[];
     if (snap is Map && snap['documentos'] is List) {
@@ -290,7 +320,8 @@ Future<AiFactAnswer?> askClienteFacts(String q) async {
         docs.add(
           AiDocFact(
             tipo: '${raw['tipo']}',
-            nombre: extracted['fields.nombre'],
+            nombre:
+                extracted['fields.nombre'] ?? raw['original_name']?.toString(),
             expiry: extracted['fields.expiry'],
             amount: extracted['fields.amount'],
             consumption: extracted['fields.consumption'],
@@ -300,14 +331,49 @@ Future<AiFactAnswer?> askClienteFacts(String q) async {
       }
     }
     final cliente = snap is Map ? snap['cliente'] : null;
-    var nombre = hit.nombre;
+    var resolvedNombre = nombre;
+    String? tel;
+    String? email;
     if (cliente is Map) {
       final n = '${cliente['nombre'] ?? ''}'.trim();
-      if (n.isNotEmpty) nombre = n;
+      if (n.isNotEmpty) resolvedNombre = n;
+      final t = '${cliente['tel'] ?? ''}'.trim();
+      if (t.isNotEmpty) tel = t;
+      final e = '${cliente['email'] ?? ''}'.trim();
+      if (e.isNotEmpty) email = e;
     }
-    return AiFactAnswer(clienteId: hit.clienteId, nombre: nombre, docs: docs);
+    final drafts = await client
+        .from('ai_drafts')
+        .select('fields, bloque_key, expires_at')
+        .eq('cliente_id', clienteId)
+        .isFilter('deleted_at', null)
+        .gt('expires_at', DateTime.now().toUtc().toIso8601String());
+    if (drafts is List) {
+      for (final raw in drafts) {
+        if (raw is! Map) continue;
+        final fields = stringFieldMap(raw['fields']);
+        if (fields.isEmpty) continue;
+        final tipo = '${raw['bloque_key'] ?? ''}';
+        docs.add(
+          AiDocFact(
+            tipo: tipo.isEmpty ? 'other' : tipo,
+            nombre: fields['fields.nombre'],
+            expiry: fields['fields.expiry'],
+            amount: fields['fields.amount'],
+            consumption: fields['fields.consumption'],
+            docNumber: fields['fields.docNumber'],
+          ),
+        );
+      }
+    }
+    return AiFactAnswer(
+      clienteId: clienteId,
+      nombre: resolvedNombre,
+      tel: tel,
+      email: email,
+      docs: docs,
+    );
   } on Object {
-    return AiFactAnswer(clienteId: hit.clienteId, nombre: hit.nombre);
+    return AiFactAnswer(clienteId: clienteId, nombre: nombre);
   }
 }
-

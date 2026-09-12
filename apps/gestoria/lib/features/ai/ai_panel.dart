@@ -166,8 +166,11 @@ class _AiPanelState extends ConsumerState<AiPanel> {
     try {
       await ref.read(aiChatProvider.notifier).addUser(q);
       _q.clear();
-      final hits = await aiSearchClients(q);
-      final facts = hits.isEmpty ? null : await askClienteFacts(q);
+      final openId = _clienteId();
+      final hits = openId == null ? await aiSearchClients(q) : <AiHit>[];
+      final facts = openId != null
+          ? await askClienteFactsForId(openId)
+          : (hits.isEmpty ? null : await askClienteFacts(q));
       await ref
           .read(aiChatProvider.notifier)
           .addAssistant(
@@ -196,25 +199,30 @@ class _AiPanelState extends ConsumerState<AiPanel> {
     final opens = <AiChatOpen>[];
     if (facts != null) {
       lines.add('ai.factsTitle'.tr(namedArgs: {'name': facts.nombre}));
+      if (facts.tel != null && facts.tel!.isNotEmpty) {
+        lines.add('${'fields.tel'.tr()}: ${facts.tel}');
+      }
+      if (facts.email != null && facts.email!.isNotEmpty) {
+        lines.add('${'fields.email'.tr()}: ${facts.email}');
+      }
       if (facts.docs.isEmpty) {
         lines.add('ai.factsEmpty'.tr());
       } else {
         for (final doc in facts.docs) {
-          lines.add(
-            [
-              'docs.${doc.tipo}'.tr(),
-              if (doc.docNumber != null && doc.docNumber!.isNotEmpty)
-                '${'fields.docNumber'.tr()}: ${doc.docNumber}',
-              if (doc.expiry != null && doc.expiry!.isNotEmpty)
-                '${'fields.expiry'.tr()}: ${doc.expiry}',
-              if (doc.consumption != null && doc.consumption!.isNotEmpty)
-                '${'fields.consumption'.tr()}: ${doc.consumption}',
-              if (doc.amount != null && doc.amount!.isNotEmpty)
-                '${'fields.amount'.tr()}: ${doc.amount}',
-              if (doc.nombre != null && doc.nombre!.isNotEmpty)
-                '${'fields.nombre'.tr()}: ${doc.nombre}',
-            ].join(' · '),
-          );
+          final bits = [
+            'docs.${doc.tipo}'.tr(),
+            if (doc.docNumber != null && doc.docNumber!.isNotEmpty)
+              '${'fields.docNumber'.tr()}: ${doc.docNumber}',
+            if (doc.expiry != null && doc.expiry!.isNotEmpty)
+              '${'fields.expiry'.tr()}: ${doc.expiry}',
+            if (doc.consumption != null && doc.consumption!.isNotEmpty)
+              '${'fields.consumption'.tr()}: ${doc.consumption}',
+            if (doc.amount != null && doc.amount!.isNotEmpty)
+              '${'fields.amount'.tr()}: ${doc.amount}',
+            if (doc.nombre != null && doc.nombre!.isNotEmpty)
+              '${'fields.nombre'.tr()}: ${doc.nombre}',
+          ];
+          lines.add(bits.join(' · '));
         }
       }
       opens.add(
@@ -354,7 +362,7 @@ class _AiPanelState extends ConsumerState<AiPanel> {
       final path =
           '$tenantId/$id/ai/${DateTime.now().microsecondsSinceEpoch}_$name';
       await client.storage.from('documentos').uploadBinary(path, bytes);
-      final mime = _mimeFor(file.extension, file.name);
+      final mime = mimeForOfficeFile(file.name, extension: file.extension);
       final draft = await extractDocumentDraft(
         tenantId: tenantId,
         clienteId: id,
@@ -393,16 +401,6 @@ class _AiPanelState extends ConsumerState<AiPanel> {
     } finally {
       if (mounted) setState(() => _working = false);
     }
-  }
-
-  String _mimeFor(String? ext, String name) {
-    final e = (ext ?? name.split('.').last).toLowerCase();
-    return switch (e) {
-      'png' => 'image/png',
-      'webp' => 'image/webp',
-      'pdf' => 'application/pdf',
-      _ => 'image/jpeg',
-    };
   }
 
   Future<void> _draftMessage() async {

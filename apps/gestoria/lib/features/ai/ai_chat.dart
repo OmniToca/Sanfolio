@@ -228,8 +228,21 @@ class AiChatController extends AsyncNotifier<AiChatState> {
       throw StateError('not configured');
     }
 
+    final local = AiChatMessage(
+      id: 'local-${DateTime.now().microsecondsSinceEpoch}-$role',
+      role: role,
+      content: content,
+      createdAt: DateTime.now().toUtc(),
+    );
     var snap = state.valueOrNull ?? const AiChatState();
-    state = AsyncData(snap.copyWith(busy: true));
+    final optimistic = [...snap.messages, local];
+    state = AsyncData(
+      AiChatState(
+        conversationId: snap.conversationId,
+        messages: optimistic,
+        busy: true,
+      ),
+    );
     try {
       var convId = snap.conversationId;
       if (convId == null) {
@@ -244,12 +257,6 @@ class AiChatController extends AsyncNotifier<AiChatState> {
             .select('id')
             .single();
         convId = '${row['id']}';
-        snap = AiChatState(
-          conversationId: convId,
-          messages: snap.messages,
-          busy: true,
-        );
-        state = AsyncData(snap);
       }
       final row = await client
           .from('ai_messages')
@@ -265,12 +272,14 @@ class AiChatController extends AsyncNotifier<AiChatState> {
           .from('ai_conversations')
           .update({'updated_at': DateTime.now().toUtc().toIso8601String()})
           .eq('id', convId);
-      final msg = parseAiChatMessage(row);
-      final next = [...snap.messages, if (msg != null) msg];
+      final msg = parseAiChatMessage(row) ?? local;
+      final next = [...snap.messages, msg];
       state = AsyncData(AiChatState(conversationId: convId, messages: next));
     } on Object {
-      state = AsyncData(snap.copyWith(busy: false));
-      rethrow;
+      // Odpověď v panelu musí zůstat i když zápis do DB spadne.
+      state = AsyncData(
+        AiChatState(conversationId: snap.conversationId, messages: optimistic),
+      );
     }
   }
 }

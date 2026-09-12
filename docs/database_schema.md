@@ -29,7 +29,7 @@ Pořadí souborů je čtyřmístné (`0001`, `0002`, …), ne timestamp.
 | `0021_multi_inmueble.sql` | `add_inmueble_compraventa` — nová koupě, bloky jen na tom spisu |
 | `0022_manual_plazo_snooze.sql` | ruční `plazos.source=manual` + `snooze_until` v inboxu |
 | `0024_documento_extracted.sql` | `documentos.extracted`; `ai_get_cliente` vrací doklady + bloky |
-| `0025_cliente_audit_detail.sql` | `cliente_audit_log.detail` (soubor, typ, karta vs. složka); `audit_open` umí `after` |
+| `0026_ai_chat_grants.sql` | GRANT na `ai_conversations` / `ai_messages` / `ai_drafts`; `ai_get_cliente` vrací i doklady bez extracted |
 
 Edge: [`create-office`](../supabase/functions/create-office/index.ts) — založení kanceláře. [`translate-message`](../supabase/functions/translate-message/index.ts) — překlad výzvy (klíč `OPENAI_API_KEY`, jinak originál). [`plazo-reminders`](../supabase/functions/plazo-reminders/index.ts) — ranní drafty, nikdy `sent` (tajný `CRON_SECRET` nebo service_role). [`invite-staff`](../supabase/functions/invite-staff/index.ts) — owner zve gestor/asistente (max 3). [`extract-document`](../supabase/functions/extract-document/index.ts) — fotka/PDF → `ai_drafts` podle typu dokladu; Guardar zapíše `documentos.extracted`. [`ai-draft-message`](../supabase/functions/ai-draft-message/index.ts) — `get_cliente` + `mensajes.draft`, nikdy `sent`.
 
