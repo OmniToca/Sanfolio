@@ -31,7 +31,7 @@ class GestoriaApp extends ConsumerWidget {
       context.setLocale(loc);
     });
     return MaterialApp.router(
-      title: 'app.title'.tr(),
+      title: 'app.tabTitle'.tr(),
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       locale: context.locale,

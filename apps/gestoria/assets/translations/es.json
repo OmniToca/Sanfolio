@@ -1,6 +1,8 @@
 {
   "app": {
-    "title": "Gestoría"
+    "title": "SanFolio",
+    "tabTitle": "SanFolio | Gestoría",
+    "tagline": "Gestión & asistencia"
   },
   "nav": {
     "inbox": "Hoy",

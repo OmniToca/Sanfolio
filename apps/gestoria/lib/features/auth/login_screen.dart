@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gestoria_auth/gestoria_auth.dart';
 
 import '../../core/presentation/widgets/app_widgets.dart';
+import '../../core/presentation/widgets/sanfolio_brand.dart';
 import '../../core/theme/app_theme.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -58,8 +59,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (!wide) ...[
-          Text('app.title'.tr(), style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 8),
+          const SanfolioLockup(height: 52),
+          const SizedBox(height: 16),
           Text('auth.intro'.tr()),
           const SizedBox(height: 28),
         ],
@@ -107,19 +108,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             borderRadius:
                                 BorderRadius.circular(AppTheme.radiusSm),
                           ),
-                          child: Text(
-                            'S',
-                            style: Theme.of(context)
-                                .textTheme
-                                .headlineSmall
-                                ?.copyWith(color: AppTheme.nav, height: 1),
-                          ),
+                          child: const SanfolioMark(size: 30),
                         ),
                         const SizedBox(height: 28),
                         Text(
                           'app.title'.tr(),
                           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                                 color: AppTheme.navInk,
+                              ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'app.tagline'.tr(),
+                          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                                color: AppTheme.navMuted,
+                                letterSpacing: 1.4,
                               ),
                         ),
                         const SizedBox(height: 12),

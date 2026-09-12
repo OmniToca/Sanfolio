@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/modules/feature_gate.dart';
 import '../../core/modules/module_catalog.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/presentation/widgets/sanfolio_brand.dart';
 import '../ai/ai_chat.dart';
 import '../ai/ai_panel.dart';
 
@@ -222,13 +223,7 @@ class _OfficeRail extends StatelessWidget {
                   color: AppTheme.navInk,
                   borderRadius: BorderRadius.circular(AppTheme.radiusSm),
                 ),
-                child: Text(
-                  'S',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: AppTheme.nav,
-                    height: 1,
-                  ),
-                ),
+                child: const SanfolioMark(size: 26),
               ),
               const SizedBox(height: 28),
               for (var i = 0; i < items.length; i++)

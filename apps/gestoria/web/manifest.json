@@ -1,11 +1,11 @@
 {
-    "name": "gestoria_os",
-    "short_name": "gestoria_os",
+    "name": "SanFolio",
+    "short_name": "SanFolio",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#F3EEE6",
+    "theme_color": "#12201E",
+    "description": "SanFolio — gestión y asistencia for Spanish gestoría.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
