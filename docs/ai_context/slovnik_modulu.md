@@ -20,7 +20,8 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `trashVisibleOnCard` | karta klienta | koš schovaných s originálem z karty i ze složky; vysypané zmizí |
 | `pickOfficeFile` | `office_file_pick.dart` | web: `<input>` overlay na tlačítku (Safari); raw POST do Storage, ne multipart |
 | `paper_glance` | `features/ai/paper_glance.dart` | součet faktur a krátký řádek na šanonu |
-| `query_suministro` / `query_plazos_office` / `query_escritura` | SQL RPC | office-wide čtení desky; escritura i notář / právník / catastral / strany |
+| `ai_get_cliente` | SQL RPC | snapshot karty + díry + doklady + titular finca (složka, salePrice, cuota); žádný save |
+| `query_suministro` / `query_plazos_office` / `query_escritura` | SQL RPC | office-wide čtení desky; escritura i notář / strana v `inmueble_titulares` / catastral |
 | `ai-assistant` | Edge Function | whitelist tools; žádný save/send |
 | `roadmap_dokumenty_ai` | `docs/roadmap_dokumenty_ai.md` | Fáze A–G + FTS v `body_text`; vektory později |
 | `ai-draft-message` | Edge Function | díry složky → `mensajes.draft`; odesílá gestor |

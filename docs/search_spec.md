@@ -47,7 +47,7 @@ Kontrolní písmeno NIE/DNI (modulo 23, Y→1, X→0, Z→2) se počítá **jen*
 
 ## 3. Dotaz z UI / AI
 
-Vstup uživatele jde přes stejné `normalize_id`. Pak se skládá skóre (vyšší vyhraje). Tenant filtr vždy.
+NIE/DNI jde přes `normalize_id`. **Jméno, e-mail, tel ne** — `normalize_id` smaže mezery (`monika sokolova` → `MONIKASOKOLOVA`, což v `MONIKA SOKOLOVA` není). Jméno: původní `p_q`, fold `normalize_search_text` (lower + translate ES/CS diakritiky, bez `unaccent`), `name_hits` skóre 50: celý řetězec **nebo** každé slovo (token AND). FTS `simple` zůstává pojistkou. Tenant filtr vždy.
 
 ### 3.1 Přesná shoda — skóre 100
 
@@ -143,7 +143,9 @@ CREATE INDEX idx_clientes_search
 | `Y123456E` | `Y123**6E` | mask |
 | `***4567*` (DA 7ª styl) | `Y1234567E` — **délka nesedí na 9** | ne NIE-mask; zkusit FTS / ruční |
 | `y 123-456 e` | `Y123456E` | exact po normalize |
-| `García` | jméno | fts |
+| `García` | jméno | fts / name |
+| `monika sokolova` | `MONIKA SOKOLOVA` | name (token AND) |
+| `Sokolová` | `SOKOLOVA` | name (fold diakritiky) |
 
 AEPD DA 7ª publikuje 4 číslice (`****4567*`). To **není** stejné jako `Y123**6E`. Mask matcher s rozdílnou délkou v MVP nehádá — vrátí trigram + FTS kandidáty a gestor vybere. Rozšíření na DA 7ª = v2.
 

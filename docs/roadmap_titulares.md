@@ -12,7 +12,7 @@ Kupující z listiny **dostane kartu** (hledání, e-mail). Nedostane desku. Slo
 
 ## Stav teď (neplánovat znovu)
 
-Hotovo T0–T4 v kódu (2026-09-13): tabulka `inmueble_titulares`, Guardar listiny zapíše strany (jen když je finca prázdná), šanon ESCRITURA opraví %, 210 doplní `sharePercent` z titulare tohoto klienta. T5: karta spoluvlastníka bez druhé desky.
+Hotovo T0–T5 v kódu (2026-09-13): tabulka `inmueble_titulares`, Guardar listiny zapíše strany (jen když je finca prázdná), šanon ESCRITURA opraví %, 210 doplní `sharePercent` z titulare tohoto klienta, karta spoluvlastníka bez druhé desky. T6: copilot čte titulares (search jména, snapshot finca, query_escritura strany).
 
 - `client_contacts` = komunikace (partner, překladatel, locale, WhatsApp). Bez NIE, bez %.
 - Vlastnictví = `inmueble_titulares` (NIE, jméno, cuota, právo, od–do). Daně = osoba × podíl té finca.
@@ -116,7 +116,7 @@ Kontrola proti kódu 13. 9. 2026. Každá fáze po testu projde tento seznam.
 | `modelo_210.dart` formule                  | `scaleCents` už krátí základem × share. Měnit jen **zdroj** sharePercent, ne vzorec.                                                   |
 | `add_inmueble_compraventa`                 | Nová finca = prázdní titulares. Nekopírovat z bytu A.                                                                                  |
 | Soft-delete / audit append-only            | Žádný DELETE, žádný AI zápis.                                                                                                          |
-| `query_escritura` / `search_document_text` | Strany už jsou v `extracted` + `body_text`. T1–T3 SQL tool nemění.                                                                     |
+| `query_escritura` / `search_document_text` | T1–T3 extract se nemění. Copilot **smí** číst `inmueble_titulares` (T6). AI neinsertuje.                                                |
 | Inbox / plazos IBI a plusvalía             | Visí na `inmueble.escritura_fecha` + `cliente_id` složky. Titular to nespouští.                                                        |
 
 
@@ -203,6 +203,17 @@ Hotovo když: Petrův 210 na Islandia 14 po T2+T3 ukáže 50, výpočet jako ru�
 
 Hotovo když: Guardar u Petra založí Moniku; hledání `Y9737090P` ji najde; seznam není druhá prázdná složka; unique NIE Petra beze změny.
 
+### T6 — Asistent u spoluvlastníka
+
+**Proč:** „máme klienta monika sokolova kolik stál její dům“ padalo: `search_clients` jméno přes `normalize_id` (bez mezer) a `ai_get_cliente` četl jen desku karty.
+
+- `search_clients`: `normalize_id` jen NIE; jméno token AND + fold diakritiky.
+- `ai_get_cliente.titular_inmuebles`: složka, `sale_price` listiny, cuota. Open na `folder_cliente_id` + escritura.
+- `query_escritura`: `q` / strana přes `inmueble_titulares`; `notary` volitelné. Řádek = složka.
+- AI neukládá.
+
+Hotovo když: bez otevřené Petrovy desky otázka na Moniku bez NIE najde kartu; otázka na dům řekne 140 000 € a Petr / Islandia 14.
+
 ### Později (nečíslovat do T)
 
 Modelo 211 z `vendedor` + cuota; plusvalía sustituto; IBI podle cuota; pohled „kde je Monika titular“ napříč byty; Catastro.
@@ -218,6 +229,7 @@ T0 smlouva
          └─ T3 šanon (oprava %)
              └─ T4 210 sharePercent
                  └─ T5 karta spoluvlastníka (opt.)
+                     └─ T6 copilot čte titulares
 ```
 
 T3 lze slít s T2 v jednom PR, **jen** když UI stihne varování a testy. T1 sám o sobě, ať rollback schématu není zamotaný ve widgetu.

@@ -30,7 +30,8 @@ const tools = [
     type: "function",
     function: {
       name: "get_cliente",
-      description: "Read one client card, blocks, document fields",
+      description:
+        "Read one client card, blocks, document fields, and titular_inmuebles (folder sale price + share). Empty own desk is not 'no house'.",
       parameters: {
         type: "object",
         properties: { cliente_id: { type: "string" } },
@@ -72,11 +73,19 @@ const tools = [
     function: {
       name: "query_escritura",
       description:
-        "Find clients by notary, lawyer/despacho, cadastral reference, property address, or a party on the escritura (buyer/seller). For a clause inside a 40-page PDF use search_document_text.",
+        "Find the folder (carpeta owner) by notary, lawyer, cadastral, address, or a party on the deed (name/NIE in inmueble_titulares). Returns folder_cliente_id + sale_price. For a clause inside a 40-page PDF use search_document_text.",
       parameters: {
         type: "object",
-        properties: { notary: { type: "string" } },
-        required: ["notary"],
+        properties: {
+          q: {
+            type: "string",
+            description: "Name, NIE, address, notary, lawyer, or cadastral",
+          },
+          notary: {
+            type: "string",
+            description: "Optional alias of q (legacy)",
+          },
+        },
       },
     },
   },
@@ -164,6 +173,9 @@ Deno.serve(async (req) => {
         "Office otázky (dodavatel, seguro, notář, právník, catastral, strana ve smlouvě) = query_* tools. " +
         "Věta / doložka ve 40stránkové smlouvě = search_document_text (uložený přepis). " +
         "Když body_text chybí, neříkej že ve smlouvě věta není — přepis ještě není uložený. " +
+        "get_cliente.titular_inmuebles: spoluvlastník na finca složky folder_cliente_id. " +
+        "Cena domu = sale_price celé listiny; podíl = share_percent. Prázdné documentos[] na kartě titulare ≠ dům nemáme. " +
+        "Open = folder_cliente_id + blok escritura, ne prázdná karta spoluvlastníka. " +
         (clienteId ? `Otevřená karta: ${clienteId}. ` : ""),
     },
     { role: "user", content: message },
@@ -279,7 +291,7 @@ async function runTool(
         p_cliente_id: id,
       });
       if (error) return { error: error.message };
-      collectOpens(data, opens);
+      collectClienteOpens(data, opens);
       return attachInvoiceGlance(data);
     }
     case "query_suministro": {
@@ -305,7 +317,7 @@ async function runTool(
     case "query_escritura": {
       const { data, error } = await client.rpc("query_escritura", {
         p_tenant_id: tenantId,
-        p_notary: str(args.notary),
+        p_notary: str(args.q) || str(args.notary),
       });
       if (error) return { error: error.message };
       collectOpens(data, opens);
@@ -327,6 +339,51 @@ async function runTool(
   }
 }
 
+function collectClienteOpens(
+  data: unknown,
+  opens: Array<{
+    cliente_id: string;
+    label: string;
+    carpeta: boolean;
+    bloque_key?: string;
+  }>,
+) {
+  if (!data || typeof data !== "object") return;
+  const snap = data as {
+    cliente?: { id?: string; nombre?: string };
+    titular_inmuebles?: Array<{
+      folder_cliente_id?: string;
+      folder_nombre?: string;
+      folder_has_carpeta?: boolean;
+    }>;
+  };
+  const titulares = Array.isArray(snap.titular_inmuebles)
+    ? snap.titular_inmuebles
+    : [];
+  let openedFolder = false;
+  for (const t of titulares) {
+    const folderId = `${t.folder_cliente_id ?? ""}`;
+    if (!folderId) continue;
+    if (
+      opens.some((o) =>
+        o.cliente_id === folderId && o.bloque_key === "escritura"
+      )
+    ) {
+      openedFolder = true;
+      continue;
+    }
+    opens.push({
+      cliente_id: folderId,
+      label: `${t.folder_nombre ?? folderId}`,
+      carpeta: true,
+      bloque_key: "escritura",
+    });
+    openedFolder = true;
+  }
+  if (openedFolder) return;
+  collectOpens(data, opens);
+}
+
 function collectOpens(
   data: unknown,
   opens: Array<{
@@ -346,13 +403,15 @@ function collectOpens(
     if (!raw || typeof raw !== "object") continue;
     const row = raw as {
       cliente_id?: string;
+      folder_cliente_id?: string;
       id?: string;
       nombre?: string;
       original_name?: string;
       bloque_key?: string;
     };
-    const id = `${row.cliente_id ?? row.id ?? ""}`;
-    if (!id || opens.some((o) => o.cliente_id === id && o.bloque_key === (row.bloque_key ?? ""))) {
+    const id = `${row.folder_cliente_id ?? row.cliente_id ?? row.id ?? ""}`;
+    const bloque = row.bloque_key ?? "";
+    if (!id || opens.some((o) => o.cliente_id === id && o.bloque_key === bloque)) {
       continue;
     }
     const label = `${row.original_name ?? row.nombre ?? id}`;
@@ -360,7 +419,7 @@ function collectOpens(
       cliente_id: id,
       label,
       carpeta: true,
-      bloque_key: row.bloque_key ?? "",
+      bloque_key: bloque,
     });
   }
 }
