@@ -52,7 +52,7 @@ Klient bez nemovitosti je platný (např. jen NIE / poder / renta).
 Klient bez NIE je platný — první úkon může být vyřízení NIE.  
 Nemovitost bez klienta není.  
 Expediente typu koupě/prodej skoro vždy nese `inmueble_id`.  
-Policie / magistrát / testament: stejný vztah (visí na klientovi); u Jarky moduly zapnuté, desky až po papírové složce.
+Policie / magistrát / testament: stejný vztah (visí na klientovi); u Jarky moduly zapnuté, **tenký spis** (stav + cita + papír), ne dva tištěné listy.
 
 ## 4. Cliente
 
@@ -104,9 +104,9 @@ Katalog úkonů z náčrtu:
 | `impuestos_renta` | ano (plazo + checklist) | renta / IRPF |
 | `nie_tramite` | ano jako blok Extra, může být i samostatný spis | EXTRAS NIE |
 | `poder` | ano jako blok | EXTRAS PODER |
-| `policia` | modul zapnutý, deska později | náčrt — Jarka dělá |
-| `ayuntamiento` | modul zapnutý, deska později | náčrt — Jarka dělá |
-| `testament` | modul zapnutý, deska později | náčrt — Jarka dělá |
+| `policia` | ano (tenký spis) | stav úkonu + cita + justificante |
+| `ayuntamiento` | ano (tenký spis) | stav úkonu + cita + justificante |
+| `testament` | ano (tenký spis) | stav úkonu + cita + copia/justificante |
 | `otros` | ne | náčrt |
 
 Stavy expedientes: `abierto` → `en_curso` → `espera_cliente` → `espera_admin` → `hecho` → `archivado`. Soft-delete je mimo tyto stavy (`deleted_at`).
@@ -193,7 +193,7 @@ Budoucí `cliente_final` (portál klienta) v MVP neexistuje.
 - Digitální podpis
 - Portál klienta (v2; model zpráv už originál + překlad)
 - Nativní aplikace, offline, Drift
-- Samostatné desky policie / magistrát / testament před tím, než deska koupě žije v prohlížeči
+- Samostatné desky policie / magistrát / testament před tím, než deska koupě žije v prohlížeči — **teď tenký spis** (stav + cita + papír), ne dva listy.
 - Výpočet daně 210 / renta (checklist + plazo ano)
 - Fyzické DELETE business dat
 - AI s tools `save_*` / `delete_*` / `send_*`

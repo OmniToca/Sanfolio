@@ -82,7 +82,7 @@ Workflow kanceláře = zapnuté moduly + tyhle offsety + pořadí bloků. Ne BPM
 | `nie_poder` | ano jako bloky na desce | `carpeta.blocks` |
 | `ai_copilot` | kostra | pravý panel (`AiPanel`) |
 | `client_portal` | ne | — |
-| `policia` / `ayuntamiento` / `testament` | zapnuto u Jarky; UI desky až po složce koupě | `cliente.tabs` |
+| `policia` / `ayuntamiento` / `testament` | zapnuto u Jarky; tenký spis na `cliente.tabs` | `cliente.tabs` |
 
 Widget modulu žije v `features/<modul>/presentation/widgets/` a registruje se v `core/modules/registry.dart`. Nový modul = nová složka + řádek v katalogu + licence. Nesahej do cizích `presentation/`.
 

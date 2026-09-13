@@ -29,6 +29,7 @@ Každý řádek inboxu: klient, inmueble, bloque/expediente, due_on, akce (`abri
 | `poder_caducidad` | `fecha_caducidad` | to datum | `poder_warn_days` |
 | `nie_caducidad` | `nie_caducidad` | to datum | `plazo_offsets.nie_caducidad` |
 | `cita_nie` | `fecha_cita` | to datum | `plazo_offsets.cita_nie` |
+| `cita_tramite` | `fields.appointment` u policia / ayuntamiento / testament | to datum, když stav `cita` | žádný hardcoded offset |
 | `modelo_210` | periodicidad + periodo | z `tenant_settings` (čtvrtletně i ročně) | `plazo_offsets.modelo_210` |
 | `renta` | ejercicio | z `tenant_settings` (v dotazníku prázdné) | `plazo_offsets.renta` |
 

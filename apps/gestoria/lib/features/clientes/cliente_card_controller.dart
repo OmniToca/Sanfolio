@@ -360,13 +360,14 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
       await rollbackDocumentoUpload(path);
       throw OfficeUploadException('db');
     }
-    await extractDocumentDraft(
+    startExtractInBackground(
       tenantId: current.tenantId,
       clienteId: current.id,
       storagePath: path,
       mime: mimeForOfficeFile(originalName),
       docTipo: tipo,
       bloqueKey: tipo,
+      onDone: (_) => _refresh(),
     );
     _refresh();
   }
@@ -392,15 +393,16 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
   Future<void> extractDocument(ClienteDocumento doc) async {
     final current = state.valueOrNull;
     if (current == null || current.deleted) return;
-    await extractDocumentDraft(
+    startExtractInBackground(
       tenantId: current.tenantId,
       clienteId: current.id,
       storagePath: doc.storagePath,
       mime: mimeForOfficeFile(doc.originalName),
       docTipo: doc.tipo,
       bloqueKey: doc.tipo,
+      onDone: (_) =>
+          ref.invalidate(liveAiDraftsProvider(current.id)),
     );
-    ref.invalidate(liveAiDraftsProvider(current.id));
   }
 
   Future<void> removeDocument(String documentId) async {

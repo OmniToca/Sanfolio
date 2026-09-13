@@ -7,7 +7,7 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `core` | shell, clientes, search | vždy zapnuto |
 | `carpeta_inmueble` | `features/carpeta` | deska 1:1 s tiskem, slot `carpeta.blocks`; klik na blok → `/carpeta/:key` |
 | `impuestos` | `features/expedientes` | tenké 210 / renta, checklist + plazo |
-| `policia` / `ayuntamiento` / `testament` | moduly zapnuté u Jarky | desky až po složce koupě |
+| `policia` / `ayuntamiento` / `testament` | `features/expedientes` | tenký spis na kartě (FeatureGate); cita → inbox |
 | `translate-message` | Edge Function | překlad výzvy při kliknutí gestora |
 | `nie_poder` | bloky na desce | extras NIE = samostatný úkol |
 | `ai_copilot` | `features/ai` | search / open / prefill; uživatel ukládá |
@@ -18,9 +18,10 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `purge_documento_storage` | SQL RPC | owner vysype blob schovaného dokumentu |
 | `trashVisibleOnCard` | karta klienta | koš jen se schovaným originálem; vysypané z karty zmizí |
 | `pickOfficeFile` | `office_file_pick.dart` | web: `<input>` overlay na tlačítku (Safari); raw POST do Storage, ne multipart |
+| `search_document_text` | `documentos.body_text` | Fáze F: věta v přepisu, ne vektor |
 | `query_suministro` / `query_plazos_office` / `query_escritura` | SQL RPC | office-wide čtení desky pro chat |
 | `ai-assistant` | Edge Function | whitelist tools; žádný save/send |
-| `roadmap_dokumenty_ai` | `docs/roadmap_dokumenty_ai.md` | Fáze A–G: přepis, PDF, koš, office-wide tools, otevřený blok; později FTS |
+| `roadmap_dokumenty_ai` | `docs/roadmap_dokumenty_ai.md` | Fáze A–G + FTS v `body_text`; vektory později |
 | `ai-draft-message` | Edge Function | díry složky → `mensajes.draft`; odesílá gestor |
 | `client_portal` | není | v2, čte `mensajes.translations` |
 | `gestoria_auth` | `packages/gestoria_auth` | login, PortalUrls, hash `setSession` |

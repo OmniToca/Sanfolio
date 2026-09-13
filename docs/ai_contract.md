@@ -122,6 +122,10 @@ Vytvoří `mensajes.status = draft` **nebo** jen vrátí text do UI (preferovat 
 
 Při odeslání člověkem: do kanálu jde překlad (`clientes.locale`), originál v `cuerpo`. AI ten krok nesmí spustit.
 
+### 2.7 `search_document_text`
+
+Read-only fulltext v `documentos.body_text` (RPC stejného jména). Limit 20, tenant RLS. Prázdný přepis ≠ „ve smlouvě to není“. `open_screen` na `/clientes/{id}/carpeta/{bloque}`. Žádný pgvector.
+
 ## 3. Zakázané tools (nesmí být v schématu)
 
 - `save_*`, `update_*`, `insert_*`, `upsert_*`
@@ -151,9 +155,9 @@ Přílohy: jen Storage paths tenantu. Max velikost a MIME: jpeg, png, webp, pdf.
 
 Trvalý panel vpravo (na širokém stole dockovaný, na úzkém překryv). Žádný FAB — ať se nepřekrývá s „Nová složka“. Lišta / položka Asistent panel jen přepíná.
 
-Turny se ukládají do `ai_conversations` + `ai_messages` (soft-delete, scoped na uživatele v UI). Stream / HTTP `ai-assistant` volá whitelist tools (`search_clients`, `get_cliente`, `query_suministro`, `query_plazos_office`, `query_escritura`). Dokud funkce není nasazená, panel skládá facts + office RPC ve Flutter.
+Turny se ukládají do `ai_conversations` + `ai_messages` (soft-delete, scoped na uživatele v UI). Stream / HTTP `ai-assistant` volá whitelist tools (`search_clients`, `get_cliente`, `query_suministro`, `query_plazos_office`, `query_escritura`, `search_document_text`). Dokud funkce není nasazená, panel skládá facts + office RPC ve Flutter.
 
-Office-wide otázky (dodavatel, konce seguro, notář) = read-only tools / RPC, viz [roadmap_dokumenty_ai.md](roadmap_dokumenty_ai.md). Žádný `execute_sql`. Vektory až fáze F.
+Office-wide otázky (dodavatel, konce seguro, notář) = read-only tools / RPC, viz [roadmap_dokumenty_ai.md](roadmap_dokumenty_ai.md). Žádný `execute_sql`. Vektory až po FTS.
 
 Side-effects:
 

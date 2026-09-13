@@ -64,6 +64,12 @@ List<String> fieldsForDocTipo(String tipo) {
         'fields.date',
         'fields.protocol',
       ];
+    case 'justificante_cita':
+      return const [
+        'fields.nombre',
+        'fields.date',
+        'fields.appointment',
+      ];
     case 'poliza_seguro':
     case 'contrato_alarma':
       return const [

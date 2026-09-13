@@ -217,7 +217,7 @@ class _ExpedienteScreenState extends ConsumerState<ExpedienteScreen> {
         },
       );
     }
-    if (key == 'fields.nieStatus') {
+    if (key == 'fields.nieStatus' || key == 'fields.tramiteStatus') {
       return DropdownMenu<String>(
         key: ValueKey('nie-$value'),
         initialSelection: value.isEmpty ? null : value,

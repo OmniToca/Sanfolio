@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gestoria_auth/gestoria_auth.dart';
 
@@ -40,7 +42,7 @@ class AiPrefillDraft {
 final aiPrefillProvider = StateProvider<AiPrefillDraft?>((ref) => null);
 
 /// Živé návrhy z DB (24 h). AI sem zapisuje, desku ne.
-final liveAiDraftsProvider =
+final FutureProviderFamily<List<AiPrefillDraft>, String> liveAiDraftsProvider =
     FutureProvider.family<List<AiPrefillDraft>, String>((ref, clienteId) async {
       ref.watch(authControllerProvider);
       final client = trySupabaseClient();
@@ -72,6 +74,12 @@ final liveAiDraftsProvider =
             storagePath: raw['storage_path']?.toString(),
           ),
         );
+      }
+      if (out.any((d) => isExtractPending(d.fields))) {
+        final timer = Timer(const Duration(seconds: 2), () {
+          ref.invalidateSelf();
+        });
+        ref.onDispose(timer.cancel);
       }
       return out;
     });
@@ -140,14 +148,45 @@ Future<AiPrefillDraft?> extractDocumentDraft({
   final data = response.data;
   if (data is! Map || data['ok'] != true) return null;
   final fields = stringFieldMap(data['fields']);
-  if (fields.isEmpty) return null;
+  final pending = data['pending'] == true || isExtractPending(fields);
+  if (fields.isEmpty && !pending) return null;
   return AiPrefillDraft(
     draftId: data['draft_id']?.toString(),
     clienteId: clienteId,
     bloqueKey: '${data['bloque_key'] ?? bloqueKey}',
-    fields: fields,
+    fields: pending && fields.isEmpty
+        ? const {kExtractStatus: 'pending'}
+        : fields,
     storagePath: storagePath,
   );
+}
+
+/// Nahrání nesmí čekat na LLM. Návrh naskočí z [liveAiDraftsProvider].
+void startExtractInBackground({
+  required String tenantId,
+  required String clienteId,
+  required String storagePath,
+  required String mime,
+  String? docTipo,
+  String bloqueKey = 'cliente_snapshot',
+  void Function(AiPrefillDraft? draft)? onDone,
+}) {
+  unawaited(() async {
+    AiPrefillDraft? draft;
+    try {
+      draft = await extractDocumentDraft(
+        tenantId: tenantId,
+        clienteId: clienteId,
+        storagePath: storagePath,
+        mime: mime,
+        docTipo: docTipo,
+        bloqueKey: bloqueKey,
+      );
+    } on Object {
+      draft = null;
+    }
+    onDone?.call(draft);
+  }());
 }
 
 Future<List<AiHit>> aiSearchClients(String q) async {
@@ -378,11 +417,13 @@ class AiOfficeHit {
     required this.clienteId,
     required this.nombre,
     this.detail,
+    this.bloqueKey,
   });
 
   final String clienteId;
   final String nombre;
   final String? detail;
+  final String? bloqueKey;
 }
 
 class AiOfficeAnswer {
@@ -414,12 +455,17 @@ AiOfficeAnswer? _parseOfficeJson(Object? data) {
         if ('${raw['notary'] ?? ''}'.trim().isNotEmpty) '${raw['notary']}',
         if ('${raw['due_on'] ?? ''}'.trim().isNotEmpty) '${raw['due_on']}',
         if ('${raw['kind'] ?? ''}'.trim().isNotEmpty) '${raw['kind']}',
+        if ('${raw['original_name'] ?? ''}'.trim().isNotEmpty)
+          '${raw['original_name']}',
+        if ('${raw['snippet'] ?? ''}'.trim().isNotEmpty) '${raw['snippet']}',
       ].join(' · ');
+      final bloque = '${raw['bloque_key'] ?? ''}'.trim();
       items.add(
         AiOfficeHit(
           clienteId: id,
           nombre: nombre.isEmpty ? id : nombre,
           detail: detail.isEmpty ? null : detail,
+          bloqueKey: bloque.isEmpty ? null : bloque,
         ),
       );
     }
@@ -452,6 +498,18 @@ Future<AiOfficeAnswer?> _askOfficeWithClient(
           'p_tenant_id': tenantId,
           'p_kind': _plazoKind(lower),
           'p_within_days': _withinDays(lower),
+        },
+      );
+      return _parseOfficeJson(data);
+    }
+    if (_looksLikeDocumentText(lower)) {
+      if (!documentTextSearchQueryOk(q)) return null;
+      final data = await client.rpc(
+        'search_document_text',
+        params: {
+          'p_tenant_id': tenantId,
+          'p_q': q.trim(),
+          'p_limit': 20,
         },
       );
       return _parseOfficeJson(data);
@@ -508,6 +566,19 @@ int _withinDays(String q) {
     return 90;
   }
   return 90;
+}
+
+bool _looksLikeDocumentText(String q) {
+  return q.contains('arras') ||
+      q.contains('cláusula') ||
+      q.contains('clausula') ||
+      q.contains('ve smlouvě') ||
+      q.contains('ve smlouve') ||
+      q.contains('v přepisu') ||
+      q.contains('in the contract') ||
+      q.contains('en el contrato') ||
+      q.contains('im vertrag') ||
+      q.contains('dans le contrat');
 }
 
 bool _looksLikeEscritura(String q) {
@@ -574,6 +645,9 @@ Future<AiChatPayload?> askAiAssistant({
             clienteId: id,
             label: '${raw['label'] ?? id}',
             carpeta: raw['carpeta'] == true,
+            bloqueKey: '${raw['bloque_key'] ?? ''}'.trim().isEmpty
+                ? null
+                : '${raw['bloque_key']}'.trim(),
           ),
         );
       }

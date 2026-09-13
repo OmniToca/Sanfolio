@@ -32,6 +32,16 @@ void main() {
     expect(decodeAiChatPayload('jen text').text, 'jen text');
   });
 
+  test('odkaz z přepisu otevře šanon bloku, ne jen desky', () {
+    const open = AiChatOpen(
+      clienteId: '11111111-1111-1111-1111-111111111111',
+      label: 'escritura.pdf',
+      carpeta: true,
+      bloqueKey: 'escritura',
+    );
+    expect(open.route.endsWith('/carpeta/escritura'), isTrue);
+  });
+
   test('id klienta z cesty kanceláře, ne z /carpeta', () {
     expect(
       clienteIdFromOfficePath(

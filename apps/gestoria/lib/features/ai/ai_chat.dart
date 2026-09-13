@@ -26,14 +26,21 @@ class AiChatOpen {
     required this.clienteId,
     required this.label,
     this.carpeta = false,
+    this.bloqueKey,
   });
 
   final String clienteId;
   final String label;
   final bool carpeta;
+  final String? bloqueKey;
 
-  String get route =>
-      carpeta ? '/clientes/$clienteId/carpeta' : '/clientes/$clienteId';
+  String get route {
+    final bloque = bloqueKey?.trim() ?? '';
+    if (bloque.isNotEmpty) {
+      return '/clientes/$clienteId/carpeta/$bloque';
+    }
+    return carpeta ? '/clientes/$clienteId/carpeta' : '/clientes/$clienteId';
+  }
 }
 
 /// Text k zobrazení + volitelné otevření / prefill. Ukládá se do `content`.
@@ -104,6 +111,8 @@ String encodeAiChatPayload(AiChatPayload payload) {
           'cliente_id': open.clienteId,
           'label': open.label,
           'carpeta': open.carpeta,
+          if (open.bloqueKey != null && open.bloqueKey!.trim().isNotEmpty)
+            'bloque_key': open.bloqueKey,
         },
     ],
     if (payload.fields.isNotEmpty) 'fields': payload.fields,
@@ -131,6 +140,9 @@ AiChatPayload decodeAiChatPayload(String content) {
             clienteId: id,
             label: '${item['label'] ?? ''}',
             carpeta: item['carpeta'] == true,
+            bloqueKey: '${item['bloque_key'] ?? ''}'.trim().isEmpty
+                ? null
+                : '${item['bloque_key']}'.trim(),
           ),
         );
       }

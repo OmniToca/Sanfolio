@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -274,8 +276,21 @@ class _AiPanelState extends ConsumerState<AiPanel> {
           lines.add(
             [hit.nombre, if (hit.detail != null) hit.detail!].join(' · '),
           );
-          if (opens.any((o) => o.clienteId == hit.clienteId)) continue;
-          opens.add(AiChatOpen(clienteId: hit.clienteId, label: hit.nombre));
+          if (opens.any(
+            (o) =>
+                o.clienteId == hit.clienteId &&
+                o.bloqueKey == hit.bloqueKey,
+          )) {
+            continue;
+          }
+          opens.add(
+            AiChatOpen(
+              clienteId: hit.clienteId,
+              label: hit.nombre,
+              carpeta: true,
+              bloqueKey: hit.bloqueKey,
+            ),
+          );
         }
         if (office.total > office.items.length) {
           lines.add('${office.items.length}/${office.total}');
@@ -413,45 +428,52 @@ class _AiPanelState extends ConsumerState<AiPanel> {
         throw OfficeUploadException('db');
       }
       await ref.read(aiChatProvider.notifier).addUser(file.name);
-      try {
-        final mime = mimeForOfficeFile(file.name, extension: file.extension);
-        final draft = await extractDocumentDraft(
-          tenantId: tenantId,
-          clienteId: id,
-          storagePath: path,
-          mime: mime,
-        );
-        if (draft == null) {
-          await ref
-              .read(aiChatProvider.notifier)
-              .addAssistant(
-                encodeAiChatPayload(AiChatPayload(text: 'ai.extractEmpty'.tr())),
-              );
-          return;
-        }
-        ref.read(aiPrefillProvider.notifier).state = draft;
-        await ref
-            .read(aiChatProvider.notifier)
-            .addAssistant(
-              encodeAiChatPayload(
-                AiChatPayload(
-                  text: 'ai.proposal'.tr(),
-                  fields: draft.fields,
-                  opens: [
-                    AiChatOpen(clienteId: id, label: file.name, carpeta: true),
-                  ],
-                ),
-              ),
-            );
-        if (!mounted) return;
-        context.go('/clientes/$id/carpeta');
-      } on Object {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('folder.extractError'.tr())),
+      await ref.read(aiChatProvider.notifier).addAssistant(
+            encodeAiChatPayload(AiChatPayload(text: 'ai.readingDoc'.tr())),
           );
-        }
-      }
+      startExtractInBackground(
+        tenantId: tenantId,
+        clienteId: id,
+        storagePath: path,
+        mime: mimeForOfficeFile(file.name, extension: file.extension),
+        onDone: (draft) {
+          if (draft == null || isExtractFailed(draft.fields)) {
+            unawaited(
+              ref.read(aiChatProvider.notifier).addAssistant(
+                    encodeAiChatPayload(
+                      AiChatPayload(text: 'ai.extractEmpty'.tr()),
+                    ),
+                  ),
+            );
+            return;
+          }
+          if (isExtractPending(draft.fields)) {
+            ref.invalidate(liveAiDraftsProvider(id));
+            return;
+          }
+          ref.read(aiPrefillProvider.notifier).state = draft;
+          unawaited(
+            ref.read(aiChatProvider.notifier).addAssistant(
+                  encodeAiChatPayload(
+                    AiChatPayload(
+                      text: 'ai.proposal'.tr(),
+                      fields: draft.fields,
+                      opens: [
+                        AiChatOpen(
+                          clienteId: id,
+                          label: file.name,
+                          carpeta: true,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+          );
+        },
+      );
+      ref.invalidate(liveAiDraftsProvider(id));
+      if (!mounted) return;
+      context.go('/clientes/$id/carpeta');
     } on Object catch (e) {
       if (mounted) showOfficeUploadFailure(context, e);
     } finally {

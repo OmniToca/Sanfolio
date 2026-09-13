@@ -51,9 +51,7 @@ Rozhodnutí, která už platí a neotevíráme je znovu:
 
 ## Stav teď (neplánovat znovu)
 
-Hotovo A–E v kódu a na hosted SQL/Edge (2026-09-12/13): jedna cesta nahrání, přepis|originál, `body_text`, koš ownera, office-wide RPC + `ai-assistant`. Extract u textového PDF volá LLM. Flutter desky (tužka, otevřený blok) na Netlify až po pushi.
-
-F (fulltext/vektory) čeká na přepis smluv a na G (stoh faktur).
+Hotovo A–G v kódu (2026-09-13): jedna cesta nahrání, přepis|originál, `body_text`, koš, office-wide RPC, otevřený blok, extract na pozadí (pending `ai_drafts`). F = Postgres fulltext v `body_text`, bez pgvector. Edge timeout u obřího PDF (~60 s) zůstává — waitUntil drží isolate, ne UI.
 
 ---
 
@@ -87,7 +85,7 @@ Hotovo když: u Petra jde otevřít NIE jako pole + soubor, bez druhého nahrán
 
 - `extract-document`: u PDF nejdřív textová vrstva (stránky `--- Strana n/N ---`), vision jen když text nestačí nebo je to průkaz.
 - Návrh obsahuje pole **a** `body_text`. Guardar zapíše obojí (`extracted` + sloupec / klíč v JSONB — rozhodnout v migraci, zapsat do `database_schema.md`).
-- Extract na pozadí u velkého PDF (UI se neodblokuje až po minutě; progress stačí jednoduchý stav, ne nutně Realtime 0–100 jako u norem).
+- Extract na pozadí: HTTP vrátí pending draft hned; LLM doběhne přes `EdgeRuntime.waitUntil`. UI se neodblokuje až po minutě. Bez waitUntil isolát může extract useknout (~60 s u obřího PDF).
 - Rastr JPEG **neukládat** do bucketu.
 
 Hotovo když: nahrání vícestránkového PDF uloží originál + po Guardar čitelný text; chat u otevřené karty umí „je v této smlouvě …“ z přepisu, ne z binárky.
@@ -145,14 +143,14 @@ Hotovo když: klik na Vodu u Petra otevře šanon; deska zůstane tenká; `factu
 
 ---
 
-## Fáze F — Hledání věty (až bude přepis)
+## Fáze F — Hledání věty (fulltext, bez vektorů)
 
-Až C drží a kancelář má víc smluv v `body_text`:
+Hotovo v kódu (2026-09-13): GIN + RPC `search_document_text`, tool v `ai-assistant`. Prázdný přepis ≠ „ve smlouvě to není“.
 
 1. Fulltext v Postgres (`body_text`, tenant RLS) — „arras“, „cláusula“.
 2. **Až potom** pgvector (Leo `document_chunks`), vždy `tenant_id`, nikdy globální katalog.
 
-Hotovo když: „ve které smlouvě je arras 10 %?“ vrátí karty + citaci stránky, originál se otevře vedle.
+Hotovo když: „ve které smlouvě je arras?“ vrátí klienta + citaci + otevře šanon. **pgvector ne.**
 
 ---
 

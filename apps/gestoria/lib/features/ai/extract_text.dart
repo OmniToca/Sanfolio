@@ -84,6 +84,14 @@ String compactTel(String raw) {
   return hasPlus ? '+$digits' : digits;
 }
 
+const kExtractStatus = 'extract_status';
+
+bool isExtractPending(Map<String, String> fields) =>
+    (fields[kExtractStatus] ?? '') == 'pending';
+
+bool isExtractFailed(Map<String, String> fields) =>
+    (fields[kExtractStatus] ?? '') == 'failed';
+
 /// Zahodí odpad z OCR/PDF, ať se nenabízí k uložení přes platný NIE.
 Map<String, String> sanitizeExtractedFields(Map<String, String> raw) {
   final out = <String, String>{};
@@ -91,6 +99,8 @@ Map<String, String> sanitizeExtractedFields(Map<String, String> raw) {
     final v = e.value.trim();
     if (v.isEmpty) continue;
     switch (e.key) {
+      case kExtractStatus:
+        if (v == 'pending' || v == 'failed') out[e.key] = v;
       case 'fields.nie':
         if (looksLikeNie(v)) out[e.key] = v.toUpperCase().replaceAll(' ', '');
       case 'fields.tel':
@@ -116,6 +126,7 @@ class DocumentoTranscript {
 
 DocumentoTranscript splitDocumentoTranscript(Map<String, String> raw) {
   final fields = Map<String, String>.from(sanitizeExtractedFields(raw));
+  fields.remove(kExtractStatus);
   final body = fields.remove('body_text')?.trim();
   return DocumentoTranscript(
     fields: fields,
@@ -141,6 +152,9 @@ bool showDocumentoBodyOnPaper({
   if ((bodyText ?? '').trim().isEmpty) return false;
   return !hasShownFields;
 }
+
+/// Fulltext RPC odmítne kratší než 3 znaky (stejně jako SQL).
+bool documentTextSearchQueryOk(String q) => q.trim().length >= 3;
 
 bool storagePurgedFromRow(Map raw) => raw['storage_purged_at'] != null;
 

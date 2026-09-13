@@ -591,6 +591,27 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
                   child: Text('expedientes.openNie'.tr()),
                 ),
               ),
+              FeatureGate(
+                module: GestoriaModule.policia,
+                child: OutlinedButton(
+                  onPressed: _busy ? null : () => _openThin('policia'),
+                  child: Text('expedientes.openPolicia'.tr()),
+                ),
+              ),
+              FeatureGate(
+                module: GestoriaModule.ayuntamiento,
+                child: OutlinedButton(
+                  onPressed: _busy ? null : () => _openThin('ayuntamiento'),
+                  child: Text('expedientes.openAyuntamiento'.tr()),
+                ),
+              ),
+              FeatureGate(
+                module: GestoriaModule.testament,
+                child: OutlinedButton(
+                  onPressed: _busy ? null : () => _openThin('testament'),
+                  child: Text('expedientes.openTestament'.tr()),
+                ),
+              ),
               OutlinedButton(
                 onPressed: _busy ? null : _addManualPlazo,
                 child: Text('inbox.addManual'.tr()),
@@ -906,13 +927,30 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
                   style: TextStyle(color: Theme.of(context).colorScheme.error),
                 ),
               ),
-            if (shown.isEmpty && pending == null)
+            if (isExtractPending(values) ||
+                (shown.isEmpty &&
+                    pending == null &&
+                    _extractStarted.contains(doc.id)))
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
                 child: Text(
-                  _extractStarted.contains(doc.id)
-                      ? 'ai.readingDoc'.tr()
-                      : 'folder.transcriptEmpty'.tr(),
+                  'ai.readingDoc'.tr(),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              )
+            else if (isExtractFailed(values))
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                child: Text(
+                  'folder.extractError'.tr(),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              )
+            else if (shown.isEmpty && pending == null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                child: Text(
+                  'folder.transcriptEmpty'.tr(),
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               )
@@ -956,7 +994,9 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
                 child: Text('folder.purged'.tr()),
               ),
-            if (pending != null)
+            if (pending != null &&
+                !isExtractPending(values) &&
+                !isExtractFailed(values))
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
                 child: Align(

@@ -18,7 +18,7 @@ Všechny texty UI z i18n (`cs` default). Layout: rail vlevo (desktop) + top bar.
 | `/clientes/:id/carpeta` | dva listy (tužka); bloky kromě klienta jsou kryty |
 | `/clientes/:id/carpeta/:bloque` | šanon jednoho bloku: identita + papíry |
 | `/clientes/:id/inmuebles/:inmuebleId` | deska nemovitosti |
-| `/expedientes/:id` | úkon (daně, NIE, poder) |
+| `/expedientes/:id` | úkon (daně, NIE, policía, ayuntamiento, testament) |
 | `/mensajes/:id` | editor draftu; odeslat = překlad |
 | `/settings` | lhůty kanceláře |
 | `/impersonation/accept` | Support handoff |
@@ -73,7 +73,7 @@ Hub z náčrtu. Není to dlouhý formulář všech energií — energie žijí n
 **Sloupce / sekce:**
 
 1. Inmuebles (karty adresy → deska nemovitosti)
-2. Expedientes abiertos (210, renta, NIE, poder, compraventa)
+2. Expedientes abiertos (210, renta, NIE, policía, ayuntamiento, testament, compraventa)
 3. Documentos del cliente (DNI, pasaporte)
 4. Mensajes
 5. Provisión součet přes otevřené spisy
@@ -110,9 +110,9 @@ Uvnitř `/carpeta/:bloque`: pole identity, dropzóna, stoh dokladů (faktury s o
 
 AI prefill zvýrazní žlutě změněná pole do Guardar / Descartar.
 
-## 6. Expediente daně / NIE (`/expedientes/:id`)
+## 6. Expediente daně / NIE / úkony (`/expedientes/:id`)
 
-Jednodušší než deska: checklist + plazo + dokumenty. Žádný kalkulátor 210.
+Jednodušší než deska: checklist + plazo + dokumenty. Žádný kalkulátor 210. Policía / ayuntamiento / testament = stejný stroj (stav úkonu + cita + papír).
 
 ## 7. Zpráva
 
@@ -134,7 +134,7 @@ Na prefill desky zůstat na inmueble, neskákat pryč.
 
 ## 10. Co na obrazovkách v MVP není
 
-- Samostatné desky policie / magistrát / testament (moduly zapnuté, UI později)
+- Samostatné desky policie / magistrát / testament jako dva tištěné listy (tenký spis ano)
 - Portál klienta
 - WhatsApp API tlačítko odeslat (copy ano)
 - Grafy MRR, účetní knihy, AEAT XML

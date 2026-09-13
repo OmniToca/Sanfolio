@@ -823,27 +823,23 @@ class _BloqueCardState extends ConsumerState<_BloqueCard> {
     final tenantId = ctrl.state.valueOrNull?.tenantId;
     final clienteId = ctrl.state.valueOrNull?.clienteId;
     if (tenantId == null || clienteId == null) return;
-    try {
-      final mime = mimeForOfficeFile(file.name, extension: file.extension);
-      final draft = await extractDocumentDraft(
-        tenantId: tenantId,
-        clienteId: clienteId,
-        storagePath: attached.storagePath,
-        mime: mime,
-        docTipo: attached.tipo,
-        bloqueKey: templateKey,
-      );
-      if (draft != null) {
-        ref.read(aiPrefillProvider.notifier).state = draft;
+    startExtractInBackground(
+      tenantId: tenantId,
+      clienteId: clienteId,
+      storagePath: attached.storagePath,
+      mime: mimeForOfficeFile(file.name, extension: file.extension),
+      docTipo: attached.tipo,
+      bloqueKey: templateKey,
+      onDone: (draft) {
+        if (draft != null &&
+            !isExtractPending(draft.fields) &&
+            !isExtractFailed(draft.fields)) {
+          ref.read(aiPrefillProvider.notifier).state = draft;
+        }
         ref.invalidate(liveAiDraftsProvider(clienteId));
-      }
-    } on Object {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('folder.extractError'.tr())),
-        );
-      }
-    }
+      },
+    );
+    ref.invalidate(liveAiDraftsProvider(clienteId));
   }
 
   Future<void> _openDoc(
@@ -1295,6 +1291,16 @@ class _DocumentoForm extends ConsumerWidget {
                   padding: const EdgeInsets.only(bottom: 4),
                   child: Text('${k.tr()}: ${values[k]}'),
                 ),
+              if (isExtractPending(values))
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text('ai.readingDoc'.tr()),
+                )
+              else if (isExtractFailed(values))
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text('folder.extractError'.tr()),
+                ),
               if (showDocumentoBodyOnPaper(
                 hasShownFields: shown.isNotEmpty,
                 bodyText: doc.bodyText,
@@ -1312,7 +1318,9 @@ class _DocumentoForm extends ConsumerWidget {
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Text('folder.purged'.tr()),
                 ),
-              if (pending != null)
+              if (pending != null &&
+                  !isExtractPending(values) &&
+                  !isExtractFailed(values))
                 Align(
                   alignment: Alignment.centerLeft,
                   child: FilledButton(

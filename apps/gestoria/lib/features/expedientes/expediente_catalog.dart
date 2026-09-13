@@ -9,6 +9,7 @@ class ThinExpedienteKind {
     required this.fieldKeys,
     required this.requiredFieldKeys,
     this.requiredDocTypes = const [],
+    this.requiredDocsMode = RequiredDocsMode.all,
   });
 
   final String tipo;
@@ -17,12 +18,14 @@ class ThinExpedienteKind {
   final List<String> fieldKeys;
   final List<String> requiredFieldKeys;
   final List<String> requiredDocTypes;
+  final RequiredDocsMode requiredDocsMode;
 
   BloqueTemplate get template => BloqueTemplate(
         key: templateKey,
         fieldKeys: fieldKeys,
         requiredFieldKeys: requiredFieldKeys,
         requiredDocTypes: requiredDocTypes,
+        requiredDocsMode: requiredDocsMode,
         moduleKey: moduleKey,
       );
 }
@@ -62,6 +65,31 @@ const thinExpedienteKinds = <ThinExpedienteKind>[
     moduleKey: 'nie_poder',
     fieldKeys: ['fields.nieStatus', 'fields.appointment', 'fields.expiry'],
     requiredFieldKeys: ['fields.nieStatus'],
+  ),
+  ThinExpedienteKind(
+    tipo: 'policia',
+    templateKey: 'policia',
+    moduleKey: 'policia',
+    fieldKeys: ['fields.tramiteStatus', 'fields.appointment', 'fields.notes'],
+    requiredFieldKeys: ['fields.tramiteStatus'],
+    requiredDocTypes: ['justificante_cita'],
+  ),
+  ThinExpedienteKind(
+    tipo: 'ayuntamiento',
+    templateKey: 'ayuntamiento',
+    moduleKey: 'ayuntamiento',
+    fieldKeys: ['fields.tramiteStatus', 'fields.appointment', 'fields.notes'],
+    requiredFieldKeys: ['fields.tramiteStatus'],
+    requiredDocTypes: ['justificante_cita'],
+  ),
+  ThinExpedienteKind(
+    tipo: 'testament',
+    templateKey: 'testament',
+    moduleKey: 'testament',
+    fieldKeys: ['fields.tramiteStatus', 'fields.appointment', 'fields.notes'],
+    requiredFieldKeys: ['fields.tramiteStatus'],
+    requiredDocTypes: ['copia_escritura', 'justificante_cita'],
+    requiredDocsMode: RequiredDocsMode.any,
   ),
 ];
 

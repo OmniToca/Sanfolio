@@ -3,6 +3,7 @@ import 'package:gestoria_os/features/ai/documento_fields.dart';
 import 'package:gestoria_os/features/ai/extract_text.dart';
 import 'package:gestoria_os/features/carpeta/bloque_template.dart';
 import 'package:gestoria_os/features/carpeta/carpeta_routes.dart';
+import 'package:gestoria_os/features/expedientes/expediente_catalog.dart';
 
 void main() {
   test('extract najde NIE, e-mail a tel, nic neukládá', () {
@@ -130,6 +131,25 @@ void main() {
       showDocumentoBodyOnPaper(hasShownFields: false, bodyText: '  '),
       isFalse,
     );
+  });
+
+  test('pending extract se neuloží jako pole desky', () {
+    expect(isExtractPending({kExtractStatus: 'pending'}), isTrue);
+    expect(isExtractFailed({kExtractStatus: 'failed'}), isTrue);
+    final t = splitDocumentoTranscript({
+      'extract_status': 'pending',
+      'fields.company': 'Iberdrola',
+    });
+    expect(t.fields.containsKey('extract_status'), isFalse);
+    expect(t.fields['fields.company'], 'Iberdrola');
+    expect(documentTextSearchQueryOk('ar'), isFalse);
+    expect(documentTextSearchQueryOk('arras'), isTrue);
+  });
+
+  test('policie je tenký spis, ne druhá carpeta', () {
+    expect(thinKindByTipo('policia')?.moduleKey, 'policia');
+    expect(thinKindByTipo('ayuntamiento')?.templateKey, 'ayuntamiento');
+    expect(thinKindByTipo('testament')?.requiredDocsMode, RequiredDocsMode.any);
   });
 
   test('klient zůstane na deskách, voda se otevírá', () {

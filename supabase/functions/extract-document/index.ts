@@ -4,7 +4,7 @@ import { extractPdfPages, pdfTextUsable } from "../_shared/pdf_extract.ts";
 
 /**
  * Fotka / PDF → návrh do ai_drafts. Nikdy neukládá klienta ani neodesílá.
- * Bez OPENAI_API_KEY zkusí jen hrubý text (PDF) / prázdný návrh — nic se netváří.
+ * HTTP vrátí pending hned; LLM doběhne na pozadí (waitUntil). Guardar je gestor.
  */
 
 const corsHeaders: Record<string, string> = {
@@ -73,66 +73,6 @@ Deno.serve(async (req) => {
   if (accessErr) return json(500, { ok: false, error: accessErr.message });
   if (allowed !== true) return json(403, { ok: false, error: "forbidden" });
 
-  const { data: file, error: dlErr } = await userClient.storage
-    .from("documentos")
-    .download(storagePath);
-  if (dlErr || !file) {
-    return json(404, { ok: false, error: "file not found" });
-  }
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  if (bytes.byteLength > MAX_BYTES) {
-    return json(413, { ok: false, error: "file too large" });
-  }
-
-  const isPdf = mime === "application/pdf" || /\.pdf$/i.test(storagePath);
-  const identity = docTipo === "dni_nie" || docTipo === "pasaporte";
-  let fields: Record<string, string> = {};
-  if (!isPdf) {
-    fields = sanitizeFields(fieldsFromText(latinText(bytes)));
-  } else {
-    try {
-      const pages = await extractPdfPages(bytes);
-      if (pdfTextUsable(pages.text)) {
-        fields = sanitizeFields(fieldsFromText(pages.text));
-        fields.body_text = pages.text.slice(0, 100000);
-      }
-    } catch (err) {
-      console.warn("extract-document: unpdf selhal", err);
-    }
-  }
-
-  const apiKey = Deno.env.get("OPENAI_API_KEY")?.trim();
-  const isImage = IMAGE_MIME.has(mime) || looksLikeImage(storagePath);
-  // Vision: fotka / průkaz / PDF bez textu. Textové PDF (Iberdrola, voda) vision
-  // přeskočilo a zůstal jen regex → prázdný návrh.
-  const needVision = apiKey && (
-    isImage ||
-    (isPdf && (identity || !fields.body_text))
-  );
-  if (needVision) {
-    const vision = await visionExtract(
-      apiKey!,
-      bytes,
-      mime || guessMime(storagePath),
-      docTipo,
-      isPdf,
-    );
-    if (vision) {
-      const body = fields.body_text;
-      fields = { ...fields, ...sanitizeFields(vision) };
-      if (body && !fields.body_text) fields.body_text = body;
-    }
-  }
-  if (apiKey && fields.body_text && !identity) {
-    const llm = await llmExtractFromText(apiKey, fields.body_text, docTipo);
-    if (llm) {
-      const body = fields.body_text;
-      fields = { ...fields, ...sanitizeFields(llm) };
-      fields.body_text = body;
-    }
-  }
-  const extracted = Object.keys(fields).length > 0;
-
   const { data: draft, error: insErr } = await userClient
     .from("ai_drafts")
     .insert({
@@ -142,7 +82,7 @@ Deno.serve(async (req) => {
       purpose: "extract_document",
       target: "documento",
       bloque_key: bloqueKey,
-      fields,
+      fields: { extract_status: "pending" },
       storage_path: storagePath,
     })
     .select("id")
@@ -151,26 +91,142 @@ Deno.serve(async (req) => {
     return json(500, { ok: false, error: insErr?.message ?? "draft insert failed" });
   }
 
-  const admin = createClient(supabaseUrl(), serviceRoleKey(), {
-    auth: { autoRefreshToken: false, persistSession: false },
+  const work = finishExtract({
+    userClient,
+    userId: userData.user.id,
+    tenantId,
+    draftId: `${draft.id}`,
+    storagePath,
+    mime,
+    docTipo,
+    bloqueKey,
   });
-  await admin.from("audit_logs").insert({
-    tenant_id: tenantId,
-    actor_id: userData.user.id,
-    action: "ai.tool",
-    entity_table: "ai_drafts",
-    entity_id: draft.id,
-    after: { tool: "extract_document", extracted },
-  });
+  keepAlive(work);
 
   return json(200, {
     ok: true,
-    extracted,
+    pending: true,
+    extracted: false,
     draft_id: draft.id,
     bloque_key: bloqueKey,
-    fields,
+    fields: { extract_status: "pending" },
   });
 });
+
+function keepAlive(work: Promise<unknown>) {
+  const rt = (globalThis as {
+    EdgeRuntime?: { waitUntil: (p: Promise<unknown>) => void };
+  }).EdgeRuntime;
+  if (rt?.waitUntil) {
+    rt.waitUntil(work);
+    return;
+  }
+  void work;
+}
+
+async function finishExtract(args: {
+  userClient: ReturnType<typeof createClient>;
+  userId: string;
+  tenantId: string;
+  draftId: string;
+  storagePath: string;
+  mime: string;
+  docTipo: string;
+  bloqueKey: string;
+}) {
+  try {
+    const { data: file, error: dlErr } = await args.userClient.storage
+      .from("documentos")
+      .download(args.storagePath);
+    if (dlErr || !file) {
+      await markDraft(args.userClient, args.draftId, { extract_status: "failed" });
+      return;
+    }
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    if (bytes.byteLength > MAX_BYTES) {
+      await markDraft(args.userClient, args.draftId, { extract_status: "failed" });
+      return;
+    }
+
+    const isPdf = args.mime === "application/pdf" ||
+      /\.pdf$/i.test(args.storagePath);
+    const identity = args.docTipo === "dni_nie" || args.docTipo === "pasaporte";
+    let fields: Record<string, string> = {};
+    if (!isPdf) {
+      fields = sanitizeFields(fieldsFromText(latinText(bytes)));
+    } else {
+      try {
+        const pages = await extractPdfPages(bytes);
+        if (pdfTextUsable(pages.text)) {
+          fields = sanitizeFields(fieldsFromText(pages.text));
+          fields.body_text = pages.text.slice(0, 100000);
+        }
+      } catch (err) {
+        console.warn("extract-document: unpdf selhal", err);
+      }
+    }
+
+    const apiKey = Deno.env.get("OPENAI_API_KEY")?.trim();
+    const isImage = IMAGE_MIME.has(args.mime) || looksLikeImage(args.storagePath);
+    const needVision = apiKey && (
+      isImage ||
+      (isPdf && (identity || !fields.body_text))
+    );
+    if (needVision) {
+      const vision = await visionExtract(
+        apiKey!,
+        bytes,
+        args.mime || guessMime(args.storagePath),
+        args.docTipo,
+        isPdf,
+      );
+      if (vision) {
+        const body = fields.body_text;
+        fields = { ...fields, ...sanitizeFields(vision) };
+        if (body && !fields.body_text) fields.body_text = body;
+      }
+    }
+    if (apiKey && fields.body_text && !identity) {
+      const llm = await llmExtractFromText(apiKey, fields.body_text, args.docTipo);
+      if (llm) {
+        const body = fields.body_text;
+        fields = { ...fields, ...sanitizeFields(llm) };
+        fields.body_text = body;
+      }
+    }
+    const extracted = Object.keys(fields).length > 0;
+    await markDraft(
+      args.userClient,
+      args.draftId,
+      extracted ? fields : { extract_status: "failed" },
+    );
+    const admin = createClient(supabaseUrl(), serviceRoleKey(), {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    await admin.from("audit_logs").insert({
+      tenant_id: args.tenantId,
+      actor_id: args.userId,
+      action: "ai.tool",
+      entity_table: "ai_drafts",
+      entity_id: args.draftId,
+      after: { tool: "extract_document", extracted, bloque_key: args.bloqueKey },
+    });
+  } catch (err) {
+    console.warn("extract-document: pozadí", err);
+    await markDraft(args.userClient, args.draftId, { extract_status: "failed" });
+  }
+}
+
+async function markDraft(
+  userClient: ReturnType<typeof createClient>,
+  draftId: string,
+  fields: Record<string, string>,
+) {
+  await userClient.from("ai_drafts").update({
+    fields,
+    updated_at: new Date().toISOString(),
+  }).eq("id", draftId);
+}
 
 const FIELD_MAP: Record<string, string> = {
   nie: "fields.nie",

@@ -242,4 +242,12 @@ Nový typ se přidává jen migrací katalogu, ne volným stringem v UI (kromě 
 
 ## 6. Další služby (Gestorie Jarka je dělá)
 
-Moduly `policia`, `ayuntamiento`, `testament` jsou **zapnuté**. Samostatné desky přijdou po složce koupě — stroj stavů se nemění. Dva tištěné listy zatím nevědí, jestli platí i jinde; doplnit později.
+Moduly `policia`, `ayuntamiento`, `testament` jsou zapnuté. **Tenký spis** (jako NIE extras): stav úkonu + cita + papír. Ne dva tištěné listy — kancelář je zatím nemá.
+
+| Šablona | Pole | Dokumenty | Plazo |
+| --- | --- | --- | --- |
+| `policia` | `tramiteStatus`, `appointment`, `notes` | `justificante_cita` | `cita_tramite` když stav `cita` |
+| `ayuntamiento` | totéž | `justificante_cita` | totéž |
+| `testament` | totéž | `copia_escritura` nebo `justificante_cita` (`any`) | totéž |
+
+Stroj stavů stejný. Žádný EX formulář, žádný výpočet.

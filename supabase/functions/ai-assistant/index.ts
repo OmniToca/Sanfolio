@@ -79,6 +79,19 @@ const tools = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "search_document_text",
+      description:
+        "Search saved PDF transcripts (body_text) for a phrase like arras or cláusula. Empty transcript is not proof the clause is missing.",
+      parameters: {
+        type: "object",
+        properties: { q: { type: "string" } },
+        required: ["q"],
+      },
+    },
+  },
 ];
 
 Deno.serve(async (req) => {
@@ -133,8 +146,12 @@ Deno.serve(async (req) => {
   const apiKey = Deno.env.get("OPENAI_API_KEY")?.trim();
   if (!apiKey) return json(503, { ok: false, error: "LLM not configured" });
 
-  const opens: Array<{ cliente_id: string; label: string; carpeta: boolean }> =
-    [];
+  const opens: Array<{
+    cliente_id: string;
+    label: string;
+    carpeta: boolean;
+    bloque_key?: string;
+  }> = [];
   const messages: Array<Record<string, unknown>> = [
     {
       role: "system",
@@ -143,6 +160,8 @@ Deno.serve(async (req) => {
         "Data čteš jen tools. Nevymýšlíš NIE ani doložky. Neříkej, že jsi uložil. " +
         "Prázdné pole na desce ≠ neexistuje smlouva — řekni, že to na desce není vyplněné. " +
         "Office otázky (dodavatel, seguro, notář) = query_* tools. " +
+        "Věta ve smlouvě / arras / cláusula = search_document_text. " +
+        "Když body_text chybí, neříkej že ve smlouvě věta není — přepis ještě není uložený. " +
         (clienteId ? `Otevřená karta: ${clienteId}. ` : ""),
     },
     { role: "user", content: message },
@@ -235,7 +254,12 @@ async function runTool(
   tenantId: string,
   name: string,
   args: Record<string, unknown>,
-  opens: Array<{ cliente_id: string; label: string; carpeta: boolean }>,
+  opens: Array<{
+    cliente_id: string;
+    label: string;
+    carpeta: boolean;
+    bloque_key?: string;
+  }>,
 ): Promise<unknown> {
   switch (name) {
     case "search_clients": {
@@ -285,6 +309,17 @@ async function runTool(
       collectOpens(data, opens);
       return data;
     }
+    case "search_document_text": {
+      const q = str(args.q);
+      const { data, error } = await client.rpc("search_document_text", {
+        p_tenant_id: tenantId,
+        p_q: q,
+        p_limit: 20,
+      });
+      if (error) return { error: error.message };
+      collectOpens(data, opens);
+      return data;
+    }
     default:
       return { error: "unknown_tool" };
   }
@@ -292,7 +327,12 @@ async function runTool(
 
 function collectOpens(
   data: unknown,
-  opens: Array<{ cliente_id: string; label: string; carpeta: boolean }>,
+  opens: Array<{
+    cliente_id: string;
+    label: string;
+    carpeta: boolean;
+    bloque_key?: string;
+  }>,
 ) {
   const items = data && typeof data === "object" && "items" in data
     ? (data as { items: unknown }).items
@@ -302,13 +342,23 @@ function collectOpens(
   if (!Array.isArray(items)) return;
   for (const raw of items) {
     if (!raw || typeof raw !== "object") continue;
-    const row = raw as { cliente_id?: string; id?: string; nombre?: string };
+    const row = raw as {
+      cliente_id?: string;
+      id?: string;
+      nombre?: string;
+      original_name?: string;
+      bloque_key?: string;
+    };
     const id = `${row.cliente_id ?? row.id ?? ""}`;
-    if (!id || opens.some((o) => o.cliente_id === id)) continue;
+    if (!id || opens.some((o) => o.cliente_id === id && o.bloque_key === (row.bloque_key ?? ""))) {
+      continue;
+    }
+    const label = `${row.original_name ?? row.nombre ?? id}`;
     opens.push({
       cliente_id: id,
-      label: `${row.nombre ?? id}`,
+      label,
       carpeta: true,
+      bloque_key: row.bloque_key ?? "",
     });
   }
 }

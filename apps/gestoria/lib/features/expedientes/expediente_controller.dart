@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gestoria_auth/gestoria_auth.dart';
 
 import '../../core/documents/documento_storage.dart';
+import '../ai/ai_providers.dart';
 import '../carpeta/carpeta_controller.dart';
 import 'expediente_catalog.dart';
 
@@ -168,8 +169,14 @@ class ThinExpedienteController
     if (status == BloqueUiStatus.done && filed.isEmpty) {
       status = BloqueUiStatus.watching;
     }
-    if (current.kind.tipo == 'nie_tramite') {
-      final st = current.bloque.values['fields.nieStatus']?.trim() ?? '';
+    if (current.kind.tipo == 'nie_tramite' ||
+        current.kind.tipo == 'policia' ||
+        current.kind.tipo == 'ayuntamiento' ||
+        current.kind.tipo == 'testament') {
+      final st = (current.bloque.values['fields.nieStatus'] ??
+              current.bloque.values['fields.tramiteStatus'])
+          ?.trim() ??
+          '';
       if (st == 'cita') {
         final cita = current.bloque.values['fields.appointment']?.trim() ?? '';
         if (cita.isEmpty) status = BloqueUiStatus.missingData;
@@ -258,6 +265,14 @@ class ThinExpedienteController
     await client.from('bloques').update({
       'status': _dbStatus(status),
     }).eq('id', bloqueId);
+    startExtractInBackground(
+      tenantId: current.tenantId,
+      clienteId: current.clienteId,
+      storagePath: path,
+      mime: mimeForOfficeFile(originalName),
+      docTipo: tipo,
+      bloqueKey: current.kind.templateKey,
+    );
     ref.invalidateSelf();
   }
 
