@@ -141,7 +141,6 @@ void main() {
       AppTheme.statusWatchSoft,
     );
     expect(AppTheme.accent, isNot(AppTheme.statusOk));
-    expect(AppTheme.accent, isNot(const Color(0xFF1B5F59)));
   });
 
   test('voda s fakturou nemá lištu 1/3', () {

@@ -8,18 +8,17 @@ class AppTheme {
   static const Color surfaceMuted = Color(0xFFEDE8DF);
   static const Color rule = Color(0xFFDFD8CC);
   static const Color pencil = Color(0xFF6B645C);
-  /// Ocel z loga SanFolio. Save / rail / switch — ne stav desky.
-  static const Color accent = Color(0xFF19315F);
-  static const Color accentSoft = Color(0xFFD9E2EE);
-  static const Color nav = Color(0xFF121C2E);
-  static const Color navSelected = Color(0xFF1A2C48);
+  static const Color accent = Color(0xFF1B5F59);
+  static const Color accentSoft = Color(0xFFD7EBE8);
+  static const Color nav = Color(0xFF12201E);
+  static const Color navSelected = Color(0xFF1E3C38);
   static const Color navInk = Color(0xFFF3EEE6);
-  static const Color navMuted = Color(0xFF8A97A8);
+  static const Color navMuted = Color(0xFF9AA8A6);
   static const Color chipOff = Color(0xFFF0EBE3);
-  static const Color chipOn = Color(0xFFD9E2EE);
-  static const Color stripeOn = Color(0xFF19315F);
+  static const Color chipOn = Color(0xFFD7EBE8);
+  static const Color stripeOn = Color(0xFF1B5F59);
 
-  /// Stav desky. Zelená jen hotovo, ne primary.
+  /// Stav desky. Save / rail zůstávají [accent].
   static const Color statusOk = Color(0xFF1F7A4D);
   static const Color statusOkSoft = Color(0xFFD8F0E4);
   static const Color statusWarn = Color(0xFFB45309);
@@ -55,7 +54,7 @@ class AppTheme {
   static ThemeData get light {
     const scheme = ColorScheme.light(
       primary: accent,
-      onPrimary: Color(0xFFF7F4EE),
+      onPrimary: Color(0xFFF7FFFE),
       secondary: Color(0xFF3F4A48),
       onSecondary: Color(0xFFF7FFFE),
       surface: paper,
