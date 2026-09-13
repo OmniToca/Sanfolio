@@ -8,7 +8,7 @@ Pořadí čtení pro další vývoj. Tyto soubory jsou smlouva produktu. Kód se
 2. Tužka = zapnutý **blok**. Vypnutý blok se nehlídá a nechybí.
 3. AI **hledá, otevírá, předvyplňuje**. Ukládá / maže / odesílá jen člověk.
 4. Mazání je **100 % soft-delete**. Audit je **append-only**, včetně otevření karty.
-5. MVP = složka koupě v prohlížeči. Výpočet daně, WhatsApp API a portál klienta **nejsou** první verze. Policie / magistrát / závěť: moduly u Jarky zapnuté, desky až po papíru.
+5. MVP = složka koupě v prohlížeči. WhatsApp API a portál klienta **nejsou** první verze. Modelo 210 počítá IRNR na desce; podání AEAT ne. Policie / magistrát / závěť: moduly u Jarky zapnuté, desky až po papíru.
 
 ## Soubory
 
@@ -27,4 +27,4 @@ Pořadí čtení pro další vývoj. Tyto soubory jsou smlouva produktu. Kód se
 | 11 | [modules_settings_i18n.md](modules_settings_i18n.md) | Moduly, sloty, jazyky — jak se nezamotat |
 | 12 | [roadmap_dokumenty_ai.md](roadmap_dokumenty_ai.md) | Fáze A–G: přepis, PDF, koš, asistent, otevřený blok |
 
-Impuestos v katalogu: **IBI/SUMA**, **modelo 210**, **renta/IRPF**. V MVP jen plazo + checklist, ne výpočet daně.
+Impuestos v katalogu: **IBI/SUMA**, **modelo 210** (výpočet IRNR, ne podání AEAT), **renta/IRPF** (zatím plazo + checklist).

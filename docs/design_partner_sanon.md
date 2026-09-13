@@ -28,7 +28,7 @@ Zdroj: `/Users/petrsokol/Desktop/vyplnene_papiry.docx` (2026-09-11).
 | SUMA | identifikační číslo |
 | Záloha | tři čísla stačí |
 | NIE extras | samostatný úkol |
-| Modelo 210 | čtvrtletně i ročně, bez výpočtu |
+| Modelo 210 | čtvrtletně i ročně, výpočet IRNR na desce, podání AEAT ne |
 | Outbound | překlad do jazyka klienta |
 | Kanály | WhatsApp, e-mail, telefon, osobně; copy do WhatsApp ano |
 | Služby | všechny včetně policie / magistrát / závěť |

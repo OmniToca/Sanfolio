@@ -291,6 +291,8 @@ class AiDocFact {
     this.amount,
     this.consumption,
     this.docNumber,
+    this.periodFrom,
+    this.periodTo,
     this.bodyExcerpt,
   });
 
@@ -300,6 +302,8 @@ class AiDocFact {
   final String? amount;
   final String? consumption;
   final String? docNumber;
+  final String? periodFrom;
+  final String? periodTo;
   final String? bodyExcerpt;
 }
 
@@ -358,7 +362,10 @@ Future<AiFactAnswer?> askClienteFactsForId(
             expiry: extracted['fields.expiry'],
             amount: extracted['fields.amount'],
             consumption: extracted['fields.consumption'],
-            docNumber: extracted['fields.docNumber'],
+            docNumber: extracted['fields.docNumber'] ??
+                extracted['fields.invoiceNo'],
+            periodFrom: extracted['fields.periodFrom'],
+            periodTo: extracted['fields.periodTo'],
             bodyExcerpt: raw['body_excerpt']?.toString(),
           ),
         );
@@ -395,7 +402,9 @@ Future<AiFactAnswer?> askClienteFactsForId(
             expiry: fields['fields.expiry'],
             amount: fields['fields.amount'],
             consumption: fields['fields.consumption'],
-            docNumber: fields['fields.docNumber'],
+            docNumber: fields['fields.docNumber'] ?? fields['fields.invoiceNo'],
+            periodFrom: fields['fields.periodFrom'],
+            periodTo: fields['fields.periodTo'],
           ),
         );
       }

@@ -16,6 +16,7 @@ import '../../core/theme/app_theme.dart';
 import '../ai/ai_providers.dart';
 import '../ai/documento_fields.dart';
 import '../ai/extract_text.dart';
+import '../ai/paper_glance.dart';
 import '../expedientes/expediente_controller.dart';
 import '../expedientes/expediente_estado.dart';
 import '../inbox/inbox_providers.dart';
@@ -761,14 +762,21 @@ class _BloqueCardState extends ConsumerState<_BloqueCard> {
                 ),
               if (state.documents.isNotEmpty) ...[
                 Padding(
-                  padding: const EdgeInsets.only(top: 4, bottom: 8),
+                  padding: const EdgeInsets.only(top: 12, bottom: 8),
                   child: Text(
                     'folder.papers'.tr(),
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
+                _PaperStackOverview(
+                  papers: [
+                    for (final d in papers)
+                      (tipo: d.tipo, fields: d.extracted),
+                  ],
+                ),
                 PreviewThenHistory(
                   itemCount: papers.length,
+                  preview: 20,
                   gap: 0,
                   expandLabel: 'common.history'.tr(),
                   collapseLabel: 'common.historyHide'.tr(),
@@ -1185,7 +1193,102 @@ class _AiPrefillBar extends ConsumerWidget {
   }
 }
 
-class _DocumentoForm extends ConsumerWidget {
+class _PaperStackOverview extends StatelessWidget {
+  const _PaperStackOverview({required this.papers});
+
+  final List<({String tipo, Map<String, String> fields})> papers;
+
+  @override
+  Widget build(BuildContext context) {
+    final glance = stackGlanceOf(papers);
+    if (glance.invoiceCount == 0) return const SizedBox.shrink();
+    final last = glance.latest;
+    final period = last == null ? '' : _officePeriod(context, last);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: AppTheme.accentSoft,
+          borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'folder.stackPaid'.tr(
+                  namedArgs: {
+                    'count': '${glance.invoiceCount}',
+                    'total': formatCents(glance.paidCents),
+                  },
+                ),
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              if (last != null && period.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  'folder.stackLast'.tr(
+                    namedArgs: {
+                      'period': period,
+                      'amount': formatCents(last.amountCents ?? 0),
+                    },
+                  ),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppTheme.pencil,
+                      ),
+                ),
+              ],
+              if (glance.bars.length >= 2) ...[
+                const SizedBox(height: 10),
+                _AmountBars(cents: glance.bars),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AmountBars extends StatelessWidget {
+  const _AmountBars({required this.cents});
+
+  final List<int> cents;
+
+  @override
+  Widget build(BuildContext context) {
+    final peak = cents.reduce((a, b) => a > b ? a : b);
+    return SizedBox(
+      height: 36,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          for (var i = 0; i < cents.length; i++)
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2),
+                child: FractionallySizedBox(
+                  heightFactor: peak == 0 ? 0 : cents[i] / peak,
+                  alignment: Alignment.bottomCenter,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: i == cents.length - 1
+                          ? AppTheme.accent
+                          : AppTheme.navSelected,
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DocumentoForm extends ConsumerStatefulWidget {
   const _DocumentoForm({
     required this.target,
     required this.templateKey,
@@ -1203,9 +1306,17 @@ class _DocumentoForm extends ConsumerWidget {
   final VoidCallback onRemove;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_DocumentoForm> createState() => _DocumentoFormState();
+}
+
+class _DocumentoFormState extends ConsumerState<_DocumentoForm> {
+  var _details = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final doc = widget.doc;
     final drafts =
-        ref.watch(liveAiDraftsProvider(target.clienteId)).valueOrNull ??
+        ref.watch(liveAiDraftsProvider(widget.target.clienteId)).valueOrNull ??
             const [];
     final memory = ref.watch(aiPrefillProvider);
     AiPrefillDraft? pending;
@@ -1220,15 +1331,14 @@ class _DocumentoForm extends ConsumerWidget {
       }
     }
     final values = pending?.fields ?? doc.extracted;
-    final keys = fieldsForDocTipo(doc.tipo);
-    final shown = [
-      for (final k in keys)
-        if ((values[k] ?? '').trim().isNotEmpty) k,
-    ];
+    final glance = paperGlanceOf(tipo: doc.tipo, fields: values);
+    final extra = extraPaperFieldKeys(values);
     final nombre = (values['fields.nombre'] ?? '').trim();
     final mismatch =
-        nombre.isNotEmpty && !namesLikelyMatch(clienteNombre, nombre);
-    final headline = _invoiceHeadline(values);
+        nombre.isNotEmpty && !namesLikelyMatch(widget.clienteNombre, nombre);
+    final period = _officePeriod(context, glance);
+    final hasGlance = glance.isInvoice &&
+        (period.isNotEmpty || glance.amountCents != null);
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: DecoratedBox(
@@ -1238,47 +1348,74 @@ class _DocumentoForm extends ConsumerWidget {
           border: Border.all(color: AppTheme.rule),
         ),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 4, 4, 12),
+          padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              ListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.insert_drive_file_outlined, size: 18),
-                title: Text(doc.originalName),
-                subtitle: Text(
-                  [
-                    'docs.${doc.tipo}'.tr(),
-                    if (headline != null) headline,
-                  ].join(' · '),
-                ),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      tooltip: doc.storagePurged
-                          ? 'folder.purged'.tr()
-                          : 'folder.original'.tr(),
-                      icon: const Icon(Icons.open_in_new, size: 18),
-                      onPressed: doc.storagePurged ? null : onOpen,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          hasGlance && period.isNotEmpty
+                              ? period
+                              : 'docs.${doc.tipo}'.tr(),
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          [
+                            if (hasGlance) 'docs.${doc.tipo}'.tr(),
+                            if (glance.consumption != null)
+                              glance.consumption!,
+                            doc.originalName,
+                          ].join(' · '),
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: AppTheme.pencil,
+                              ),
+                        ),
+                      ],
                     ),
-                    IconButton(
-                      tooltip: 'folder.remove'.tr(),
-                      icon: const Icon(Icons.delete_outline, size: 18),
-                      onPressed: onRemove,
+                  ),
+                  if (glance.amountCents != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2, right: 4),
+                      child: Text(
+                        'folder.money'.tr(
+                          namedArgs: {
+                            'amount': formatCents(glance.amountCents!),
+                          },
+                        ),
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              color: AppTheme.accent,
+                            ),
+                      ),
                     ),
-                  ],
-                ),
+                  IconButton(
+                    tooltip: doc.storagePurged
+                        ? 'folder.purged'.tr()
+                        : 'folder.original'.tr(),
+                    icon: const Icon(Icons.open_in_new, size: 18),
+                    onPressed: doc.storagePurged ? null : widget.onOpen,
+                  ),
+                  IconButton(
+                    tooltip: 'folder.remove'.tr(),
+                    icon: const Icon(Icons.delete_outline, size: 18),
+                    onPressed: widget.onRemove,
+                  ),
+                ],
               ),
               if (mismatch)
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.only(top: 4, bottom: 4),
                   child: Text(
                     'folder.nameMismatch'.tr(
                       namedArgs: {
                         'doc': nombre,
-                        'card': clienteNombre,
+                        'card': widget.clienteNombre,
                       },
                     ),
                     style: TextStyle(
@@ -1286,37 +1423,60 @@ class _DocumentoForm extends ConsumerWidget {
                     ),
                   ),
                 ),
-              for (final k in shown)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Text('${k.tr()}: ${values[k]}'),
-                ),
               if (isExtractPending(values))
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.only(top: 4),
                   child: Text('ai.readingDoc'.tr()),
                 )
               else if (isExtractFailed(values))
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.only(top: 4),
                   child: Text('folder.extractError'.tr()),
                 ),
               if (showDocumentoBodyOnPaper(
-                hasShownFields: shown.isNotEmpty,
+                hasShownFields: hasGlance || extra.isNotEmpty,
                 bodyText: doc.bodyText,
               ))
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.only(top: 4),
                   child: Text(
-                    '${'folder.bodyText'.tr()}: ${doc.bodyText!.trim()}',
-                    maxLines: 8,
+                    doc.bodyText!.trim(),
+                    maxLines: 4,
                     overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ),
               if (doc.storagePurged)
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.only(top: 4),
                   child: Text('folder.purged'.tr()),
+                ),
+              if (_details) ...[
+                if (glance.invoiceNo != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      '${'fields.invoiceNo'.tr()}: ${glance.invoiceNo}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                for (final k in extra)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      '${k.tr()}: ${values[k]}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+              ],
+              if (extra.isNotEmpty || glance.invoiceNo != null)
+                TextButton(
+                  onPressed: () => setState(() => _details = !_details),
+                  child: Text(
+                    _details
+                        ? 'folder.paperDetailsHide'.tr()
+                        : 'folder.paperDetails'.tr(),
+                  ),
                 ),
               if (pending != null &&
                   !isExtractPending(values) &&
@@ -1327,16 +1487,18 @@ class _DocumentoForm extends ConsumerWidget {
                     onPressed: () async {
                       final draft = pending!;
                       final ctrl = ref.read(
-                        carpetaControllerProvider(target).notifier,
+                        carpetaControllerProvider(widget.target).notifier,
                       );
                       await ctrl.saveDocumentoExtracted(
-                        templateKey: templateKey,
+                        templateKey: widget.templateKey,
                         documentId: doc.id,
                         fields: draft.fields,
                       );
                       await discardAiDraft(draft.draftId);
                       ref.read(aiPrefillProvider.notifier).state = null;
-                      ref.invalidate(liveAiDraftsProvider(target.clienteId));
+                      ref.invalidate(
+                        liveAiDraftsProvider(widget.target.clienteId),
+                      );
                     },
                     child: Text('ai.apply'.tr()),
                   ),
@@ -1349,18 +1511,18 @@ class _DocumentoForm extends ConsumerWidget {
   }
 }
 
-String? _invoiceHeadline(Map<String, String> values) {
-  final from = (values['fields.periodFrom'] ?? '').trim();
-  final to = (values['fields.periodTo'] ?? '').trim();
-  final period = [from, to].where((s) => s.isNotEmpty).join(' – ');
-  final amountRaw = (values['fields.amount'] ?? '').trim();
-  final amount =
-      amountRaw.isEmpty ? '' : formatCents(centsFromStored(amountRaw));
-  final bits = [
-    if (period.isNotEmpty) period,
-    if (amount.isNotEmpty) amount,
-  ];
-  if (bits.isEmpty) return null;
-  return bits.join(' · ');
+String _officeDay(BuildContext context, String raw) {
+  final d = DateTime.tryParse(raw);
+  if (d == null) return raw;
+  return DateFormat.yMMMd(context.locale.toString()).format(d);
+}
+
+String _officePeriod(BuildContext context, PaperGlance g) {
+  final from = g.periodFrom;
+  final to = g.periodTo;
+  if (from == null && to == null) return '';
+  if (from == null) return _officeDay(context, to!);
+  if (to == null) return _officeDay(context, from);
+  return '${_officeDay(context, from)} – ${_officeDay(context, to)}';
 }
 

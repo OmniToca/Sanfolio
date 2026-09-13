@@ -112,7 +112,7 @@ AI prefill zvýrazní žlutě změněná pole do Guardar / Descartar.
 
 ## 6. Expediente daně / NIE / úkony (`/expedientes/:id`)
 
-Jednodušší než deska: checklist + plazo + dokumenty. Žádný kalkulátor 210. Policía / ayuntamiento / testament = stejný stroj (stav úkonu + cita + papír).
+Jednodušší než deska koupě: checklist + plazo + dokumenty jako sloty, klient a (u 210) nemovitost. Modelo 210 počítá IRNR (imputace / nájem / prodej) podle vyplněných polí; nepodává na AEAT. Policía / ayuntamiento / testament = stejný stroj (stav úkonu + cita + papír + úřad).
 
 ## 7. Zpráva
 
@@ -157,4 +157,4 @@ Na prefill desky zůstat na inmueble, neskákat pryč.
 5. Mensajes draft/send/copy
 6. AI extract/prefill/open
 7. Provision tři čísla
-8. Impuestos 210/renta jako tenké expedientes
+8. Impuestos 210 s výpočtem IRNR; renta jako tenký spis

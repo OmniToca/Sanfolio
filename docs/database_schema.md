@@ -37,6 +37,7 @@ Pořadí souborů je čtyřmístné (`0001`, `0002`, …), ne timestamp.
 | `0032_storage_octet_stream.sql` | bucket `documentos` přijme `application/octet-stream` (Safari / pošta) |
 | `0033_search_document_text.sql` | GIN + RPC `search_document_text` (spanish FTS, bez pgvector) |
 | `0034_cita_tramite_plazos.sql` | `cita_tramite` u policia / ayuntamiento / testament |
+| `0035_thin_tramite_templates.sql` | `bloque_templates` pro tenké spisy; FK `bloques.template_key` |
 
 Edge: [`create-office`](../supabase/functions/create-office/index.ts) — založení kanceláře. [`translate-message`](../supabase/functions/translate-message/index.ts) — překlad výzvy (klíč `OPENAI_API_KEY`, jinak originál). [`plazo-reminders`](../supabase/functions/plazo-reminders/index.ts) — ranní drafty, nikdy `sent` (tajný `CRON_SECRET` nebo service_role). [`invite-staff`](../supabase/functions/invite-staff/index.ts) — owner zve gestor/asistente (max 3). [`ai-assistant`](../supabase/functions/ai-assistant/index.ts) — chat tools (search, get_cliente, query_suministro / plazos / escritura, search_document_text), žádný zápis. [`extract-document`](../supabase/functions/extract-document/index.ts) — fotka/PDF → pending `ai_drafts`, LLM na pozadí; Guardar zapíše `extracted` + `body_text`.
 

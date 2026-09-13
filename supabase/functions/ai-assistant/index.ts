@@ -159,6 +159,7 @@ Deno.serve(async (req) => {
         `Jsi asistent španělské gestoría. Odpovídej jazykem ${locale}. ` +
         "Data čteš jen tools. Nevymýšlíš NIE ani doložky. Neříkej, že jsi uložil. " +
         "Prázdné pole na desce ≠ neexistuje smlouva — řekni, že to na desce není vyplněné. " +
+        "Částka na desce dodávky není součet faktur. Součet je invoice_glance / fields.amount na dokumentech (kladné; dobropis ne). " +
         "Office otázky (dodavatel, seguro, notář) = query_* tools. " +
         "Věta ve smlouvě / arras / cláusula = search_document_text. " +
         "Když body_text chybí, neříkej že ve smlouvě věta není — přepis ještě není uložený. " +
@@ -278,7 +279,7 @@ async function runTool(
       });
       if (error) return { error: error.message };
       collectOpens(data, opens);
-      return data;
+      return attachInvoiceGlance(data);
     }
     case "query_suministro": {
       const { data, error } = await client.rpc("query_suministro", {
@@ -361,6 +362,57 @@ function collectOpens(
       bloque_key: row.bloque_key ?? "",
     });
   }
+}
+
+function attachInvoiceGlance(data: unknown): unknown {
+  if (!data || typeof data !== "object") return data;
+  const docs = (data as { documentos?: unknown }).documentos;
+  if (!Array.isArray(docs)) return data;
+  let paidCents = 0;
+  let count = 0;
+  const items: Array<Record<string, string | number>> = [];
+  for (const raw of docs) {
+    if (!raw || typeof raw !== "object") continue;
+    const row = raw as {
+      tipo?: string;
+      extracted?: Record<string, unknown>;
+    };
+    const tipo = `${row.tipo ?? ""}`;
+    if (!tipo.startsWith("factura") && !tipo.startsWith("recibo")) continue;
+    count += 1;
+    const extracted = row.extracted ?? {};
+    const cents = parseAmountCents(`${extracted["fields.amount"] ?? ""}`);
+    if (cents > 0) paidCents += cents;
+    const from = `${extracted["fields.periodFrom"] ?? ""}`.trim();
+    const to = `${extracted["fields.periodTo"] ?? ""}`.trim();
+    items.push({
+      tipo,
+      period: [from, to].filter(Boolean).join(" – "),
+      amount_cents: cents,
+    });
+  }
+  return {
+    ...(data as Record<string, unknown>),
+    invoice_glance: {
+      count,
+      paid_euros: (paidCents / 100).toFixed(2).replace(".", ","),
+      items,
+    },
+  };
+}
+
+function parseAmountCents(raw: string): number {
+  const t0 = raw.trim();
+  if (!t0) return 0;
+  if (/^-?\d+$/.test(t0)) return Number.parseInt(t0, 10);
+  let t = t0.replace(/\s/g, "");
+  const lastComma = t.lastIndexOf(",");
+  const lastDot = t.lastIndexOf(".");
+  if (lastComma > lastDot) t = t.replace(/\./g, "").replace(",", ".");
+  else t = t.replace(/,/g, "");
+  const n = Number.parseFloat(t);
+  if (!Number.isFinite(n)) return 0;
+  return Math.round(n * 100);
 }
 
 function str(v: unknown): string {

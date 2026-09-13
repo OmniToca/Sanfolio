@@ -4,7 +4,7 @@ Smlouva z rozhovoru 12. 9. 2026. Kód se k tomuto souboru chová jako k migraci:
 
 **Cíl:** složka zůstane papír. Originál je sken. Přepis (pole + text) je to, čemu věří hledání a asistent. Chat umí odpovídat na otázky **kanceláře** (dodavatel, konce smluv), ne jen otevřené karty. Vektory až na hledání věty, která na desce záměrně není.
 
-**Není v tomto plánu:** OneDrive / SharePoint, PDF uložené jako JPG, WhatsApp API, klientská zóna, výpočet daně, JSON page-builder.
+**Není v tomto plánu:** OneDrive / SharePoint, PDF uložené jako JPG, WhatsApp API, klientská zóna, renta/303/AEAT XML, JSON page-builder.
 
 Vzory z LeoDejvIT bereme **ingest dlouhého PDF** (originál + text stránek + index na pozadí). Nepřenášíme globální knihovnu norem, offline cache ani pgvector v první vlně.
 
@@ -134,7 +134,7 @@ Hotovo když: na Netlify, bez otevřené karty, chat vypíše klienty s končíc
 
 - Route `/clientes/:id/carpeta/:bloqueKey` (query `exp` jako deska).
 - Na deskách: klient zůstane tužkou; ostatní zapnuté bloky jsou **kryt** (chip, 1–3 pole, počet dokladů) a otevřou šanon.
-- Uvnitř: stejná tužka identity + přiložit + papíry řazené od nejnovější. Faktura ukáže období od–do a částku. Dobropis = záporná částka, nenačítá se jako náklad (součet až později).
+- Uvnitř: stejná tužka identity + přiložit + papíry řazené od nejnovější. Faktura ukáže období od–do a částku. Přehled stohu sečte kladné faktury (dobropis ne). Identita (CUPS, smlouva) se na papíře neopakuje.
 - Guardar z faktury povýší na desku jen klíče šablony (company, CUPS, contrato…), ne `amount` / `periodFrom`.
 - AI navigate: `/clientes/{id}/carpeta/luz`.
 - **Není v G:** výkyv vs. medián, portál klienta, scrap Hidraqua, srovnání tarifů.

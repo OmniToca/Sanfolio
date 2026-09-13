@@ -6,7 +6,8 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | --- | --- | --- |
 | `core` | shell, clientes, search | vždy zapnuto |
 | `carpeta_inmueble` | `features/carpeta` | deska 1:1 s tiskem, slot `carpeta.blocks`; klik na blok → `/carpeta/:key` |
-| `impuestos` | `features/expedientes` | tenké 210 / renta, checklist + plazo |
+| `impuestos` | `features/expedientes` | tenké 210 / renta; 210 počítá IRNR, AEAT nepodává |
+| `modelo_210.dart` | `features/expedientes` | IRNR formule `irnr-210-2026.1`; imputace / nájem / prodej; gestor ukládá |
 | `policia` / `ayuntamiento` / `testament` | `features/expedientes` | tenký spis na kartě (FeatureGate); cita → inbox |
 | `translate-message` | Edge Function | překlad výzvy při kliknutí gestora |
 | `nie_poder` | bloky na desce | extras NIE = samostatný úkol |
@@ -18,7 +19,7 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `purge_documento_storage` | SQL RPC | owner vysype blob schovaného dokumentu |
 | `trashVisibleOnCard` | karta klienta | koš jen se schovaným originálem; vysypané z karty zmizí |
 | `pickOfficeFile` | `office_file_pick.dart` | web: `<input>` overlay na tlačítku (Safari); raw POST do Storage, ne multipart |
-| `search_document_text` | `documentos.body_text` | Fáze F: věta v přepisu, ne vektor |
+| `paper_glance` | `features/ai/paper_glance.dart` | součet faktur a krátký řádek na šanonu |
 | `query_suministro` / `query_plazos_office` / `query_escritura` | SQL RPC | office-wide čtení desky pro chat |
 | `ai-assistant` | Edge Function | whitelist tools; žádný save/send |
 | `roadmap_dokumenty_ai` | `docs/roadmap_dokumenty_ai.md` | Fáze A–G + FTS v `body_text`; vektory později |

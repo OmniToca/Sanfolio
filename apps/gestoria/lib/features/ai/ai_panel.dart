@@ -9,10 +9,12 @@ import 'package:go_router/go_router.dart';
 import '../../core/documents/documento_storage.dart';
 import '../../core/documents/office_attach_button.dart';
 import '../../core/documents/office_file_pick.dart';
+import '../../core/money/cents.dart';
 import '../../core/theme/app_theme.dart';
 import 'ai_chat.dart';
 import 'ai_providers.dart';
 import 'extract_text.dart';
+import 'paper_glance.dart';
 
 /// Trvalý panel. Search / open / prefill / extract; uložení je gesto gestora.
 class AiPanel extends ConsumerStatefulWidget {
@@ -237,22 +239,61 @@ class _AiPanelState extends ConsumerState<AiPanel> {
       if (facts.docs.isEmpty) {
         lines.add('ai.factsEmpty'.tr());
       } else {
+        final glance = stackGlanceOf([
+          for (final doc in facts.docs)
+            (
+              tipo: doc.tipo,
+              fields: {
+                if (doc.amount != null) 'fields.amount': doc.amount!,
+                if (doc.consumption != null)
+                  'fields.consumption': doc.consumption!,
+                if (doc.periodFrom != null)
+                  'fields.periodFrom': doc.periodFrom!,
+                if (doc.periodTo != null) 'fields.periodTo': doc.periodTo!,
+              },
+            ),
+        ]);
+        if (glance.invoiceCount > 0) {
+          lines.add(
+            'folder.stackPaid'.tr(
+              namedArgs: {
+                'count': '${glance.invoiceCount}',
+                'total': formatCents(glance.paidCents),
+              },
+            ),
+          );
+        }
         for (final doc in facts.docs) {
+          final g = paperGlanceOf(
+            tipo: doc.tipo,
+            fields: {
+              if (doc.amount != null) 'fields.amount': doc.amount!,
+              if (doc.periodFrom != null) 'fields.periodFrom': doc.periodFrom!,
+              if (doc.periodTo != null) 'fields.periodTo': doc.periodTo!,
+              if (doc.consumption != null)
+                'fields.consumption': doc.consumption!,
+            },
+          );
+          if (g.isInvoice) {
+            final period = paperPeriodRaw(g) ?? '';
+            lines.add(
+              [
+                'docs.${doc.tipo}'.tr(),
+                if (period.isNotEmpty) period,
+                if (g.amountCents != null)
+                  'folder.money'.tr(
+                    namedArgs: {'amount': formatCents(g.amountCents!)},
+                  ),
+              ].join(' · '),
+            );
+            continue;
+          }
           final bits = [
             'docs.${doc.tipo}'.tr(),
             if (doc.docNumber != null && doc.docNumber!.isNotEmpty)
               '${'fields.docNumber'.tr()}: ${doc.docNumber}',
             if (doc.expiry != null && doc.expiry!.isNotEmpty)
               '${'fields.expiry'.tr()}: ${doc.expiry}',
-            if (doc.consumption != null && doc.consumption!.isNotEmpty)
-              '${'fields.consumption'.tr()}: ${doc.consumption}',
-            if (doc.amount != null && doc.amount!.isNotEmpty)
-              '${'fields.amount'.tr()}: ${doc.amount}',
-            if (doc.nombre != null && doc.nombre!.isNotEmpty)
-              '${'fields.nombre'.tr()}: ${doc.nombre}',
-            if (doc.bodyExcerpt != null &&
-                doc.bodyExcerpt!.trim().isNotEmpty)
-              '${'folder.bodyText'.tr()}: ${doc.bodyExcerpt!.trim()}',
           ];
           lines.add(bits.join(' · '));
         }

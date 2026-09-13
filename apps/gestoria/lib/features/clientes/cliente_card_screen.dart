@@ -832,7 +832,7 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
       ref.invalidate(clienteExpedientesProvider(widget.clienteId));
       if (mounted) context.go('/expedientes/$id');
     } on Object {
-      if (mounted) _toast('clients.saveError'.tr());
+      if (mounted) _toast('expedientes.openError'.tr());
     } finally {
       if (mounted) setState(() => _busy = false);
     }

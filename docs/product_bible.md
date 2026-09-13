@@ -100,7 +100,7 @@ Katalog úkonů z náčrtu:
 | `compraventa` | ano | Celá 2stránková deska |
 | `suministros_seguros` | ano jako součást desky, ne nutně samostatný spis | Agua…Alarma |
 | `impuestos_ibi` | ano (plazo + checklist) | SUMA / IBI |
-| `impuestos_210` | ano (plazo + checklist) | modelo 210 |
+| `impuestos_210` | ano (plazo + checklist + výpočet IRNR) | modelo 210 |
 | `impuestos_renta` | ano (plazo + checklist) | renta / IRPF |
 | `nie_tramite` | ano jako blok Extra, může být i samostatný spis | EXTRAS NIE |
 | `poder` | ano jako blok | EXTRAS PODER |
@@ -186,7 +186,8 @@ Budoucí `cliente_final` (portál klienta) v MVP neexistuje.
 ## 13. Non-goals (závazné NO)
 
 - Účetní deník, PGC, asientos
-- Výpočet a XML podání modelo 210 / renta / 303
+- XML / telematické podání AEAT (modelo 210, renta, 303) — výpočet 210 na desce ano, podání kliknutím gestora až po ověření
+- Výpočet renta / IRPF a modelo 303
 - Vlastní VeriFactu SIF
 - 21 EX formulářů
 - WhatsApp Business API (copy-to-WhatsApp ano)
@@ -194,7 +195,6 @@ Budoucí `cliente_final` (portál klienta) v MVP neexistuje.
 - Portál klienta (v2; model zpráv už originál + překlad)
 - Nativní aplikace, offline, Drift
 - Samostatné desky policie / magistrát / testament před tím, než deska koupě žije v prohlížeči — **teď tenký spis** (stav + cita + papír), ne dva listy.
-- Výpočet daně 210 / renta (checklist + plazo ano)
 - Fyzické DELETE business dat
 - AI s tools `save_*` / `delete_*` / `send_*`
 

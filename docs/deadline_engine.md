@@ -145,4 +145,4 @@ Tlačítko **Copiar para WhatsApp** dá do schránky **odesílané** tělo (pře
 - Sám odeslat e-mail nebo WhatsApp
 - Smazat plazo
 - Měnit blok na `off`
-- Podávat daň (210 / renta) — jen hlídat datum a checklist
+- Podávat daň (210 / renta) — 210 se spočítá na desce, podání AEAT ne; renta zatím datum + checklist

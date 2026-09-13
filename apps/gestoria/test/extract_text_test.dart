@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gestoria_os/features/ai/documento_fields.dart';
 import 'package:gestoria_os/features/ai/extract_text.dart';
+import 'package:gestoria_os/features/ai/paper_glance.dart';
 import 'package:gestoria_os/features/carpeta/bloque_template.dart';
 import 'package:gestoria_os/features/carpeta/carpeta_routes.dart';
 import 'package:gestoria_os/features/expedientes/expediente_catalog.dart';
@@ -103,6 +104,40 @@ void main() {
     expect(desk.containsKey('fields.amount'), isFalse);
   });
 
+  test('stoh faktur sečte kladné částky a dobropis vynechá', () {
+    final glance = stackGlanceOf([
+      (
+        tipo: 'factura_luz',
+        fields: {
+          'fields.amount': '188.85',
+          'fields.periodTo': '2026-07-23',
+        },
+      ),
+      (
+        tipo: 'factura_luz',
+        fields: {
+          'fields.amount': '179.87',
+          'fields.periodTo': '2026-06-23',
+        },
+      ),
+      (
+        tipo: 'factura_luz',
+        fields: {
+          'fields.amount': '-20.00',
+          'fields.periodTo': '2026-06-01',
+        },
+      ),
+      (
+        tipo: 'contrato_luz',
+        fields: {'fields.contractNo': '810921765'},
+      ),
+    ]);
+    expect(glance.invoiceCount, 3);
+    expect(glance.paidCents, 18885 + 17987);
+    expect(glance.latest?.amountCents, 18885);
+    expect(glance.bars, [17987, 18885]);
+  });
+
   test('stoh faktur řadí od nejnovějšího období', () {
     expect(isInvoiceDocTipo('factura_agua'), isTrue);
     expect(isInvoiceDocTipo('contrato_agua'), isFalse);
@@ -150,6 +185,27 @@ void main() {
     expect(thinKindByTipo('policia')?.moduleKey, 'policia');
     expect(thinKindByTipo('ayuntamiento')?.templateKey, 'ayuntamiento');
     expect(thinKindByTipo('testament')?.requiredDocsMode, RequiredDocsMode.any);
+  });
+
+  test('modelo 210 má desku nemovitosti, sloty papírů a výpočet IRNR', () {
+    final kind = thinKindByTipo('impuestos_210')!;
+    expect(kind.linksInmueble, isTrue);
+    expect(kind.fieldKeys, containsAll(['fields.cadastral', 'fields.notes', 'fields.incomeKind']));
+    expect(kind.requiredFieldKeys, containsAll(['fields.incomeKind', 'fields.taxResidency']));
+    expect(kind.requiredFieldKeys, isNot(contains('fields.cadastral')));
+    expect(
+      kind.paperSlotTypes,
+      containsAll([
+        'escritura_o_nota_simple',
+        'recibo_ibi',
+        'certificado_catastral',
+        'dni_nie',
+      ]),
+    );
+    expect(kind.requiredDocTypes, isNot(contains('dni_nie')));
+    expect(thinKindByTipo('impuestos_renta')!.linksInmueble, isFalse);
+    expect(thinKindByTipo('policia')!.fieldKeys, contains('fields.authority'));
+    expect(thinKindByTipo('ayuntamiento')!.linksInmueble, isTrue);
   });
 
   test('klient zůstane na deskách, voda se otevírá', () {

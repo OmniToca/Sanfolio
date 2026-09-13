@@ -105,7 +105,7 @@ Stejný tvar, jiný katalog dokumentu a volitelné pole sítě.
 | `gaz` | `contrato_gaz` / `factura_gaz` | **stačí jeden** |
 | `comunidad` | `certificado_comunidad` (správce, účet, papír) | všechny |
 
-Přepis dokladu a tužka na desce se neslévají. Faktura má v `documentos.extracted` číslo, datum vystavení, období od–do, spotřebu, částku. Na blok jdou jen identita (compañía, contrato, CUPS / číslo klienta, titular). `fields.period` je rok IBI, ne období faktury. Stoh papírů je `/clientes/:id/carpeta/:bloque`, ne 15 polí na deskách.
+Přepis dokladu a tužka na desce se neslévají. Faktura má v `documentos.extracted` číslo, datum vystavení, období od–do, spotřebu, částku. Na blok jdou jen identita (compañía, contrato, CUPS / číslo klienta, titular). `fields.period` je rok IBI, ne období faktury. Stoh `/clientes/:id/carpeta/:bloque` ukáže součet kladných faktur, poslední období a krátký řádek (období · spotřeba · eura) — ne OCR dump. Dobropis (zápor) do součtu ne.
 
 Plazo: v MVP žádné, pokud kancelář nedoplní datum obnovy. Stav po kompletnosti = `done`.
 
@@ -195,11 +195,19 @@ Plazo: `poder_caducidad`. Offset z `tenant_settings.poder_warn_days`. Propadlý 
 | --- | --- |
 | `periodicidad` | ano | `trimestral` \| `anual` |
 | `periodo` | ano | např. `2026-Q1` |
+| `incomeKind` | ano | `imputacion` (02) \| `alquiler` (01/35) \| `transmision` (28) |
+| `taxResidency` | ano | `ue` (19 %) \| `other` (24 %; UK po Brexitu) |
 | `presentado_at` | ne |
+| `address` / `cadastral` / `sumaId` | ne | z navázaného `inmueble` |
 
-Gestorie Jarka: **čtvrtletně i ročně**. Papíry = všechny povinné ke zpracování 210. Výpočet daně **ne**.  
-Dokumenty: checklist typů (`escritura_o_nota_simple`, `recibo_ibi`, `certificado_catastral`, …).  
+Další pole podle druhu (jinak by se míchal nájem s imputací): valor catastral a sazba 1,1/2 %; nájemné a výdaje; cena prodeje a modelo 211. Peníze v centech. Formule `irnr-210-2026.1` v `modelo_210.dart`.
+
+Gestor uloží číslo. Systém **nepodává** na AEAT. Za správnost kliknutí Uložit ručí člověk.
+
+Dokumenty: povinné sloty (`escritura_o_nota_simple`, `recibo_ibi`, `certificado_catastral`); DNI volitelně. Spis se naváže na `inmuebles`.  
 Plazo: z `tenant_settings` podle `periodicidad`.
+
+Tenký spis **není** druhá tištěná carpeta. Na `/expedientes/:id` má desku úkonu: klient, nemovitost, pole, výpočet, checklist papírů.
 
 ### 4.2 `renta`
 
@@ -208,10 +216,10 @@ Plazo: z `tenant_settings` podle `periodicidad`.
 | `ejercicio` | ano | rok |
 | `presentado_at` | ne |
 
-Dokument: `borrador_renta` ne povinný.  
+Dokument: `borrador_renta` / DNI nejsou povinné.  
 Plazo: jen nastavitelné v `tenant_settings` (v dotazníku prázdné).
 
-Výpočet daně, XML, AEAT = mimo rozsah. Blok je spis „sbíráme podklady a hlídáme datum“.
+Výpočet renta / IRPF a XML AEAT = mimo rozsah. 210 na desce počítá IRNR; renta zatím hlídá datum.
 
 ## 5. Katalog dokumentů (MVP)
 
@@ -246,8 +254,8 @@ Moduly `policia`, `ayuntamiento`, `testament` jsou zapnuté. **Tenký spis** (ja
 
 | Šablona | Pole | Dokumenty | Plazo |
 | --- | --- | --- | --- |
-| `policia` | `tramiteStatus`, `appointment`, `notes` | `justificante_cita` | `cita_tramite` když stav `cita` |
-| `ayuntamiento` | totéž | `justificante_cita` | totéž |
-| `testament` | totéž | `copia_escritura` nebo `justificante_cita` (`any`) | totéž |
+| `policia` | `tramiteStatus`, `appointment`, `authority`, `docNumber`, `notes` | `justificante_cita` (+ DNI volitelně) | `cita_tramite` když stav `cita` |
+| `ayuntamiento` | totéž + navázání inmueble | `justificante_cita` (+ DNI volitelně) | totéž |
+| `testament` | `tramiteStatus`, `appointment`, `notary`, `date`, `notes` + inmueble | `copia_escritura` nebo `justificante_cita` (`any`) | totéž |
 
-Stroj stavů stejný. Žádný EX formulář, žádný výpočet.
+Stroj stavů stejný. Žádný EX formulář. Daň se počítá jen na modelo 210, ne tady.
