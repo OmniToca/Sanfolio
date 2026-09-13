@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gestoria_auth/gestoria_auth.dart';
 
 import '../../core/documents/documento_storage.dart';
+import '../../core/identity/legal_hold.dart';
 import '../../core/identity/nie_persist.dart';
 import '../ai/ai_providers.dart';
 import '../ai/escritura_parties.dart';
@@ -112,6 +113,8 @@ class ClienteCard {
     this.coOwnerFolderNombre,
     this.coOwnerDireccion,
     this.coOwnerExpedienteId,
+    this.holds = const [],
+    this.erasureRequested = false,
   });
 
   final String id;
@@ -132,8 +135,56 @@ class ClienteCard {
   final String? coOwnerFolderNombre;
   final String? coOwnerDireccion;
   final String? coOwnerExpedienteId;
+  final List<ClienteHold> holds;
+  final bool erasureRequested;
 
   bool get isCoOwnerOnly => (coOwnerFolderId ?? '').isNotEmpty;
+
+  bool clienteHoldActive(DateTime today) {
+    for (final h in holds) {
+      if ((h.documentoId ?? '').isNotEmpty) continue;
+      if (legalHoldBlocks(until: h.until, today: today)) return true;
+    }
+    return false;
+  }
+
+  bool documentoHoldActive(String documentoId, DateTime today) {
+    for (final h in holds) {
+      if (holdCoversDocumento(
+        until: h.until,
+        holdDocumentoId: h.documentoId,
+        documentoId: documentoId,
+        today: today,
+      )) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  DateTime? get clienteHoldUntil {
+    DateTime? latest;
+    for (final h in holds) {
+      if ((h.documentoId ?? '').isNotEmpty) continue;
+      if (latest == null || h.until.isAfter(latest)) latest = h.until;
+    }
+    return latest;
+  }
+}
+
+/// Řádek `legal_holds`. `documentoId` null = celá karta.
+class ClienteHold {
+  const ClienteHold({
+    required this.id,
+    required this.until,
+    this.reason,
+    this.documentoId,
+  });
+
+  final String id;
+  final DateTime until;
+  final String? reason;
+  final String? documentoId;
 }
 
 class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
@@ -151,7 +202,8 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
         .from('clientes')
         .select(
           'id, nombre, apellidos, email, tel, iban, locale, status, notas, '
-          'deleted_at, client_identifiers(kind, value_raw, deleted_at)',
+          'deleted_at, erasure_requested_at, '
+          'client_identifiers(kind, value_raw, deleted_at)',
         )
         .eq('id', clienteId)
         .eq('tenant_id', tenantId)
@@ -221,6 +273,17 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
       clienteId: clienteId,
     );
 
+    final docIds = [
+      for (final d in documents) d.id,
+      for (final d in hidden) d.id,
+    ];
+    final holds = await _loadHolds(
+      client: client,
+      tenantId: tenantId,
+      clienteId: clienteId,
+      documentoIds: docIds,
+    );
+
     return ClienteCard(
       id: '${row['id']}',
       tenantId: tenantId,
@@ -240,19 +303,23 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
       coOwnerFolderNombre: coOwner?.folderNombre,
       coOwnerDireccion: coOwner?.direccion,
       coOwnerExpedienteId: coOwner?.expedienteId,
+      holds: holds,
+      erasureRequested: row['erasure_requested_at'] != null,
     );
   }
 
-  Future<void> save({
+  Future<({bool nieConflict, String typedNie, String keepNie})> save({
     required String nombre,
     required String locale,
+    required String nie,
     String? email,
     String? tel,
     String? iban,
     String? notas,
   }) async {
+    const ok = (nieConflict: false, typedNie: '', keepNie: '');
     final current = state.valueOrNull;
-    if (current == null || current.deleted) return;
+    if (current == null || current.deleted) return ok;
     final client = trySupabaseClient();
     if (client == null) throw StateError('not configured');
     final trimmed = nombre.trim();
@@ -272,7 +339,22 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
         })
         .eq('id', current.id)
         .eq('tenant_id', current.tenantId);
+    final nieSave = await persistClienteNie(
+      client: client,
+      tenantId: current.tenantId,
+      clienteId: current.id,
+      nieRaw: nie,
+    );
+    if (nieSave.conflict) {
+      return (
+        nieConflict: true,
+        typedNie: nieSave.typedNie,
+        keepNie: nieSave.keepNie,
+      );
+    }
+    ref.invalidate(carpetaControllerProvider);
     _refresh(list: true);
+    return ok;
   }
 
   Future<void> setStatus(String status) async {
@@ -482,6 +564,51 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
     _refresh();
   }
 
+  Future<void> addLegalHold({
+    required DateTime until,
+    required String reason,
+    String? documentoId,
+  }) async {
+    final current = state.valueOrNull;
+    if (current == null || current.deleted) return;
+    final client = trySupabaseClient();
+    if (client == null) throw StateError('not configured');
+    final why = reason.trim();
+    if (why.isEmpty) throw ArgumentError('reason');
+    await client.from('legal_holds').insert({
+      'tenant_id': current.tenantId,
+      'cliente_id': current.id,
+      'documento_id': documentoId,
+      'until': legalHoldUntilIso(until),
+      'reason': why,
+    });
+    _refresh();
+  }
+
+  Future<void> releaseLegalHold(String holdId) async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    final client = trySupabaseClient();
+    if (client == null) throw StateError('not configured');
+    await client.from('legal_holds').update({
+      'deleted_at': DateTime.now().toUtc().toIso8601String(),
+    }).eq('id', holdId).eq('tenant_id', current.tenantId);
+    _refresh();
+  }
+
+  Future<void> anonymizeCliente() async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    final client = trySupabaseClient();
+    if (client == null) throw StateError('not configured');
+    await client.rpc(
+      'anonymize_cliente',
+      params: {'p_cliente_id': current.id},
+    );
+    ref.invalidate(carpetaControllerProvider);
+    _refresh(list: true);
+  }
+
   Future<String?> signedUrl(String storagePath) async {
     final client = trySupabaseClient();
     if (client == null) return null;
@@ -492,6 +619,50 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
     if (list) ref.invalidate(clientesListProvider);
     ref.invalidate(clienteAuditProvider(arg));
     ref.invalidateSelf();
+  }
+}
+
+Future<List<ClienteHold>> _loadHolds({
+  required dynamic client,
+  required String tenantId,
+  required String clienteId,
+  required List<String> documentoIds,
+}) async {
+  try {
+    final base = client
+        .from('legal_holds')
+        .select('id, until, reason, documento_id, cliente_id')
+        .eq('tenant_id', tenantId)
+        .isFilter('deleted_at', null);
+    final rows = documentoIds.isEmpty
+        ? await base.eq('cliente_id', clienteId)
+        : await base.or(
+            'cliente_id.eq.$clienteId,documento_id.in.(${documentoIds.join(',')})',
+          );
+    if (rows is! List) return const [];
+    final ids = {for (final id in documentoIds) id};
+    final out = <ClienteHold>[];
+    for (final raw in rows) {
+      if (raw is! Map) continue;
+      final cid = '${raw['cliente_id'] ?? ''}'.trim();
+      final did = '${raw['documento_id'] ?? ''}'.trim();
+      final forCard = cid == clienteId;
+      final forDoc = did.isNotEmpty && ids.contains(did);
+      if (!forCard && !forDoc) continue;
+      final until = parseLegalHoldUntil(raw['until']);
+      if (until == null) continue;
+      out.add(
+        ClienteHold(
+          id: '${raw['id']}',
+          until: until,
+          reason: _trimOrNull(raw['reason']),
+          documentoId: did.isEmpty || did == 'null' ? null : did,
+        ),
+      );
+    }
+    return out;
+  } on Object {
+    return const [];
   }
 }
 

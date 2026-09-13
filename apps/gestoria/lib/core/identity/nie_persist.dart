@@ -178,3 +178,190 @@ bool syncDeskFieldFromParent({
 }) =>
     !focused || fieldKey == 'fields.nie';
 
+/// Identifikátory a persona přepíší JSON desky. Prázdné NIE smaže vepsané číslo.
+void overlayClienteSnapshot({
+  required Map<String, String> desk,
+  required Map<String, String> live,
+}) {
+  for (final e in live.entries) {
+    if (e.key == 'fields.nie' || e.value.isNotEmpty) {
+      desk[e.key] = e.value;
+    }
+  }
+}
+
+/// Konflikt unique vs. plán zápisu. Bez I/O.
+NieSaveDecision decideNieSave({
+  required String nieRaw,
+  required String nieNormalized,
+  required String clienteId,
+  required List<LiveIdentifier> liveOnCliente,
+  required List<LiveIdentifier> liveInTenant,
+}) {
+  final typed = nieRaw.trim();
+  if (nieNormalized.isNotEmpty &&
+      fiscalIdConflicts(
+        normalized: nieNormalized,
+        clienteId: clienteId,
+        liveInTenant: liveInTenant,
+      )) {
+    return NieSaveDecision(
+      conflict: true,
+      plan: const NiePersistPlan(op: NiePersistOp.none),
+      keepNie: nieFieldAfterConflict(
+        conflict: true,
+        typedRaw: typed,
+        liveOnCliente: liveOnCliente,
+      ),
+      typedNie: typed,
+    );
+  }
+  return NieSaveDecision(
+    conflict: false,
+    plan: planNiePersist(
+      nieNormalized: nieNormalized,
+      liveOnCliente: liveOnCliente,
+    ),
+    keepNie: typed,
+    typedNie: typed,
+  );
+}
+
+class NieSaveDecision {
+  const NieSaveDecision({
+    required this.conflict,
+    required this.plan,
+    required this.keepNie,
+    required this.typedNie,
+  });
+
+  final bool conflict;
+  final NiePersistPlan plan;
+  final String keepNie;
+  final String typedNie;
+}
+
+/// Zápis `client_identifiers`. Stejná cesta na desce i na kartě.
+Future<({bool conflict, String keepNie, String typedNie})> persistClienteNie({
+  required dynamic client,
+  required String tenantId,
+  required String clienteId,
+  required String nieRaw,
+}) async {
+  const ok = (conflict: false, keepNie: '', typedNie: '');
+  final nie = nieRaw.trim();
+  final rawIds = await client
+      .from('client_identifiers')
+      .select('id, kind, value_normalized, value_raw')
+      .eq('cliente_id', clienteId)
+      .isFilter('deleted_at', null);
+  final live = <LiveIdentifier>[
+    for (final row in rawIds as List)
+      LiveIdentifier(
+        id: '${row['id']}',
+        kind: '${row['kind']}',
+        valueNormalized: '${row['value_normalized']}',
+        valueRaw: '${row['value_raw'] ?? ''}',
+        clienteId: clienteId,
+      ),
+  ];
+  var normalized = '';
+  if (nie.isNotEmpty) {
+    try {
+      final n = await client.rpc('normalize_id', params: {'raw': nie});
+      if (n != null) normalized = '$n';
+    } on Object {
+      normalized = nie.toUpperCase().replaceAll(RegExp(r'[\s\-\./]'), '');
+    }
+  }
+  var tenantLive = const <LiveIdentifier>[];
+  if (normalized.isNotEmpty) {
+    final others = await client
+        .from('client_identifiers')
+        .select('id, kind, value_normalized, cliente_id')
+        .eq('tenant_id', tenantId)
+        .eq('value_normalized', normalized)
+        .isFilter('deleted_at', null);
+    tenantLive = [
+      for (final row in others as List)
+        LiveIdentifier(
+          id: '${row['id']}',
+          kind: '${row['kind']}',
+          valueNormalized: '${row['value_normalized']}',
+          clienteId: '${row['cliente_id']}',
+        ),
+    ];
+  }
+  final decision = decideNieSave(
+    nieRaw: nie,
+    nieNormalized: normalized,
+    clienteId: clienteId,
+    liveOnCliente: live,
+    liveInTenant: tenantLive,
+  );
+  if (decision.conflict) {
+    return (
+      conflict: true,
+      keepNie: decision.keepNie,
+      typedNie: decision.typedNie,
+    );
+  }
+  try {
+    await applyNiePersistPlan(
+      client: client,
+      tenantId: tenantId,
+      clienteId: clienteId,
+      nieRaw: nie,
+      plan: decision.plan,
+    );
+    return ok;
+  } on Object catch (e) {
+    if (looksLikeUniqueConstraint(e)) {
+      return (
+        conflict: true,
+        keepNie: nieFieldAfterConflict(
+          conflict: true,
+          typedRaw: nie,
+          liveOnCliente: live,
+        ),
+        typedNie: nie,
+      );
+    }
+    rethrow;
+  }
+}
+
+Future<void> applyNiePersistPlan({
+  required dynamic client,
+  required String tenantId,
+  required String clienteId,
+  required String nieRaw,
+  required NiePersistPlan plan,
+}) async {
+  switch (plan.op) {
+    case NiePersistOp.none:
+      return;
+    case NiePersistOp.softDeleteNie:
+      await client.from('client_identifiers').update({
+        'deleted_at': DateTime.now().toUtc().toIso8601String(),
+      }).eq('id', plan.targetId!);
+      return;
+    case NiePersistOp.update:
+      await client.from('client_identifiers').update({
+        'value_raw': nieRaw,
+        'value_normalized': plan.normalized,
+        'kind': plan.kind,
+      }).eq('id', plan.targetId!);
+      return;
+    case NiePersistOp.insert:
+      await client.from('client_identifiers').insert({
+        'tenant_id': tenantId,
+        'cliente_id': clienteId,
+        'kind': plan.kind,
+        'value_raw': nieRaw,
+        'value_normalized': plan.normalized,
+        'checksum': 'unknown',
+      });
+  }
+}
+

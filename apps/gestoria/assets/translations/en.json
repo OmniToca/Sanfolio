@@ -190,7 +190,20 @@
     "documentsEmpty": "No DNI, NIE or passport yet.",
     "docValid": "Valid",
     "docExpiring": "Expiring soon",
-    "docExpired": "Expired"
+    "docExpired": "Expired",
+    "legalHoldAdd": "Legal hold",
+    "legalHoldUntil": "Until {date}",
+    "legalHoldReason": "Reason (tax, dispute, authority request)",
+    "legalHoldActive": "Legal hold until {date}. The original and anonymisation are locked.",
+    "legalHoldDoc": "Hold this file",
+    "legalHoldRelease": "Release hold",
+    "anonymize": "Anonymise the card",
+    "anonymizeHint": "Name and NIE become ANON, files are purged, files of record stay as a skeleton. This cannot be undone. A legal hold blocks the button.",
+    "anonymizeConfirm": "This deletes this card’s PII. Type ANON.",
+    "anonymizeBlocked": "Release or wait out the legal hold first.",
+    "anonymizeDone": "This card is already anonymised.",
+    "anonymizeError": "Anonymisation failed.",
+    "holdSaveError": "Could not save the legal hold."
   },
   "audit": {
     "title": "Audit",
@@ -285,6 +298,8 @@
     "applyMismatch": "The transcript is on the file. The card identity was not changed — the name on the document does not match.",
     "nieTaken": "NIE {nie} already belongs to another card. The contact was saved; this number was not.",
     "persistError": "The folder did not save. Your typing is still there — try the field again.",
+    "bloqueToggleError": "Could not turn the service on or off. Your switch is unchanged.",
+    "coOwnerSaveError": "Could not create the co-owner card. The titular on the finca stayed.",
     "coOwnerLinked": "A card in the office already had this NIE. We linked it instead of creating a new one.",
     "requiredDocs": "Required papers: {types}",
     "requiredDocsAny": "A contract or an invoice is enough: {types}",
@@ -327,7 +342,7 @@
     "offReasonHint": "Reason for the audit (required)",
     "offConfirm": "Turn off",
     "titulares": "Titulares",
-    "titularEmpty": "After saving the deed, buyers and sellers appear here. The pencil corrects the share.",
+    "titularEmpty": "After saving the deed, buyers and sellers appear here. The pencil corrects name, NIE and share.",
     "titularAdd": "Add titular",
     "titularRemove": "Remove from the finca",
     "titularShareWarn": "Buyers’ share is {sum} %, not 100 %.",
@@ -338,6 +353,7 @@
     "ladoComprador": "Comprador",
     "ladoVendedor": "Vendedor",
     "titularSaveError": "Could not save the titular.",
+    "titularNieTaken": "Another titular on this finca already has this NIE.",
     "titularCard": "card"
   },
   "docs": {

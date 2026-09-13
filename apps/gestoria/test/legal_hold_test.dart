@@ -24,4 +24,30 @@ void main() {
       isTrue,
     );
   });
+
+  test('default hold je +6 let, souborový hold nekryje jiný dokument', () {
+    expect(
+      defaultLegalHoldUntil(DateTime(2026, 9, 13)),
+      DateTime(2032, 9, 13),
+    );
+    expect(legalHoldUntilIso(DateTime(2032, 9, 13)), '2032-09-13');
+    expect(
+      holdCoversDocumento(
+        until: DateTime(2030, 1, 1),
+        holdDocumentoId: null,
+        documentoId: 'a',
+        today: DateTime(2026, 9, 13),
+      ),
+      isTrue,
+    );
+    expect(
+      holdCoversDocumento(
+        until: DateTime(2030, 1, 1),
+        holdDocumentoId: 'a',
+        documentoId: 'b',
+        today: DateTime(2026, 9, 13),
+      ),
+      isFalse,
+    );
+  });
 }

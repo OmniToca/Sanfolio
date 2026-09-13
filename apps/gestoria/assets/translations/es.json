@@ -190,7 +190,20 @@
     "documentsEmpty": "Todavía no hay DNI, NIE ni pasaporte.",
     "docValid": "Vigente",
     "docExpiring": "Caduca pronto",
-    "docExpired": "Caducado"
+    "docExpired": "Caducado",
+    "legalHoldAdd": "Legal hold",
+    "legalHoldUntil": "Hasta {date}",
+    "legalHoldReason": "Motivo (impuesto, litigio, requerimiento)",
+    "legalHoldActive": "Legal hold hasta {date}. El original y la anonimización están bloqueados.",
+    "legalHoldDoc": "Hold del archivo",
+    "legalHoldRelease": "Quitar hold",
+    "anonymize": "Anonimizar la ficha",
+    "anonymizeHint": "Nombre y NIE pasan a ANON, se vacían los ficheros, los expedientes quedan como esqueleto. No se puede deshacer. Un legal hold bloquea el botón.",
+    "anonymizeConfirm": "Esto borra el PII de esta ficha. Escriba ANON.",
+    "anonymizeBlocked": "Primero quite o espere el legal hold.",
+    "anonymizeDone": "La ficha ya está anonimizada.",
+    "anonymizeError": "No se pudo anonimizar.",
+    "holdSaveError": "No se pudo guardar el legal hold."
   },
   "audit": {
     "title": "Auditoría",
@@ -285,6 +298,8 @@
     "applyMismatch": "La transcripción está en el archivo. La identidad de la ficha no cambió: el nombre del documento no coincide.",
     "nieTaken": "El NIE {nie} ya está en otra ficha. El contacto se guardó; este número no.",
     "persistError": "No se pudo guardar la carpeta. El lápiz sigue ahí: pruebe el campo otra vez.",
+    "bloqueToggleError": "No se pudo encender o apagar el servicio. El lápiz sigue igual.",
+    "coOwnerSaveError": "No se pudo crear la ficha del copropietario. El titular en la finca se queda.",
     "coOwnerLinked": "Ya había una ficha con este NIE. La hemos vinculado, no hemos creado otra.",
     "requiredDocs": "Papeles obligatorios: {types}",
     "requiredDocsAny": "Basta contrato o factura: {types}",
@@ -327,7 +342,7 @@
     "offReasonHint": "Motivo para la auditoría (obligatorio)",
     "offConfirm": "Apagar",
     "titulares": "Titulares",
-    "titularEmpty": "Tras Guardar la escritura, compradores y vendedores salen aquí. El lápiz corrige la cuota.",
+    "titularEmpty": "Tras Guardar la escritura, compradores y vendedores salen aquí. El lápiz corrige nombre, NIE y cuota.",
     "titularAdd": "Añadir titular",
     "titularRemove": "Quitar de la finca",
     "titularShareWarn": "La cuota de compradores es {sum} %, no 100 %.",
@@ -338,6 +353,7 @@
     "ladoComprador": "Comprador",
     "ladoVendedor": "Vendedor",
     "titularSaveError": "No se pudo guardar el titular.",
+    "titularNieTaken": "Otro titular de esta finca ya tiene este NIE.",
     "titularCard": "ficha"
   },
   "docs": {

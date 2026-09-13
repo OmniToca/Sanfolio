@@ -22,6 +22,8 @@ import '../ai/escritura_parties.dart';
 import '../ai/extract_text.dart';
 import 'cliente_audit.dart';
 import 'cliente_card_controller.dart';
+import 'cliente_card_hold.dart';
+import 'cliente_card_widgets.dart';
 import 'clientes_providers.dart';
 import '../expedientes/expediente_catalog.dart';
 import '../expedientes/expediente_controller.dart';
@@ -40,6 +42,7 @@ class ClienteCardScreen extends ConsumerStatefulWidget {
 
 class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
   final _nombre = TextEditingController();
+  final _nie = TextEditingController();
   final _email = TextEditingController();
   final _tel = TextEditingController();
   final _iban = TextEditingController();
@@ -63,6 +66,7 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
   @override
   void dispose() {
     _nombre.dispose();
+    _nie.dispose();
     _email.dispose();
     _tel.dispose();
     _iban.dispose();
@@ -77,6 +81,7 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
     }
     _filledFor = card.id;
     _nombre.text = card.nombre;
+    _nie.text = card.nie ?? '';
     _email.text = card.email ?? '';
     _tel.text = card.tel ?? '';
     _iban.text = card.iban ?? '';
@@ -200,7 +205,7 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
                           ],
                           if (showAudit) ...[
                             const SizedBox(height: 16),
-                            _ClienteAuditSection(clienteId: widget.clienteId),
+                            ClienteAuditSection(clienteId: widget.clienteId),
                           ],
                         ],
                       ),
@@ -311,7 +316,7 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
 
   Widget _identityCard(ClienteCard card) {
     final nie = card.nie?.trim();
-    return _SectionCard(
+    return ClienteCardSection(
       title: 'clients.identity'.tr(),
       trailing: nie != null && nie.isNotEmpty
           ? Container(
@@ -332,25 +337,27 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _FieldPair(
+          ClienteCardFieldPair(
             left: AppTextField(label: 'clients.name'.tr(), controller: _nombre),
-            right: AppTextField(
+            right: AppTextField(label: 'fields.nie'.tr(), controller: _nie),
+          ),
+          const SizedBox(height: 12),
+          ClienteCardFieldPair(
+            left: AppTextField(
               label: 'fields.email'.tr(),
               controller: _email,
               keyboardType: TextInputType.emailAddress,
             ),
-          ),
-          const SizedBox(height: 12),
-          _FieldPair(
-            left: AppTextField(
+            right: AppTextField(
               label: 'fields.tel'.tr(),
               controller: _tel,
               keyboardType: TextInputType.phone,
             ),
-            right: AppTextField(label: 'fields.iban'.tr(), controller: _iban),
           ),
           const SizedBox(height: 12),
-          _LocaleMenu(
+          AppTextField(label: 'fields.iban'.tr(), controller: _iban),
+          const SizedBox(height: 12),
+          ClienteLocaleMenu(
             value: _locale,
             onChanged: (v) => setState(() => _locale = v),
           ),
@@ -392,6 +399,11 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
             child: SizedBox(height: 1, width: double.infinity),
           ),
           const SizedBox(height: 8),
+          if (canManageLegalHold(
+            ref.watch(authControllerProvider).valueOrNull ??
+                const AuthSnapshot(),
+          ))
+            _retentionActions(card),
           Align(
             alignment: Alignment.centerLeft,
             child: OutlinedButton.icon(
@@ -421,7 +433,7 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
       if (!types.contains(d.tipo)) types.add(d.tipo);
     }
     final trash = trashVisibleOnCard(card.hiddenDocuments);
-    return _SectionCard(
+    return ClienteCardSection(
       title: 'clients.documents'.tr(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -494,7 +506,7 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
   }
 
   Widget _contactsCard(ClienteCard card) {
-    return _SectionCard(
+    return ClienteCardSection(
       title: 'clients.contactTitle'.tr(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -509,7 +521,7 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
           else
             for (var i = 0; i < card.contacts.length; i++) ...[
               if (i > 0) const SizedBox(height: 8),
-              _InsetRow(
+              ClienteCardInsetRow(
                 title: card.contacts[i].nombre,
                 subtitle: [
                   if (card.contacts[i].relacion != null)
@@ -544,7 +556,7 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
     final rows = ref.watch(clienteExpedientesProvider(widget.clienteId));
     final auth = ref.watch(authControllerProvider).valueOrNull;
     final canDelete = auth != null && canSoftDeleteExpediente(auth);
-    return _SectionCard(
+    return ClienteCardSection(
       title: 'expedientes.title'.tr(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -565,7 +577,7 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
                 children: [
                   for (var i = 0; i < list.length; i++) ...[
                     if (i > 0) const SizedBox(height: 8),
-                    _InsetRow(
+                    ClienteCardInsetRow(
                       title: 'expedientes.tipo.${list[i].tipo}'.tr(),
                       subtitle: [
                         'expedientes.estado.${list[i].estado}'.tr(),
@@ -947,7 +959,7 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _InsetRow(
+            ClienteCardInsetRow(
               leading: const Icon(Icons.insert_drive_file_outlined),
               title: doc.originalName.isEmpty
                   ? 'docs.${doc.tipo}'.tr()
@@ -964,6 +976,34 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
                         ? null
                         : () => _openDoc(doc),
                   ),
+                  if (canManageLegalHold(
+                        ref.watch(authControllerProvider).valueOrNull ??
+                            const AuthSnapshot(),
+                      ) &&
+                      !doc.storagePurged)
+                    IconButton(
+                      tooltip: card.documentoHoldActive(
+                        doc.id,
+                        DateTime.now(),
+                      )
+                          ? 'clients.legalHoldActive'.tr(
+                              namedArgs: {
+                                'date': legalHoldUntilIso(
+                                  card.clienteHoldUntil ??
+                                      defaultLegalHoldUntil(DateTime.now()),
+                                ),
+                              },
+                            )
+                          : 'clients.legalHoldDoc'.tr(),
+                      icon: Icon(
+                        card.documentoHoldActive(doc.id, DateTime.now())
+                            ? Icons.lock
+                            : Icons.lock_outline,
+                      ),
+                      onPressed: _busy
+                          ? null
+                          : () => _addHold(documentoId: doc.id),
+                    ),
                   SoftRemoveIconButton(
                     tooltip: 'folder.remove'.tr(),
                     onPressed: _busy ? null : () => _removeDoc(doc.id),
@@ -1240,7 +1280,7 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _InsetRow(
+            ClienteCardInsetRow(
               leading: const Icon(Icons.delete_outline),
               title: doc.originalName.isEmpty
                   ? 'docs.${doc.tipo}'.tr()
@@ -1257,6 +1297,17 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
                     onPressed: _busy ? null : () => _restoreDoc(doc.id),
                     child: Text('folder.restore'.tr()),
                   ),
+                  if (canManageLegalHold(
+                        ref.watch(authControllerProvider).valueOrNull ??
+                            const AuthSnapshot(),
+                      ) &&
+                      !doc.storagePurged)
+                    TextButton(
+                      onPressed: _busy
+                          ? null
+                          : () => _addHold(documentoId: doc.id),
+                      child: Text('clients.legalHoldDoc'.tr()),
+                    ),
                   TextButton(
                     onPressed: _busy || doc.storagePurged
                         ? null
@@ -1333,6 +1384,158 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
     }
   }
 
+  Future<void> _addHold({String? documentoId}) async {
+    final picked = await promptLegalHold(context);
+    if (picked == null || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      await ref.read(clienteCardProvider(widget.clienteId).notifier).addLegalHold(
+            until: picked.until,
+            reason: picked.reason,
+            documentoId: documentoId,
+          );
+    } on Object {
+      if (mounted) _toast('clients.holdSaveError'.tr());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _releaseHold(String holdId) async {
+    setState(() => _busy = true);
+    try {
+      await ref
+          .read(clienteCardProvider(widget.clienteId).notifier)
+          .releaseLegalHold(holdId);
+    } on Object {
+      if (mounted) _toast('clients.holdSaveError'.tr());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _anonymize(ClienteCard card) async {
+    final today = DateTime.now();
+    if (card.erasureRequested) {
+      _toast('clients.anonymizeDone'.tr());
+      return;
+    }
+    if (card.clienteHoldActive(today) ||
+        card.holds.any(
+          (h) => legalHoldBlocks(until: h.until, today: today),
+        )) {
+      _toast('clients.anonymizeBlocked'.tr());
+      return;
+    }
+    final typed = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('clients.anonymize'.tr()),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('clients.anonymizeConfirm'.tr()),
+            const SizedBox(height: 12),
+            AppTextField(
+              controller: typed,
+              label: 'clients.anonymize'.tr(),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('clients.cancel'.tr()),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('clients.anonymize'.tr()),
+          ),
+        ],
+      ),
+    );
+    final confirm = typed.text.trim().toUpperCase();
+    typed.dispose();
+    if (ok != true || confirm != 'ANON' || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      await ref
+          .read(clienteCardProvider(widget.clienteId).notifier)
+          .anonymizeCliente();
+      if (mounted) context.go('/clientes');
+    } on Object catch (e) {
+      if (mounted) {
+        _toast(
+          looksLikeLegalHoldError(e)
+              ? 'clients.anonymizeBlocked'.tr()
+              : 'clients.anonymizeError'.tr(),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Widget _retentionActions(ClienteCard card) {
+    final today = DateTime.now();
+    final held = card.clienteHoldActive(today);
+    final until = card.clienteHoldUntil;
+    ClienteHold? live;
+    for (final h in card.holds) {
+      if ((h.documentoId ?? '').isNotEmpty) continue;
+      if (legalHoldBlocks(until: h.until, today: today)) {
+        live = h;
+        break;
+      }
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (held && until != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(
+              'clients.legalHoldActive'.tr(
+                namedArgs: {'date': legalHoldUntilIso(until)},
+              ),
+            ),
+          ),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            OutlinedButton.icon(
+              onPressed: _busy ? null : () => _addHold(),
+              icon: const Icon(Icons.lock_outline, size: 18),
+              label: Text('clients.legalHoldAdd'.tr()),
+            ),
+            if (live != null)
+              OutlinedButton(
+                onPressed: _busy ? null : () => _releaseHold(live!.id),
+                child: Text('clients.legalHoldRelease'.tr()),
+              ),
+            OutlinedButton.icon(
+              onPressed: _busy || card.erasureRequested
+                  ? null
+                  : () => _anonymize(card),
+              icon: const Icon(Icons.person_off_outlined, size: 18),
+              label: Text('clients.anonymize'.tr()),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'clients.anonymizeHint'.tr(),
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppTheme.pencil,
+              ),
+        ),
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+
   Future<void> _save() async {
     final name = _nombre.text.trim();
     if (name.isEmpty) {
@@ -1341,17 +1544,26 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
     }
     setState(() => _busy = true);
     try {
-      await ref
+      final saved = await ref
           .read(clienteCardProvider(widget.clienteId).notifier)
           .save(
             nombre: name,
             locale: _locale,
+            nie: _nie.text,
             email: _email.text,
             tel: _tel.text,
             iban: _iban.text,
             notas: _notas.text,
           );
-      if (mounted) _toast('clients.saved'.tr());
+      if (!mounted) return;
+      if (saved.nieConflict) {
+        _nie.text = saved.keepNie;
+        _toast(
+          'folder.nieTaken'.tr(namedArgs: {'nie': saved.typedNie}),
+        );
+        return;
+      }
+      _toast('clients.saved'.tr());
     } on Object {
       if (mounted) _toast('clients.saveError'.tr());
     } finally {
@@ -1458,7 +1670,7 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
                         labelText: 'fields.email'.tr(),
                       ),
                     ),
-                    _LocaleMenu(
+                    ClienteLocaleMenu(
                       value: locale,
                       onChanged: (v) => setLocal(() => locale = v),
                     ),
@@ -1526,249 +1738,5 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
 
   void _toast(String text) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
-  }
-}
-
-class _LocaleMenu extends StatelessWidget {
-  const _LocaleMenu({required this.value, required this.onChanged});
-
-  final String value;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return DropdownMenu<String>(
-      key: ValueKey(value),
-      initialSelection: value,
-      label: Text('clients.locale'.tr()),
-      expandedInsets: EdgeInsets.zero,
-      dropdownMenuEntries: [
-        for (final code in appLocaleCodes)
-          DropdownMenuEntry(value: code, label: 'lang.$code'.tr()),
-      ],
-      onSelected: (v) {
-        if (v == null) return;
-        onChanged(v);
-      },
-    );
-  }
-}
-
-/// Jen owner. Log se tu nedá smazat — append-only v DB.
-class _ClienteAuditSection extends ConsumerWidget {
-  const _ClienteAuditSection({required this.clienteId});
-
-  final String clienteId;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(clienteAuditProvider(clienteId));
-    final when = DateFormat.yMMMd(context.locale.toString()).add_Hm();
-    return _SectionCard(
-      title: 'audit.title'.tr(),
-      hint: 'audit.hint'.tr(),
-      child: async.when(
-        loading: () => const LinearProgressIndicator(),
-        error: (e, st) => Text('audit.loadError'.tr()),
-        data: (events) {
-          if (events.isEmpty) {
-            return Text(
-              'audit.empty'.tr(),
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: AppTheme.pencil),
-            );
-          }
-          return Column(
-            children: [
-              PreviewThenHistory(
-                itemCount: events.length,
-                expandLabel: 'common.history'.tr(),
-                collapseLabel: 'common.historyHide'.tr(),
-                builder: (context, i) => _InsetRow(
-                  title: events[i].actionI18nKey.tr(),
-                  subtitle: [
-                    if (_auditSubject(events[i]) case final subject?) subject,
-                    when.format(events[i].createdAt.toLocal()),
-                    events[i].actorLabel ?? 'audit.system'.tr(),
-                    if (events[i].impersonating) 'audit.impersonation'.tr(),
-                  ].join(' · '),
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  /// Co se otevřelo / nahrálo / změnilo. Akce samotná nestačí.
-  String? _auditSubject(ClienteAuditEvent e) {
-    final tipo = e.documentTipo;
-    final tipoLabel = tipo == null ? null : 'docs.$tipo'.tr();
-    final name = e.documentName;
-    if (name != null && tipoLabel != null) return '$name · $tipoLabel';
-    if (name != null) return name;
-    if (tipoLabel != null) return tipoLabel;
-
-    final asunto = e.asunto;
-    if (asunto != null) return asunto;
-
-    final contact = [
-      if (e.contactNombre != null) e.contactNombre!,
-      if (e.contactRelacion != null) e.contactRelacion!,
-    ];
-    if (contact.isNotEmpty) return contact.join(' · ');
-
-    final fields = [
-      for (final key in e.changedFields)
-        if (auditClienteFieldI18n[key] != null)
-          auditClienteFieldI18n[key]!.tr(),
-    ];
-    if (fields.isNotEmpty) return fields.join(', ');
-    return null;
-  }
-}
-
-/// Společný obal sekce karty — nadpis uvnitř, ne volně nad polem.
-class _SectionCard extends StatelessWidget {
-  const _SectionCard({
-    required this.title,
-    required this.child,
-    this.hint,
-    this.trailing,
-  });
-
-  final String title;
-  final String? hint;
-  final Widget? trailing;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppCard(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    title,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                ),
-                if (trailing != null) trailing!,
-              ],
-            ),
-            if (hint != null) ...[
-              const SizedBox(height: 4),
-              Text(
-                hint!,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: AppTheme.pencil),
-              ),
-            ],
-            const SizedBox(height: 16),
-            child,
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Řádek uvnitř karty. Ultrawide nesmí natáhnout ikony na kraj monitoru.
-class _InsetRow extends StatelessWidget {
-  const _InsetRow({
-    required this.title,
-    this.subtitle,
-    this.leading,
-    this.trailing,
-    this.onTap,
-  });
-
-  final String title;
-  final String? subtitle;
-  final Widget? leading;
-  final Widget? trailing;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final row = Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
-      child: Row(
-        children: [
-          if (leading != null) ...[
-            IconTheme(
-              data: const IconThemeData(color: AppTheme.pencil),
-              child: leading!,
-            ),
-            const SizedBox(width: 12),
-          ],
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: Theme.of(context).textTheme.titleSmall),
-                if (subtitle != null && subtitle!.isNotEmpty)
-                  Text(
-                    subtitle!,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodySmall?.copyWith(color: AppTheme.pencil),
-                  ),
-              ],
-            ),
-          ),
-          if (trailing != null) trailing!,
-        ],
-      ),
-    );
-    return Material(
-      color: AppTheme.surfaceMuted,
-      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-      child: onTap == null
-          ? row
-          : InkWell(
-              onTap: onTap,
-              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-              child: row,
-            ),
-    );
-  }
-}
-
-/// Dvě pole vedle sebe, pod 520 px pod sebou.
-class _FieldPair extends StatelessWidget {
-  const _FieldPair({required this.left, required this.right});
-
-  final Widget left;
-  final Widget right;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth < 520) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [left, const SizedBox(height: 12), right],
-          );
-        }
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(child: left),
-            const SizedBox(width: 12),
-            Expanded(child: right),
-          ],
-        );
-      },
-    );
   }
 }

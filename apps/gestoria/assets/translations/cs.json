@@ -190,7 +190,20 @@
     "documentsEmpty": "Zatím žádný DNI, NIE ani pasaporte.",
     "docValid": "Platné",
     "docExpiring": "Brzy končí",
-    "docExpired": "Prošlé"
+    "docExpired": "Prošlé",
+    "legalHoldAdd": "Legal hold",
+    "legalHoldUntil": "Do {date}",
+    "legalHoldReason": "Důvod (daň, spor, žádost úřadu)",
+    "legalHoldActive": "Legal hold do {date}. Originál a anonymizace jsou zamčené.",
+    "legalHoldDoc": "Hold na soubor",
+    "legalHoldRelease": "Uvolnit hold",
+    "anonymize": "Anonymizovat kartu",
+    "anonymizeHint": "Jméno a NIE zmizí (ANON), soubory se vysypou, spisy zůstanou kostrou. Nejde vrátit. Při legal hold tlačítko nic neudělá.",
+    "anonymizeConfirm": "Tohle smaže PII této karty. Napište ANON.",
+    "anonymizeBlocked": "Nejdřív uvolněte nebo vyčkejte legal hold.",
+    "anonymizeDone": "Karta už je anonymizovaná.",
+    "anonymizeError": "Anonymizace se nepodařila.",
+    "holdSaveError": "Legal hold se nepodařilo uložit."
   },
   "audit": {
     "title": "Audit",
@@ -285,6 +298,8 @@
     "applyMismatch": "Přepis je u souboru. Identita karty se nezměnila — jméno na dokladu nesedí.",
     "nieTaken": "NIE {nie} už drží jiná karta. Kontakt je uložený, toto číslo ne.",
     "persistError": "Deska se neuložila. Tužka zůstala — zkuste pole znovu.",
+    "bloqueToggleError": "Službu se nepodařilo zapnout nebo vypnout. Tužka zůstala.",
+    "coOwnerSaveError": "Kartu spoluvlastníka se nepodařilo založit. Titular na finca zůstal.",
     "coOwnerLinked": "NIE už měla karta v kanceláři. Navázali jsme ji, novou jsme nezakládali.",
     "requiredDocs": "Povinné papíry: {types}",
     "requiredDocsAny": "Stačí smlouva nebo faktura: {types}",
@@ -327,7 +342,7 @@
     "offReasonHint": "Důvod do auditu (povinný)",
     "offConfirm": "Vypnout",
     "titulares": "Titulares",
-    "titularEmpty": "Po Guardar listiny sem přijdou kupující a prodávající. Tužka opraví podíl.",
+    "titularEmpty": "Po Guardar listiny sem přijdou kupující a prodávající. Tužka opraví jméno, NIE i podíl.",
     "titularAdd": "Přidat titulare",
     "titularRemove": "Odebrat z finca",
     "titularShareWarn": "Podíl kupujících je {sum} %, ne 100 %.",
@@ -338,6 +353,7 @@
     "ladoComprador": "Comprador",
     "ladoVendedor": "Vendedor",
     "titularSaveError": "Titulare se nepodařilo uložit.",
+    "titularNieTaken": "Toto NIE už má jiný titular na této finca.",
     "titularCard": "karta"
   },
   "docs": {

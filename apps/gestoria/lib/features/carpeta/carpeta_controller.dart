@@ -111,11 +111,16 @@ class InmuebleTitular {
 
   bool get isComprador => lado == 'comprador';
 
-  InmuebleTitular copyWith({int? cuotaBps, String? clienteId}) {
+  InmuebleTitular copyWith({
+    String? nombre,
+    String? nieRaw,
+    int? cuotaBps,
+    String? clienteId,
+  }) {
     return InmuebleTitular(
       id: id,
-      nombre: nombre,
-      nieRaw: nieRaw,
+      nombre: nombre ?? this.nombre,
+      nieRaw: nieRaw ?? this.nieRaw,
       lado: lado,
       cuotaBps: cuotaBps ?? this.cuotaBps,
       clienteId: clienteId ?? this.clienteId,
@@ -363,10 +368,7 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
       final key = '${raw['template_key']}';
       final values = _fieldsMap(raw['fields']);
       if (key == 'cliente_snapshot') {
-        values.addAll({
-          for (final e in snapshotValues.entries)
-            if (e.value.isNotEmpty) e.key: e.value,
-        });
+        overlayClienteSnapshot(desk: values, live: snapshotValues);
       }
       final bid = '${raw['id']}';
       bloques[key] = BloqueState(
@@ -475,7 +477,7 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
       );
       state = AsyncData(current.withBloque(key, next));
     } on Object {
-      // Tužka musí zůstat viditelná i když RPC spadne.
+      _notice('folder.bloqueToggleError'.tr());
     }
   }
 
@@ -539,8 +541,9 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
           if (nieSave.conflict) {
             _restoreSnapshotNie(nieSave.keepNie);
             _persistAgain.add(key);
-            ref.read(carpetaNoticeProvider(arg).notifier).state =
-                'folder.nieTaken'.tr(namedArgs: {'nie': nieSave.typedNie});
+            _notice(
+              'folder.nieTaken'.tr(namedArgs: {'nie': nieSave.typedNie}),
+            );
           }
         }
         if (key == 'escritura') {
@@ -551,8 +554,7 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
         }
       } while (_persistAgain.contains(key));
     } on Object {
-      ref.read(carpetaNoticeProvider(arg).notifier).state =
-          'folder.persistError'.tr();
+      _notice('folder.persistError'.tr());
     } finally {
       _persisting.remove(key);
     }
@@ -1065,13 +1067,12 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
         }).eq('id', t.id).eq('tenant_id', tenantId);
         changed = true;
         if (linkedExisting) {
-          ref.read(carpetaNoticeProvider(arg).notifier).state =
-              'folder.coOwnerLinked'.tr();
+          _notice('folder.coOwnerLinked'.tr());
         }
       }
       if (changed) ref.invalidate(clientesListProvider);
     } on Object {
-      // Tužka / deska musí zůstat.
+      _notice('folder.coOwnerSaveError'.tr());
     }
   }
 
@@ -1130,8 +1131,7 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
         await client.from('clientes').update({
           'deleted_at': DateTime.now().toUtc().toIso8601String(),
         }).eq('id', id).eq('tenant_id', tenantId);
-        ref.read(carpetaNoticeProvider(arg).notifier).state =
-            'folder.coOwnerLinked'.tr();
+        _notice('folder.coOwnerLinked'.tr());
         return existing;
       }
       return id;
@@ -1165,6 +1165,10 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
     state = AsyncData(view.withTitulares(rows));
   }
 
+  void _notice(String message) {
+    ref.read(carpetaNoticeProvider(arg).notifier).state = message;
+  }
+
   void setTitularShare(String titularId, String percentRaw) {
     final view = state.valueOrNull;
     if (view == null) return;
@@ -1185,6 +1189,96 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
     );
   }
 
+  void setTitularNombre(String titularId, String nombre) {
+    final view = state.valueOrNull;
+    if (view == null) return;
+    final name = nombre.trim();
+    state = AsyncData(
+      view.withTitulares([
+        for (final t in view.titulares)
+          if (t.id == titularId) t.copyWith(nombre: nombre) else t,
+      ]),
+    );
+    if (name.isEmpty) return;
+    _debounce['titularName:$titularId']?.cancel();
+    _debounce['titularName:$titularId'] = Timer(
+      const Duration(milliseconds: 450),
+      () {
+        unawaited(_persistTitularNombre(titularId, name));
+      },
+    );
+  }
+
+  void setTitularNie(String titularId, String nie) {
+    final view = state.valueOrNull;
+    if (view == null) return;
+    state = AsyncData(
+      view.withTitulares([
+        for (final t in view.titulares)
+          if (t.id == titularId) t.copyWith(nieRaw: nie) else t,
+      ]),
+    );
+    _debounce['titularNie:$titularId']?.cancel();
+    _debounce['titularNie:$titularId'] = Timer(
+      const Duration(milliseconds: 450),
+      () {
+        unawaited(_persistTitularNie(titularId, nie));
+      },
+    );
+  }
+
+  Future<void> _persistTitularNombre(String titularId, String nombre) async {
+    final client = trySupabaseClient();
+    final view = state.valueOrNull;
+    if (client == null || view == null) return;
+    try {
+      await client.from('inmueble_titulares').update({
+        'nombre': nombre,
+      }).eq('id', titularId).eq('tenant_id', view.tenantId);
+    } on Object {
+      _notice('folder.titularSaveError'.tr());
+    }
+  }
+
+  Future<void> _persistTitularNie(String titularId, String nie) async {
+    final client = trySupabaseClient();
+    final view = state.valueOrNull;
+    final inmuebleId = view?.inmuebleId;
+    if (client == null || view == null || inmuebleId == null) return;
+    var normalized = nie.trim().isEmpty ? '' : normalizeNie(nie);
+    if (normalized.isNotEmpty) {
+      try {
+        final n = await client.rpc('normalize_id', params: {'raw': nie});
+        if (n != null) normalized = '$n';
+      } on Object {
+        normalized = normalizeNie(nie);
+      }
+    }
+    try {
+      await client.from('inmueble_titulares').update({
+        'nie_raw': nie.trim(),
+        'nie_normalized': normalized,
+      }).eq('id', titularId).eq('tenant_id', view.tenantId);
+      final row = view.titulares.where((t) => t.id == titularId);
+      final isComprador = row.isEmpty ? false : row.first.isComprador;
+      if (isComprador && normalized.isNotEmpty) {
+        await _ensureCompradorClientes(
+          inmuebleId: inmuebleId,
+          tenantId: view.tenantId,
+          folderClienteId: view.clienteId,
+        );
+        await _reloadTitulares(inmuebleId);
+      }
+    } on Object catch (e) {
+      if (looksLikeUniqueConstraint(e)) {
+        _notice('folder.titularNieTaken'.tr());
+      } else {
+        _notice('folder.titularSaveError'.tr());
+      }
+      await _reloadTitulares(inmuebleId);
+    }
+  }
+
   Future<void> _persistTitularCuota(String titularId, int cuotaBps) async {
     final client = trySupabaseClient();
     final view = state.valueOrNull;
@@ -1194,7 +1288,7 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
         'cuota_bps': cuotaBps,
       }).eq('id', titularId).eq('tenant_id', view.tenantId);
     } on Object {
-      // Tužka musí zůstat.
+      _notice('folder.titularSaveError'.tr());
     }
   }
 
@@ -1213,7 +1307,7 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
         ]),
       );
     } on Object {
-      // Tužka musí zůstat.
+      _notice('folder.titularSaveError'.tr());
     }
   }
 
@@ -1280,108 +1374,12 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
         'nombre': values['fields.nombre']!.trim(),
     }).eq('id', view.clienteId);
 
-    final nie = (values['fields.nie'] ?? '').trim();
-    final rawIds = await client
-        .from('client_identifiers')
-        .select('id, kind, value_normalized, value_raw')
-        .eq('cliente_id', view.clienteId)
-        .isFilter('deleted_at', null);
-    final live = [
-      for (final row in rawIds as List)
-        LiveIdentifier(
-          id: '${row['id']}',
-          kind: '${row['kind']}',
-          valueNormalized: '${row['value_normalized']}',
-          valueRaw: '${row['value_raw'] ?? ''}',
-          clienteId: view.clienteId,
-        ),
-    ];
-    var normalized = '';
-    if (nie.isNotEmpty) {
-      try {
-        final n = await client.rpc('normalize_id', params: {'raw': nie});
-        if (n != null) normalized = '$n';
-      } on Object {
-        normalized = nie.toUpperCase().replaceAll(RegExp(r'[\s\-\./]'), '');
-      }
-    }
-    if (normalized.isNotEmpty) {
-      final others = await client
-          .from('client_identifiers')
-          .select('id, kind, value_normalized, cliente_id')
-          .eq('tenant_id', tenantId)
-          .eq('value_normalized', normalized)
-          .isFilter('deleted_at', null);
-      final tenantLive = [
-        for (final row in others as List)
-          LiveIdentifier(
-            id: '${row['id']}',
-            kind: '${row['kind']}',
-            valueNormalized: '${row['value_normalized']}',
-            clienteId: '${row['cliente_id']}',
-          ),
-      ];
-      if (fiscalIdConflicts(
-        normalized: normalized,
-        clienteId: view.clienteId,
-        liveInTenant: tenantLive,
-      )) {
-        return (
-          conflict: true,
-          keepNie: nieFieldAfterConflict(
-            conflict: true,
-            typedRaw: nie,
-            liveOnCliente: live,
-          ),
-          typedNie: nie,
-        );
-      }
-    }
-    final plan = planNiePersist(
-      nieNormalized: normalized,
-      liveOnCliente: live,
+    return persistClienteNie(
+      client: client,
+      tenantId: tenantId,
+      clienteId: view.clienteId,
+      nieRaw: values['fields.nie'] ?? '',
     );
-    try {
-      switch (plan.op) {
-        case NiePersistOp.none:
-          return ok;
-        case NiePersistOp.softDeleteNie:
-          await client.from('client_identifiers').update({
-            'deleted_at': DateTime.now().toUtc().toIso8601String(),
-          }).eq('id', plan.targetId!);
-          return ok;
-        case NiePersistOp.update:
-          await client.from('client_identifiers').update({
-            'value_raw': nie,
-            'value_normalized': plan.normalized,
-            'kind': plan.kind,
-          }).eq('id', plan.targetId!);
-          return ok;
-        case NiePersistOp.insert:
-          await client.from('client_identifiers').insert({
-            'tenant_id': tenantId,
-            'cliente_id': view.clienteId,
-            'kind': plan.kind,
-            'value_raw': nie,
-            'value_normalized': plan.normalized,
-            'checksum': 'unknown',
-          });
-          return ok;
-      }
-    } on Object catch (e) {
-      if (looksLikeUniqueConstraint(e)) {
-        return (
-          conflict: true,
-          keepNie: nieFieldAfterConflict(
-            conflict: true,
-            typedRaw: nie,
-            liveOnCliente: live,
-          ),
-          typedNie: nie,
-        );
-      }
-      rethrow;
-    }
   }
 
   void _restoreSnapshotNie(String keepNie) {

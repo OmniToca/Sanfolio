@@ -223,6 +223,10 @@ void main() {
     );
     expect(compradorCuotaBpsSum([petr, monika]), 9000);
     expect(compradorCuotaBpsSum([petr, monika.copyWith(cuotaBps: 5000)]), 10000);
+    expect(
+      petr.copyWith(nieRaw: 'Y0000000A', nombre: 'Petr Sokol').cuotaBps,
+      petr.cuotaBps,
+    );
     expect(compradorCuotaBpsSum([petr, monika, seller]), 9000);
     expect(
       titularSharePercentForCliente(

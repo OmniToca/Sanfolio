@@ -190,7 +190,20 @@
     "documentsEmpty": "Noch kein DNI, NIE oder Pass.",
     "docValid": "Gültig",
     "docExpiring": "Läuft bald ab",
-    "docExpired": "Abgelaufen"
+    "docExpired": "Abgelaufen",
+    "legalHoldAdd": "Legal hold",
+    "legalHoldUntil": "Bis {date}",
+    "legalHoldReason": "Grund (Steuer, Streit, Behörde)",
+    "legalHoldActive": "Legal hold bis {date}. Original und Anonymisierung sind gesperrt.",
+    "legalHoldDoc": "Hold auf die Datei",
+    "legalHoldRelease": "Hold aufheben",
+    "anonymize": "Karte anonymisieren",
+    "anonymizeHint": "Name und NIE werden ANON, Dateien werden geleert, Akten bleiben als Gerüst. Nicht rückgängig. Legal hold sperrt die Schaltfläche.",
+    "anonymizeConfirm": "Das löscht die PII dieser Karte. Tippen Sie ANON.",
+    "anonymizeBlocked": "Zuerst Legal hold aufheben oder abwarten.",
+    "anonymizeDone": "Die Karte ist schon anonymisiert.",
+    "anonymizeError": "Anonymisierung fehlgeschlagen.",
+    "holdSaveError": "Legal hold konnte nicht gespeichert werden."
   },
   "audit": {
     "title": "Audit",
@@ -285,6 +298,8 @@
     "applyMismatch": "Der Text liegt bei der Datei. Die Kartenidentität blieb — der Name auf dem Dokument passt nicht.",
     "nieTaken": "NIE {nie} gehört schon einer anderen Karte. Kontakt gespeichert, diese Nummer nicht.",
     "persistError": "Die Mappe wurde nicht gespeichert. Die Eingabe bleibt — Feld erneut versuchen.",
+    "bloqueToggleError": "Dienst konnte nicht ein- oder ausgeschaltet werden. Der Schalter bleibt.",
+    "coOwnerSaveError": "Die Karte des Miteigentümers konnte nicht angelegt werden. Der Titular auf der Finca bleibt.",
     "coOwnerLinked": "Eine Karte im Büro hatte diese NIE schon. Wir haben sie verknüpft, keine neue angelegt.",
     "requiredDocs": "Pflichtunterlagen: {types}",
     "requiredDocsAny": "Vertrag oder Rechnung reicht: {types}",
@@ -327,7 +342,7 @@
     "offReasonHint": "Grund für das Audit (Pflicht)",
     "offConfirm": "Ausschalten",
     "titulares": "Titulares",
-    "titularEmpty": "Nach dem Speichern der Escritura stehen Käufer und Verkäufer hier. Der Stift korrigiert den Anteil.",
+    "titularEmpty": "Nach dem Speichern der Escritura stehen Käufer und Verkäufer hier. Der Stift korrigiert Name, NIE und Anteil.",
     "titularAdd": "Titular hinzufügen",
     "titularRemove": "Von der Finca entfernen",
     "titularShareWarn": "Der Käuferanteil ist {sum} %, nicht 100 %.",
@@ -338,6 +353,7 @@
     "ladoComprador": "Comprador",
     "ladoVendedor": "Vendedor",
     "titularSaveError": "Titular konnte nicht gespeichert werden.",
+    "titularNieTaken": "Ein anderer Titular dieser Finca hat diese NIE schon.",
     "titularCard": "Karte"
   },
   "docs": {

@@ -190,7 +190,20 @@
     "documentsEmpty": "Pas encore de DNI, NIE ni passeport.",
     "docValid": "Valide",
     "docExpiring": "Expire bientôt",
-    "docExpired": "Expiré"
+    "docExpired": "Expiré",
+    "legalHoldAdd": "Legal hold",
+    "legalHoldUntil": "Jusqu’au {date}",
+    "legalHoldReason": "Motif (impôt, litige, demande d’autorité)",
+    "legalHoldActive": "Legal hold jusqu’au {date}. L’original et l’anonymisation sont verrouillés.",
+    "legalHoldDoc": "Hold sur le fichier",
+    "legalHoldRelease": "Lever le hold",
+    "anonymize": "Anonymiser la fiche",
+    "anonymizeHint": "Nom et NIE deviennent ANON, les fichiers sont vidés, les dossiers restent une ossature. Irréversible. Un legal hold bloque le bouton.",
+    "anonymizeConfirm": "Cela efface le PII de cette fiche. Tapez ANON.",
+    "anonymizeBlocked": "Levez d’abord le legal hold, ou attendez.",
+    "anonymizeDone": "La fiche est déjà anonymisée.",
+    "anonymizeError": "Échec de l’anonymisation.",
+    "holdSaveError": "Impossible d’enregistrer le legal hold."
   },
   "audit": {
     "title": "Audit",
@@ -285,6 +298,8 @@
     "applyMismatch": "La transcription est sur le fichier. L’identité de la fiche n’a pas changé — le nom du document ne correspond pas.",
     "nieTaken": "Le NIE {nie} appartient déjà à une autre fiche. Le contact est enregistré, pas ce numéro.",
     "persistError": "Le dossier n’a pas été enregistré. Le crayon reste — réessayez le champ.",
+    "bloqueToggleError": "Impossible d’activer ou de désactiver le service. Le crayon reste.",
+    "coOwnerSaveError": "Impossible de créer la fiche du copropriétaire. Le titular sur la finca reste.",
     "coOwnerLinked": "Une fiche du cabinet avait déjà ce NIE. Nous l’avons liée, sans en créer une nouvelle.",
     "requiredDocs": "Papiers obligatoires : {types}",
     "requiredDocsAny": "Un contrat ou une facture suffit : {types}",
@@ -327,7 +342,7 @@
     "offReasonHint": "Motif pour l’audit (obligatoire)",
     "offConfirm": "Désactiver",
     "titulares": "Titulares",
-    "titularEmpty": "Après Guardar l’escritura, acheteurs et vendeurs apparaissent ici. Le crayon corrige la quote-part.",
+    "titularEmpty": "Après Guardar l’escritura, acheteurs et vendeurs apparaissent ici. Le crayon corrige le nom, le NIE et la quote-part.",
     "titularAdd": "Ajouter un titular",
     "titularRemove": "Retirer de la finca",
     "titularShareWarn": "La quote-part des acheteurs est {sum} %, pas 100 %.",
@@ -338,6 +353,7 @@
     "ladoComprador": "Comprador",
     "ladoVendedor": "Vendedor",
     "titularSaveError": "Impossible d’enregistrer le titular.",
+    "titularNieTaken": "Un autre titular de cette finca a déjà ce NIE.",
     "titularCard": "fiche"
   },
   "docs": {

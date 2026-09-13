@@ -18,7 +18,8 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `documentos.body_text` | TEXT na dokladu | přepis PDF po Guardar |
 | `purge_documento_storage` | SQL RPC | owner vysype blob schovaného dokumentu; `legal_hold` když drží hold |
 | `legal_holds` | SQL | zákaz purge/anonymizace do `until` (date Madrid) |
-| `anonymize_cliente` | SQL RPC | owner; PII → ANON; blob pryč; hold blokuje |
+| `anonymize_cliente` | SQL RPC + karta | owner; PII → ANON; blob pryč; hold blokuje; bez cronu |
+| `ClienteCardSection` | `cliente_card_widgets.dart` | obal sekcí karty; audit a locale mimo obří screen |
 | `trashVisibleOnCard` | karta klienta | koš schovaných s originálem z karty i ze složky; vysypané zmizí |
 | `pickOfficeFile` | `office_file_pick.dart` | web: `<input>` overlay na tlačítku (Safari); raw POST do Storage, ne multipart |
 | `paper_glance` | `features/ai/paper_glance.dart` | součet faktur a krátký řádek na šanonu |

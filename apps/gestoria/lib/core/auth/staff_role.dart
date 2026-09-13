@@ -21,6 +21,9 @@ bool canViewClienteAudit(AuthSnapshot snap) =>
 bool canPurgeDocumento(AuthSnapshot snap) =>
     currentOfficeRole(snap) == 'owner';
 
+/// Legal hold a anonymizace: stejná role jako vysypání blobu.
+bool canManageLegalHold(AuthSnapshot snap) => canPurgeDocumento(snap);
+
 /// Asistente spis neschová. Owner, gestor a impersonace ano.
 bool canSoftDeleteExpediente(AuthSnapshot snap) {
   final role = currentOfficeRole(snap);

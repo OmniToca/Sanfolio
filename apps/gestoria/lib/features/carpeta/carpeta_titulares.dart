@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/presentation/widgets/app_widgets.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/identity/nie_persist.dart';
 import '../ai/escritura_parties.dart';
 import 'carpeta_controller.dart';
 
@@ -59,6 +60,8 @@ class TitularesPanel extends ConsumerWidget {
                 key: ValueKey(t.id),
                 row: t,
                 isFolderOwner: t.clienteId == view.clienteId,
+                onNombre: (v) => ctrl.setTitularNombre(t.id, v),
+                onNie: (v) => ctrl.setTitularNie(t.id, v),
                 onShare: (v) => ctrl.setTitularShare(t.id, v),
                 onRemove: () => ctrl.removeTitular(t.id),
                 onOpenCard: (t.clienteId ?? '').isEmpty
@@ -84,6 +87,8 @@ class _TitularRow extends StatefulWidget {
     super.key,
     required this.row,
     required this.isFolderOwner,
+    required this.onNombre,
+    required this.onNie,
     required this.onShare,
     required this.onRemove,
     this.onOpenCard,
@@ -91,6 +96,8 @@ class _TitularRow extends StatefulWidget {
 
   final InmuebleTitular row;
   final bool isFolderOwner;
+  final ValueChanged<String> onNombre;
+  final ValueChanged<String> onNie;
   final ValueChanged<String> onShare;
   final VoidCallback onRemove;
   final VoidCallback? onOpenCard;
@@ -100,30 +107,53 @@ class _TitularRow extends StatefulWidget {
 }
 
 class _TitularRowState extends State<_TitularRow> {
+  late final TextEditingController _nombre;
+  late final TextEditingController _nie;
   late final TextEditingController _share;
-  late final FocusNode _focus;
+  late final FocusNode _nombreFocus;
+  late final FocusNode _nieFocus;
+  late final FocusNode _shareFocus;
 
   @override
   void initState() {
     super.initState();
+    _nombre = TextEditingController(text: widget.row.nombre);
+    _nie = TextEditingController(text: widget.row.nieRaw);
     _share = TextEditingController(
       text: sharePercentFromBps(widget.row.cuotaBps),
     );
-    _focus = FocusNode();
+    _nombreFocus = FocusNode();
+    _nieFocus = FocusNode();
+    _shareFocus = FocusNode();
   }
 
   @override
   void didUpdateWidget(covariant _TitularRow oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (_focus.hasFocus) return;
-    final shown = sharePercentFromBps(widget.row.cuotaBps);
-    if (_share.text != shown) _share.text = shown;
+    if (!_nombreFocus.hasFocus && _nombre.text != widget.row.nombre) {
+      _nombre.text = widget.row.nombre;
+    }
+    if (syncDeskFieldFromParent(
+          fieldKey: 'fields.nie',
+          focused: _nieFocus.hasFocus,
+        ) &&
+        _nie.text != widget.row.nieRaw) {
+      _nie.text = widget.row.nieRaw;
+    }
+    if (!_shareFocus.hasFocus) {
+      final shown = sharePercentFromBps(widget.row.cuotaBps);
+      if (_share.text != shown) _share.text = shown;
+    }
   }
 
   @override
   void dispose() {
+    _nombre.dispose();
+    _nie.dispose();
     _share.dispose();
-    _focus.dispose();
+    _nombreFocus.dispose();
+    _nieFocus.dispose();
+    _shareFocus.dispose();
     super.dispose();
   }
 
@@ -133,41 +163,66 @@ class _TitularRowState extends State<_TitularRow> {
         ? 'folder.ladoComprador'.tr()
         : 'folder.ladoVendedor'.tr();
     final bits = [
-      widget.row.nombre,
-      if (widget.row.nieRaw.isNotEmpty) widget.row.nieRaw,
       lado,
       if (widget.isFolderOwner) 'folder.titularFolder'.tr(),
       if (!widget.isFolderOwner && widget.onOpenCard != null)
         'folder.titularCard'.tr(),
     ];
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(
-            child: Text(bits.join(' · ')),
+          AppTextField(
+            controller: _nombre,
+            focusNode: _nombreFocus,
+            label: 'folder.titularNombre'.tr(),
+            onChanged: widget.onNombre,
           ),
-          SizedBox(
-            width: 88,
-            child: AppTextField(
-              controller: _share,
-              focusNode: _focus,
-              label: 'fields.sharePercent'.tr(),
-              keyboardType: TextInputType.number,
-              onChanged: widget.onShare,
-            ),
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: AppTextField(
+                  controller: _nie,
+                  focusNode: _nieFocus,
+                  label: 'folder.titularNie'.tr(),
+                  onChanged: widget.onNie,
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 88,
+                child: AppTextField(
+                  controller: _share,
+                  focusNode: _shareFocus,
+                  label: 'fields.sharePercent'.tr(),
+                  keyboardType: TextInputType.number,
+                  onChanged: widget.onShare,
+                ),
+              ),
+              if (widget.onOpenCard != null)
+                IconButton(
+                  tooltip: 'folder.titularCard'.tr(),
+                  onPressed: widget.onOpenCard,
+                  icon: const Icon(Icons.person_outline),
+                ),
+              IconButton(
+                tooltip: 'folder.titularRemove'.tr(),
+                onPressed: widget.onRemove,
+                icon: const Icon(Icons.delete_outline),
+              ),
+            ],
           ),
-          if (widget.onOpenCard != null)
-            IconButton(
-              tooltip: 'folder.titularCard'.tr(),
-              onPressed: widget.onOpenCard,
-              icon: const Icon(Icons.person_outline),
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              bits.join(' · '),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppTheme.pencil,
+                  ),
             ),
-          IconButton(
-            tooltip: 'folder.titularRemove'.tr(),
-            onPressed: widget.onRemove,
-            icon: const Icon(Icons.delete_outline),
           ),
         ],
       ),

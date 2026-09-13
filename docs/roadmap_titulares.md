@@ -84,9 +84,9 @@ AI `extract-document` dál jen `ai_drafts`. Edge **neinsertuje** titulares.
 
 ### UI
 
-Šanon `/clientes/:id/carpeta/escritura` (ne tlačítko Druhý kontakt). Sekce „Titulares“: jméno, NIE, %, strana, badge když `cliente_id` = složka. Tužka opraví %. Soft-delete řádku. Přidat ručně (bez NIE ok).
+Šanon `/clientes/:id/carpeta/escritura` (ne tlačítko Druhý kontakt). Sekce „Titulares“: jméno, NIE, %, strana, badge když `cliente_id` = složka. Tužka opraví jméno, NIE i %. Soft-delete řádku. Přidat ručně (bez NIE ok).
 
-Karta klienta: kontakty beze změny. Žádný dump kupujících.
+Karta klienta: NIE se edituje na identitě (stejný unique lock jako deska). Kontakty beze změny. Žádný dump kupujících.
 
 210 deska: `_withInmuebleFacts` doplní `fields.sharePercent` z živého `comprador` jehož `cliente_id` = spis **nebo** NIE sedí na identifikátoru klienta. Stejné pravidlo jako adresa: jen když pole zeje. Fallback 100 % (dnešní `_percent`) zůstane, dokud řádek není.
 
@@ -175,7 +175,7 @@ Hotovo když: u Petra Guardar kopie escritura založí 2 comprador + prodávají
 **Proč:** extract umí 50/50 špatně; tužka musí opravit než 210.
 
 - Sekce titulares na `/carpeta/escritura`.
-- Edit cuota, soft-delete, ruční přidání.
+- Edit cuota, jméno, NIE, soft-delete, ruční přidání.
 - Varování součtu ≠ 100 %.
 - i18n pět lokalit.
 

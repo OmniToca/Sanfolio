@@ -148,4 +148,70 @@ void main() {
       isTrue,
     );
   });
+
+  test('prázdné NIE z identifikátorů přepíše vepsané číslo na desce', () {
+    final desk = <String, String>{
+      'fields.nie': 'Y9737090P',
+      'fields.email': 'stary@x.cz',
+    };
+    overlayClienteSnapshot(
+      desk: desk,
+      live: const {
+        'fields.nie': '',
+        'fields.email': 'petr@x.cz',
+      },
+    );
+    expect(desk['fields.nie'], '');
+    expect(desk['fields.email'], 'petr@x.cz');
+  });
+
+  test('rozhodnutí NIE pozná cizí kartu, vlastní řádek nechá zapsat', () {
+    final taken = decideNieSave(
+      nieRaw: 'Y9737090P',
+      nieNormalized: 'Y9737090P',
+      clienteId: 'petr',
+      liveOnCliente: const [
+        LiveIdentifier(
+          id: '1',
+          kind: 'nie',
+          valueNormalized: 'Y9736943E',
+          clienteId: 'petr',
+          valueRaw: 'Y-9736943-E',
+        ),
+      ],
+      liveInTenant: const [
+        LiveIdentifier(
+          id: '2',
+          kind: 'nie',
+          valueNormalized: 'Y9737090P',
+          clienteId: 'monika',
+        ),
+      ],
+    );
+    expect(taken.conflict, isTrue);
+    expect(taken.keepNie, 'Y-9736943-E');
+    final own = decideNieSave(
+      nieRaw: 'Y9736943E',
+      nieNormalized: 'Y9736943E',
+      clienteId: 'petr',
+      liveOnCliente: const [
+        LiveIdentifier(
+          id: '1',
+          kind: 'nie',
+          valueNormalized: 'Y9736943E',
+          clienteId: 'petr',
+        ),
+      ],
+      liveInTenant: const [
+        LiveIdentifier(
+          id: '1',
+          kind: 'nie',
+          valueNormalized: 'Y9736943E',
+          clienteId: 'petr',
+        ),
+      ],
+    );
+    expect(own.conflict, isFalse);
+    expect(own.plan.op, NiePersistOp.update);
+  });
 }
