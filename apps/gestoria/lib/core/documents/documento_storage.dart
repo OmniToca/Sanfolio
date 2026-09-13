@@ -1,8 +1,8 @@
 import 'dart:math';
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:gestoria_auth/gestoria_auth.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:http/http.dart' as http;
 
 import 'office_file_pick.dart';
 
@@ -34,23 +34,72 @@ bool documentoPathInTenant({
   return path.startsWith(prefix);
 }
 
-/// Nahrání originálu. MIME z názvu — bucket jinak odmítne octet-stream.
+/// Kód do toastu. Žádný stack trace v UI.
+class OfficeUploadException implements Exception {
+  OfficeUploadException(this.code, {this.status});
+
+  final String code;
+  final int? status;
+
+  @override
+  String toString() => 'OfficeUploadException($code)';
+}
+
+String encodeDocumentoStoragePath(String path) {
+  return path.split('/').map(Uri.encodeComponent).join('/');
+}
+
+/// Raw POST těla. `uploadBinary` na webu posílá multipart s prázdným filename —
+/// Safari to Storage často odmítne a objekt nikdy nevznikne.
 Future<void> uploadDocumentoBytes({
   required String path,
   required Uint8List bytes,
   String? originalName,
 }) async {
   final client = trySupabaseClient();
-  if (client == null) throw StateError('not configured');
-  final name = originalName ?? path.split('/').last;
-  await client.storage.from('documentos').uploadBinary(
-    path,
-    Uint8List.fromList(bytes),
-    fileOptions: FileOptions(
-      contentType: mimeForOfficeFile(name),
-      upsert: false,
-    ),
+  if (client == null) throw OfficeUploadException('not_configured');
+  final token = client.auth.currentSession?.accessToken;
+  if (token == null || token.isEmpty) {
+    throw OfficeUploadException('auth');
+  }
+  final mime = mimeForOfficeFile(originalName ?? path);
+  final uri = Uri.parse(
+    '${client.storage.url}/object/documentos/${encodeDocumentoStoragePath(path)}',
   );
+  final http.Response res;
+  try {
+    res = await http.post(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'apikey': SupabaseConfig.anonKey,
+        'Content-Type': mime,
+        'x-upsert': 'false',
+      },
+      body: bytes,
+    );
+  } on OfficeUploadException {
+    rethrow;
+  } on Object catch (e) {
+    debugPrint('storage network $e');
+    throw OfficeUploadException('network');
+  }
+  if (res.statusCode < 200 || res.statusCode >= 300) {
+    debugPrint('storage upload ${res.statusCode} ${res.body}');
+    throw OfficeUploadException(
+      _codeForHttp(res.statusCode),
+      status: res.statusCode,
+    );
+  }
+}
+
+String _codeForHttp(int status) {
+  return switch (status) {
+    401 || 403 => 'auth',
+    413 => 'too_big',
+    415 => 'bad_type',
+    _ => 'http_$status',
+  };
 }
 
 /// Best-effort úklid blobu bez řádku v `documentos`.

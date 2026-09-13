@@ -276,7 +276,7 @@
     "open": "Ouvrir",
     "remove": "Retirer",
     "removeConfirm": "Le document sera masqué du dossier. Le fichier reste stocké.",
-    "uploadError": "Impossible de téléverser le document.",
+    "uploadError": "Impossible de téléverser le document ({code}).",
     "fileTooBig": "Le fichier dépasse 32 Mo.",
     "fileType": "Joignez un PDF ou une photo (JPG, PNG, WebP, HEIC).",
     "fileEmpty": "Le fichier n’a pas pu être lu. Enregistrez-le dans Téléchargements et réessayez.",

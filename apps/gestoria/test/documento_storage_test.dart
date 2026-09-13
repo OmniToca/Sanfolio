@@ -27,6 +27,7 @@ void main() {
     expect(hashed.contains('#'), isFalse);
     expect(hashed.contains('?'), isFalse);
     expect(hashed.endsWith('_Factura__3_.pdf'), isTrue);
+    expect(encodeDocumentoStoragePath('t/c/a b.pdf'), 't/c/a%20b.pdf');
     expect(
       documentoPathInTenant(path: path, tenantId: tenant, clienteId: cliente),
       isTrue,

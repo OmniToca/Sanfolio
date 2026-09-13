@@ -17,7 +17,7 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `documentos.body_text` | TEXT na dokladu | přepis PDF po Guardar |
 | `purge_documento_storage` | SQL RPC | owner vysype blob schovaného dokumentu |
 | `trashVisibleOnCard` | karta klienta | koš jen se schovaným originálem; vysypané z karty zmizí |
-| `pickOfficeFile` | `office_file_pick.dart` | web: vlastní `<input>`, input zůstane do `arrayBuffer()`; MIME z přípony/magic |
+| `pickOfficeFile` | `office_file_pick.dart` | web: `<input>` overlay na tlačítku (Safari); raw POST do Storage, ne multipart |
 | `query_suministro` / `query_plazos_office` / `query_escritura` | SQL RPC | office-wide čtení desky pro chat |
 | `ai-assistant` | Edge Function | whitelist tools; žádný save/send |
 | `roadmap_dokumenty_ai` | `docs/roadmap_dokumenty_ai.md` | Fáze A–G: přepis, PDF, koš, office-wide tools, otevřený blok; později FTS |

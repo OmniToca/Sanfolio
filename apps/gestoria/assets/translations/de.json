@@ -276,7 +276,7 @@
     "open": "Öffnen",
     "remove": "Entfernen",
     "removeConfirm": "Das Dokument wird in der Mappe ausgeblendet. Die Datei bleibt erhalten.",
-    "uploadError": "Das Dokument konnte nicht hochgeladen werden.",
+    "uploadError": "Das Dokument konnte nicht hochgeladen werden ({code}).",
     "fileTooBig": "Die Datei ist größer als 32 MB.",
     "fileType": "PDF oder Foto anhängen (JPG, PNG, WebP, HEIC).",
     "fileEmpty": "Die Datei ließ sich nicht lesen. Speichern Sie sie in Downloads und versuchen Sie es erneut.",

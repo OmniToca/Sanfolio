@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/documents/office_attach_button.dart';
 import '../../core/documents/office_file_pick.dart';
 import '../../core/modules/feature_gate.dart';
 import '../../core/modules/module_catalog.dart';
@@ -728,10 +729,14 @@ class _BloqueCardState extends ConsumerState<_BloqueCard> {
                     ),
               Align(
                 alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  onPressed: () => _pickAndAttach(context, ctrl, template.key),
-                  icon: const Icon(Icons.attach_file, size: 18),
-                  label: Text('folder.attach'.tr()),
+                child: OfficeAttachButton(
+                  label: 'folder.attach'.tr(),
+                  onPicked: (file) => _attachPicked(
+                    context,
+                    ctrl,
+                    template.key,
+                    file,
+                  ),
                 ),
               ),
               if (template.requiredDocTypes.isNotEmpty)
@@ -792,31 +797,12 @@ class _BloqueCardState extends ConsumerState<_BloqueCard> {
     );
   }
 
-  Future<void> _pickAndAttach(
+  Future<void> _attachPicked(
     BuildContext context,
     CarpetaController ctrl,
     String templateKey,
+    PickedOfficeFile file,
   ) async {
-    final PickedOfficeFile file;
-    try {
-      final picked = await pickOfficeFile();
-      if (picked == null) return;
-      file = picked;
-    } on OfficeFilePickException catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(officePickErrorI18n(e.code).tr())),
-        );
-      }
-      return;
-    } on Object {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('folder.fileEmpty'.tr())),
-        );
-      }
-      return;
-    }
     CarpetaDocumento? attached;
     try {
       attached = await ctrl.attachDocument(
@@ -824,19 +810,13 @@ class _BloqueCardState extends ConsumerState<_BloqueCard> {
         bytes: file.bytes,
         originalName: file.name,
       );
-    } on Object {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('folder.uploadError'.tr())),
-        );
-      }
+    } on Object catch (e) {
+      if (context.mounted) showOfficeUploadFailure(context, e);
       return;
     }
     if (attached == null) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('folder.uploadError'.tr())),
-        );
+        showOfficeFileError(context, 'folder.uploadError', code: 'empty');
       }
       return;
     }

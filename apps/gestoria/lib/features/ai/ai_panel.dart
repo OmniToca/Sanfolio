@@ -5,6 +5,7 @@ import 'package:gestoria_auth/gestoria_auth.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/documents/documento_storage.dart';
+import '../../core/documents/office_attach_button.dart';
 import '../../core/documents/office_file_pick.dart';
 import '../../core/theme/app_theme.dart';
 import 'ai_chat.dart';
@@ -138,9 +139,11 @@ class _AiPanelState extends ConsumerState<AiPanel> {
                       onPressed: busy ? null : _extract,
                       child: Text('ai.extract'.tr()),
                     ),
-                    TextButton(
-                      onPressed: busy ? null : _extractFile,
-                      child: Text('ai.extractFile'.tr()),
+                    OfficeAttachButton(
+                      enabled: !busy,
+                      icon: null,
+                      label: 'ai.extractFile'.tr(),
+                      onPicked: _extractPicked,
                     ),
                     TextButton(
                       onPressed: busy ? null : _draftMessage,
@@ -371,7 +374,7 @@ class _AiPanelState extends ConsumerState<AiPanel> {
     }
   }
 
-  Future<void> _extractFile() async {
+  Future<void> _extractPicked(PickedOfficeFile file) async {
     final id = _clienteId();
     final tenantId = ref
         .read(authControllerProvider)
@@ -383,30 +386,10 @@ class _AiPanelState extends ConsumerState<AiPanel> {
       ).showSnackBar(SnackBar(content: Text('ai.needFolder'.tr())));
       return;
     }
-    final PickedOfficeFile file;
-    try {
-      final picked = await pickOfficeFile();
-      if (picked == null) return;
-      file = picked;
-    } on OfficeFilePickException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(officePickErrorI18n(e.code).tr())),
-        );
-      }
-      return;
-    } on Object {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('folder.fileEmpty'.tr())),
-        );
-      }
-      return;
-    }
     setState(() => _working = true);
     try {
       final client = trySupabaseClient();
-      if (client == null) throw StateError('not configured');
+      if (client == null) throw OfficeUploadException('not_configured');
       final path = documentoStoragePath(
         tenantId: tenantId,
         clienteId: id,
@@ -427,7 +410,7 @@ class _AiPanelState extends ConsumerState<AiPanel> {
         });
       } on Object {
         await rollbackDocumentoUpload(path);
-        rethrow;
+        throw OfficeUploadException('db');
       }
       await ref.read(aiChatProvider.notifier).addUser(file.name);
       try {
@@ -469,12 +452,8 @@ class _AiPanelState extends ConsumerState<AiPanel> {
           );
         }
       }
-    } on Object {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('folder.uploadError'.tr())));
-      }
+    } on Object catch (e) {
+      if (mounted) showOfficeUploadFailure(context, e);
     } finally {
       if (mounted) setState(() => _working = false);
     }

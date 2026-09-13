@@ -276,7 +276,7 @@
     "open": "Open",
     "remove": "Remove",
     "removeConfirm": "The document will be hidden from the folder. The file stays in storage.",
-    "uploadError": "Could not upload the document.",
+    "uploadError": "Could not upload the document ({code}).",
     "fileTooBig": "The file is larger than 32 MB.",
     "fileType": "Attach a PDF or a photo (JPG, PNG, WebP, HEIC).",
     "fileEmpty": "The file could not be read. Save it to Downloads and try again.",

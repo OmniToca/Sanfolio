@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gestoria_auth/gestoria_auth.dart';
@@ -459,10 +460,10 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
     final bloque = view == null ? null : _bloqueLive(templateKey);
     final bloqueId = bloque?.id;
     if (view == null || client == null) {
-      throw StateError('not configured');
+      throw OfficeUploadException('not_configured');
     }
     if (bloque == null || bloqueId == null) {
-      throw StateError('bloque missing');
+      throw OfficeUploadException('bloque');
     }
     final template = _templateByKey(templateKey);
     final tipo = guessDocumentoTipo(
@@ -495,9 +496,10 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
           })
           .select('id')
           .single();
-    } on Object {
+    } on Object catch (e) {
+      debugPrint('documentos insert $e');
       await rollbackDocumentoUpload(path);
-      rethrow;
+      throw OfficeUploadException('db');
     }
     final doc = CarpetaDocumento(
       id: '${inserted['id']}',

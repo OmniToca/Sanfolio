@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/auth/staff_role.dart';
+import '../../core/documents/office_attach_button.dart';
 import '../../core/documents/office_file_pick.dart';
 
 import '../../core/presentation/widgets/app_widgets.dart';
@@ -140,10 +141,10 @@ class _ExpedienteScreenState extends ConsumerState<ExpedienteScreen> {
                 const SizedBox(height: 8),
                 Align(
                   alignment: Alignment.centerLeft,
-                  child: TextButton.icon(
-                    onPressed: _busy ? null : _pickAndAttach,
-                    icon: const Icon(Icons.attach_file, size: 18),
-                    label: Text('folder.attach'.tr()),
+                  child: OfficeAttachButton(
+                    enabled: !_busy,
+                    label: 'folder.attach'.tr(),
+                    onPicked: _attachPicked,
                   ),
                 ),
                 for (final doc in view.bloque.documents)
@@ -264,26 +265,14 @@ class _ExpedienteScreenState extends ConsumerState<ExpedienteScreen> {
     }
   }
 
-  Future<void> _pickAndAttach() async {
-    final PickedOfficeFile file;
-    try {
-      final picked = await pickOfficeFile();
-      if (picked == null) return;
-      file = picked;
-    } on OfficeFilePickException catch (e) {
-      _toast(officePickErrorI18n(e.code).tr());
-      return;
-    } on Object {
-      _toast('folder.fileEmpty'.tr());
-      return;
-    }
+  Future<void> _attachPicked(PickedOfficeFile file) async {
     setState(() => _busy = true);
     try {
       await ref
           .read(thinExpedienteProvider(widget.expedienteId).notifier)
           .attachDocument(bytes: file.bytes, originalName: file.name);
-    } on Object {
-      if (mounted) _toast('folder.uploadError'.tr());
+    } on Object catch (e) {
+      if (mounted) showOfficeUploadFailure(context, e);
     } finally {
       if (mounted) setState(() => _busy = false);
     }

@@ -276,7 +276,7 @@
     "open": "Otevřít",
     "remove": "Odebrat",
     "removeConfirm": "Dokument se schová ze složky. Soubor ve spisu zůstane.",
-    "uploadError": "Dokument se nepodařilo nahrát.",
+    "uploadError": "Dokument se nepodařilo nahrát ({code}).",
     "fileTooBig": "Soubor je větší než 32 MB.",
     "fileType": "Přiložte PDF nebo fotku (JPG, PNG, WebP, HEIC).",
     "fileEmpty": "Soubor se nepodařilo přečíst. Uložte ho do stažených a zkuste znovu.",

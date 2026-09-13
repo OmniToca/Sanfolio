@@ -358,7 +358,7 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
       });
     } on Object {
       await rollbackDocumentoUpload(path);
-      rethrow;
+      throw OfficeUploadException('db');
     }
     await extractDocumentDraft(
       tenantId: current.tenantId,

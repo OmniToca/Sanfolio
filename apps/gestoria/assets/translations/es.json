@@ -276,7 +276,7 @@
     "open": "Abrir",
     "remove": "Quitar",
     "removeConfirm": "El documento se ocultará de la carpeta. El archivo permanece.",
-    "uploadError": "No se pudo subir el documento.",
+    "uploadError": "No se pudo subir el documento ({code}).",
     "fileTooBig": "El archivo supera 32 MB.",
     "fileType": "Adjunte un PDF o una foto (JPG, PNG, WebP, HEIC).",
     "fileEmpty": "No se pudo leer el archivo. Guárdelo en Descargas e inténtelo de nuevo.",

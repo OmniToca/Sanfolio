@@ -6,34 +6,31 @@ import 'package:web/web.dart';
 
 import 'office_file_raw.dart';
 
-/// Safari: file_picker sundá `<input>` hned po click — File pak nejde dočíst
-/// a Storage nic nedostane. Input držíme, dokud `arrayBuffer()` neskončí.
+/// Záloha, když overlay nejde. Bez `display:none` a bez `cancel` —
+/// Safari 17+ při výběru souboru stejně vyšle cancel a spolkl by File.
 Future<RawOfficeFile?> openOfficeFileDialog() async {
   final input = HTMLInputElement()
     ..type = 'file'
     ..multiple = false
     ..accept = '.pdf,.jpg,.jpeg,.png,.webp,.heic';
-  input.style.display = 'none';
+  final s = input.style;
+  s.setProperty('opacity', '0');
+  s.setProperty('width', '1px');
+  s.setProperty('height', '1px');
+  s.setProperty('position', 'fixed');
+  s.setProperty('left', '0');
+  s.setProperty('top', '0');
   document.body?.appendChild(input);
 
   final chosen = Completer<File?>();
-  void finish(File? file) {
-    if (!chosen.isCompleted) chosen.complete(file);
-  }
-
   input.addEventListener(
     'change',
     (Event _) {
+      if (chosen.isCompleted) return;
       final files = input.files;
-      finish(
+      chosen.complete(
         files != null && files.length > 0 ? files.item(0) : null,
       );
-    }.toJS,
-  );
-  input.addEventListener(
-    'cancel',
-    (Event _) {
-      finish(null);
     }.toJS,
   );
 

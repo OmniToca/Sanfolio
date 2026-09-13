@@ -236,7 +236,7 @@ class ThinExpedienteController
           .single();
     } on Object {
       await rollbackDocumentoUpload(path);
-      rethrow;
+      throw OfficeUploadException('db');
     }
     final next = current.bloque.copyWith(
       documents: [
