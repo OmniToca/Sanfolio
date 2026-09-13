@@ -19,7 +19,9 @@ String documentoStoragePath({
   final safe = originalName.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
   final name = safe.isEmpty ? 'file' : safe;
   final ts = DateTime.now().toUtc().microsecondsSinceEpoch.toRadixString(16);
-  final rand = Random.secure().nextInt(1 << 32).toRadixString(16).padLeft(8, '0');
+  // dart2js: `1 << 32` je 0 (shift jen 32 bitů) → nextInt hodí RangeError.
+  final rand =
+      Random.secure().nextInt(0x7fffffff).toRadixString(16).padLeft(8, '0');
   final folder = (bloqueId == null || bloqueId.isEmpty)
       ? '$tenantId/$clienteId'
       : '$tenantId/$clienteId/$bloqueId';
