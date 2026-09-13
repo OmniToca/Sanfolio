@@ -17,6 +17,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/time/office_date.dart';
 import '../ai/ai_providers.dart';
 import '../ai/documento_fields.dart';
+import '../ai/extract_text.dart';
 import 'cliente_audit.dart';
 import 'cliente_card_controller.dart';
 import 'clientes_providers.dart';
@@ -937,7 +938,10 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
                   ],
                 ),
               ),
-            if ((doc.bodyText ?? '').trim().isNotEmpty)
+            if (showDocumentoBodyOnPaper(
+              hasShownFields: shown.isNotEmpty,
+              bodyText: doc.bodyText,
+            ))
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
                 child: Text(

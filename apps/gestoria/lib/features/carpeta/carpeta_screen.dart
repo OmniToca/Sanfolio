@@ -1295,7 +1295,10 @@ class _DocumentoForm extends ConsumerWidget {
                   padding: const EdgeInsets.only(bottom: 4),
                   child: Text('${k.tr()}: ${values[k]}'),
                 ),
-              if ((doc.bodyText ?? '').trim().isNotEmpty)
+              if (showDocumentoBodyOnPaper(
+                hasShownFields: shown.isNotEmpty,
+                bodyText: doc.bodyText,
+              ))
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Text(

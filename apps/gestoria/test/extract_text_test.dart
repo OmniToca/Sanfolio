@@ -111,6 +111,27 @@ void main() {
     );
   });
 
+  test('uložený OCR není pod fakturou, když už jsou pole', () {
+    expect(
+      showDocumentoBodyOnPaper(
+        hasShownFields: true,
+        bodyText: '--- Strana 1/4 ---\nFACTURA DE ELECTRICIDAD',
+      ),
+      isFalse,
+    );
+    expect(
+      showDocumentoBodyOnPaper(
+        hasShownFields: false,
+        bodyText: '--- Strana 1 ---\nContrato',
+      ),
+      isTrue,
+    );
+    expect(
+      showDocumentoBodyOnPaper(hasShownFields: false, bodyText: '  '),
+      isFalse,
+    );
+  });
+
   test('klient zůstane na deskách, voda se otevírá', () {
     expect(
       compraventaBloques.firstWhere((b) => b.key == 'cliente_snapshot').opensFromDesk,

@@ -133,6 +133,15 @@ DocumentoTranscript transcriptFromDocumentoRow(Map raw) {
   });
 }
 
+/// Surový OCR je pro asistenta. Na papír na stole jen když ještě nejsou pole.
+bool showDocumentoBodyOnPaper({
+  required bool hasShownFields,
+  required String? bodyText,
+}) {
+  if ((bodyText ?? '').trim().isEmpty) return false;
+  return !hasShownFields;
+}
+
 bool storagePurgedFromRow(Map raw) => raw['storage_purged_at'] != null;
 
 final _nie = RegExp(
