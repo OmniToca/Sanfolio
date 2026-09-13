@@ -30,7 +30,8 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `ai-draft-message` | Edge Function | díry složky → `mensajes.draft`; odesílá gestor |
 | `client_portal` | není | v2, čte `mensajes.translations` |
 | `gestoria_auth` | `packages/gestoria_auth` | login, PortalUrls, hash `setSession` |
-| `AuthController` | `gestoria_auth` | session, profil, impersonace |
+| `AuthController` | `gestoria_auth` | session, profil, impersonace, změna hesla |
+| `OfficeAccountSection` | `office_account_section.dart` | odhlášení a změna hesla v Nastavení; AI sem nesahá |
 | `create-office` | Edge Function | založení tenanta + invite owner |
 | `start_impersonation` | SQL RPC | auditní session 8 h |
 | `apps/support` | Flutter web | HQ kanceláře, Impersonar |

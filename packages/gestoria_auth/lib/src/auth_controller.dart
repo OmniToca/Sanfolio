@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'auth_errors.dart';
 import 'auth_models.dart';
 import 'open_external_url.dart';
+import 'password_change.dart';
 import 'portal_urls.dart';
 import 'supabase_bootstrap.dart';
 
@@ -82,10 +83,36 @@ class AuthController extends AsyncNotifier<AuthSnapshot> {
     ref.invalidateSelf();
   }
 
+  /// Přihlášený člověk. Nejdřív ověří současné heslo, teprve pak zapíše nové.
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final issue = passwordChangeIssue(
+      current: currentPassword,
+      next: newPassword,
+      confirm: newPassword,
+    );
+    if (issue != PasswordChangeIssue.none) {
+      throw ArgumentError(passwordChangeI18nKey(issue));
+    }
+    final client = trySupabaseClient();
+    final email = client?.auth.currentUser?.email?.trim() ?? '';
+    if (client == null || email.isEmpty) {
+      throw StateError('not configured');
+    }
+    await client.auth.signInWithPassword(
+      email: email,
+      password: currentPassword,
+    );
+    await client.auth.updateUser(UserAttributes(password: newPassword));
+  }
+
   Future<void> signOut() async {
     final client = trySupabaseClient();
     await client?.auth.signOut();
     _passwordRecovery = false;
+    state = const AsyncData(AuthSnapshot.signedOut);
   }
 
   Future<String> createOffice({

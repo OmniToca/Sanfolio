@@ -174,6 +174,17 @@ class AppShell extends ConsumerWidget {
               showAi: aiOn,
               onSelect: goIndex,
               onAi: toggleAi,
+              signOutLabel: impersonation == null
+                  ? 'auth.signOut'.tr()
+                  : 'impersonation.end'.tr(),
+              onSignOut: () {
+                final auth = ref.read(authControllerProvider.notifier);
+                if (impersonation != null) {
+                  auth.endImpersonationAndReturnToSupport();
+                } else {
+                  auth.signOut();
+                }
+              },
             ),
             Expanded(child: withOverlay(child, show: panelOpen && !docked)),
             if (docked) wrapPanel(width: AppTheme.aiPanelWidth),
@@ -192,6 +203,8 @@ class _OfficeRail extends StatelessWidget {
     required this.showAi,
     required this.onSelect,
     required this.onAi,
+    required this.signOutLabel,
+    required this.onSignOut,
   });
 
   final int selected;
@@ -199,6 +212,8 @@ class _OfficeRail extends StatelessWidget {
   final bool showAi;
   final ValueChanged<int> onSelect;
   final VoidCallback onAi;
+  final String signOutLabel;
+  final VoidCallback onSignOut;
 
   @override
   Widget build(BuildContext context) {
@@ -244,6 +259,12 @@ class _OfficeRail extends StatelessWidget {
                     onTap: onAi,
                   ),
                 ),
+              _RailItem(
+                icon: Icons.logout,
+                label: signOutLabel,
+                selected: false,
+                onTap: onSignOut,
+              ),
               const SizedBox(height: 16),
             ],
           ),

@@ -8,6 +8,7 @@ import '../../core/modules/slot_order.dart';
 import '../../core/presentation/widgets/app_widgets.dart';
 import '../../core/theme/app_theme.dart';
 import '../carpeta/bloque_template.dart';
+import 'office_account_section.dart';
 import 'office_settings_controller.dart';
 import 'office_team_section.dart';
 
@@ -17,19 +18,35 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(officeSettingsProvider);
+    final appBar = AppBar(
+      title: Text('settings.title'.tr()),
+      actions: _signOutActions(context, ref),
+    );
     return async.when(
       loading: () => Scaffold(
-        appBar: AppBar(title: Text('settings.title'.tr())),
+        appBar: appBar,
         body: const Center(child: CircularProgressIndicator()),
       ),
       error: (e, _) => Scaffold(
-        appBar: AppBar(title: Text('settings.title'.tr())),
-        body: Center(
-          child: Text(
-            e is MissingOfficeTenant
-                ? 'settings.noTenant'.tr()
-                : 'settings.loadError'.tr(),
-          ),
+        appBar: appBar,
+        body: ListView(
+          children: [
+            AppContent(
+              maxWidth: AppTheme.contentWide,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    e is MissingOfficeTenant
+                        ? 'settings.noTenant'.tr()
+                        : 'settings.loadError'.tr(),
+                  ),
+                  const SizedBox(height: 16),
+                  const OfficeAccountSection(),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
       data: (s) {
@@ -39,6 +56,7 @@ class SettingsScreen extends ConsumerWidget {
           child: Scaffold(
             appBar: AppBar(
               title: Text('settings.title'.tr()),
+              actions: _signOutActions(context, ref),
               bottom: TabBar(
                 isScrollable: true,
                 tabs: [
@@ -65,6 +83,27 @@ class SettingsScreen extends ConsumerWidget {
       },
     );
   }
+}
+
+List<Widget> _signOutActions(BuildContext context, WidgetRef ref) {
+  if (MediaQuery.sizeOf(context).width >= 720) return const [];
+  final impersonating =
+      ref.watch(authControllerProvider).valueOrNull?.impersonating == true;
+  return [
+    TextButton(
+      onPressed: () {
+        final auth = ref.read(authControllerProvider.notifier);
+        if (impersonating) {
+          auth.endImpersonationAndReturnToSupport();
+        } else {
+          auth.signOut();
+        }
+      },
+      child: Text(
+        impersonating ? 'impersonation.end'.tr() : 'auth.signOut'.tr(),
+      ),
+    ),
+  ];
 }
 
 class _OfficeTab extends ConsumerWidget {
@@ -140,6 +179,8 @@ class _OfficeTab extends ConsumerWidget {
                   );
                 },
               ),
+              const SizedBox(height: 16),
+              const OfficeAccountSection(),
               const SizedBox(height: 16),
               Text(
                 'settings.cronHint'.tr(),
