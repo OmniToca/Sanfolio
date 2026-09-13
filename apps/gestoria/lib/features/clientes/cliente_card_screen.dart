@@ -361,45 +361,36 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
             maxLines: 4,
             alignLabelWithHint: true,
           ),
-          const SizedBox(height: 4),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text('clients.status'.tr()),
-            subtitle: Text(
-              card.status == 'inactivo'
-                  ? 'clients.statusInactivo'.tr()
-                  : 'clients.statusActivo'.tr(),
-            ),
-            value: card.status == 'activo',
-            onChanged: _busy
-                ? null
-                : (on) => _status(on ? 'activo' : 'inactivo'),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Switch(
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                value: card.status == 'activo',
+                onChanged: _busy
+                    ? null
+                    : (on) => _status(on ? 'activo' : 'inactivo'),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  card.status == 'inactivo'
+                      ? 'clients.statusInactivo'.tr()
+                      : 'clients.status'.tr(),
+                ),
+              ),
+              FilledButton(
+                onPressed: _busy ? null : _save,
+                child: Text('clients.save'.tr()),
+              ),
+            ],
           ),
-          Align(
-            alignment: Alignment.centerRight,
-            child: FilledButton(
-              onPressed: _busy ? null : _save,
-              child: Text('clients.save'.tr()),
-            ),
-          ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
           const ColoredBox(
             color: AppTheme.rule,
             child: SizedBox(height: 1, width: double.infinity),
           ),
-          const SizedBox(height: 16),
-          Text(
-            'clients.softDeleteSection'.tr(),
-            style: Theme.of(context).textTheme.titleSmall,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'clients.softDeleteHint'.tr(),
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: AppTheme.pencil),
-          ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Align(
             alignment: Alignment.centerLeft,
             child: OutlinedButton.icon(
@@ -407,6 +398,13 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
               icon: const Icon(Icons.visibility_off_outlined, size: 18),
               label: Text('clients.softDelete'.tr()),
             ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'clients.softDeleteHint'.tr(),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppTheme.pencil),
           ),
         ],
       ),
@@ -919,7 +917,12 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
         }
       }
     }
-    final values = pending?.fields ?? doc.extracted;
+    final values = displayDocumentoFields(
+      fields: pending?.fields ?? doc.extracted,
+      bodyText: doc.bodyText,
+      clienteNombre: card.nombre,
+      clienteNie: card.nie,
+    );
     final keys = fieldsForDocTipo(doc.tipo);
     final shown = [
       for (final k in keys)
@@ -1234,6 +1237,11 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
               title: doc.originalName.isEmpty
                   ? 'docs.${doc.tipo}'.tr()
                   : doc.originalName,
+              subtitle: doc.fromDesk
+                  ? 'folder.trashFromDesk'.tr(
+                      namedArgs: {'doc': 'docs.${doc.tipo}'.tr()},
+                    )
+                  : null,
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [

@@ -1597,7 +1597,12 @@ class _DocumentoFormState extends ConsumerState<_DocumentoForm> {
         }
       }
     }
-    final values = pending?.fields ?? doc.extracted;
+    final values = displayDocumentoFields(
+      fields: pending?.fields ?? doc.extracted,
+      bodyText: doc.bodyText,
+      clienteNombre: widget.clienteNombre,
+      clienteNie: widget.clienteNie,
+    );
     final glance = paperGlanceOf(tipo: doc.tipo, fields: values);
     final extra = extraPaperFieldKeys(values, tipo: doc.tipo);
     final nombre = (values['fields.nombre'] ?? '').trim();

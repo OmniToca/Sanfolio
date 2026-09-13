@@ -353,6 +353,54 @@ TITULO.- herencia de su esposo, el día 12 de Abril de 2016, número 527 de prot
     );
   });
 
+  test('Rychnov nad Kněžnou není příjmení kupujícího', () {
+    const deed = '''
+COMPRAVENTA
+COMPARECEN:
+DE UNA PARTE Y PARA VENDER:
+Dª PATRICIA FRANCIS DAVIDSON, de soltera AYRES, nacida el día 16 de Marzo de 1955,
+de nacionalidad británica, con N.I.E. número X-7183596-Y.
+Y DE OTRA, PARA COMPRAR:
+Dª SOPHIE ELIZABETH RODRIGUEZ FITZ-HENRY, nacida el día 30 de Septiembre de 1983,
+de nacionalidad británica, con N.I.E. número X-8764216-C.
+INTERVIENEN: A) La Sra. Rodríguez Fitz-Henry interviene en nombre y representación
+de los cónyuges D. PETR SOKOL, nacido el día 5 de Junio de 1987, y Dª MONIKA SOKOLOVA,
+nacida el día 16 de Abril de 1985, de nacionalidad de la República Checa, con residencia
+en la República Checa, en Rampuse, 5, 516 01, Rychnov
+Nad Kneznou, con pasaportes de su nacionalidad números 43927578 y 46089086,
+respectivamente, y con N.I.E. números Y-9736943-E e Y-9737090-P, respectivamente.
+EXPONEN:
+URBANA.- Vivienda en término de Algorfa.
+''';
+    expect(looksLikeDeedPersonName('Kneznou'), isFalse);
+    expect(looksLikeDeedPersonName('Kneznov'), isFalse);
+    expect(looksLikeDeedPersonName('británica'), isFalse);
+    expect(looksLikeDeedPersonName('PETR SOKOL'), isTrue);
+    final facts = extractDeedFacts(deed);
+    expect(facts.sellers.map((p) => p.nie), ['X7183596Y']);
+    expect(facts.sellers.first.name, contains('PATRICIA'));
+    expect(facts.buyers.map((p) => p.nie), ['Y9736943E', 'Y9737090P']);
+    for (final b in facts.buyers) {
+      expect(b.name.toLowerCase(), isNot(contains('knezn')));
+      expect(b.name.toLowerCase(), isNot(contains('británica')));
+    }
+    expect(facts.buyers[0].name, contains('PETR'));
+    expect(facts.buyers[1].name, contains('MONIKA'));
+    final shown = displayDocumentoFields(
+      fields: {
+        'fields.buyers': 'Kneznov (Y9736943E); Kneznov (Y9737090P)',
+        'fields.seller': 'británica',
+        'body_text': deed,
+      },
+      clienteNombre: 'Petr Sokol',
+      clienteNie: 'Y9736943E',
+    );
+    expect(shown['fields.buyers'], contains('PETR SOKOL'));
+    expect(shown['fields.buyers'], contains('MONIKA'));
+    expect(shown['fields.buyers']!.toLowerCase(), isNot(contains('knezn')));
+    expect(shown['fields.sellers'], contains('PATRICIA'));
+  });
+
   test('compraventa se dvěma prodávajícími bez zmocněnce', () {
     const deed = '''
 ESCRITURA DE COMPRAVENTA

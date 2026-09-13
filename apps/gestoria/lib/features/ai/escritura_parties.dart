@@ -171,8 +171,10 @@ final _deedNie = RegExp(
   r'\b([XYZ])\s*-?\s*(\d{7})\s*-?\s*([A-Z])\b',
   caseSensitive: false,
 );
+/// D. / Dª na hranici slova. Bez toho `Nad Kneznou` vypadá jako „D. Kneznou“.
 final _dName = RegExp(
-  r'D[ªºa]?\.?\s+([A-ZÁÉÍÓÚÜÑ][A-ZÁÉÍÓÚÜÑa-záéíóúüñ\.\-\s]{2,80}?)'
+  r'(?:^|[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ])(?:D[ªº]\.?|D\.|Doña|Don)\s+'
+  r'([A-ZÁÉÍÓÚÜÑ][A-ZÁÉÍÓÚÜÑa-záéíóúüñ\.\-\s]{2,80}?)'
   r'(?:,|\n|nacida|nacido|mayor|con |de soltera)',
   caseSensitive: false,
 );
@@ -190,7 +192,8 @@ List<DeedPerson> deedPeople(String text) {
     final window = text.substring(from, m.start);
     String name = '';
     for (final n in _dName.allMatches(window)) {
-      name = _tidyName(n.group(1) ?? '');
+      final cand = _tidyName(n.group(1) ?? '');
+      if (looksLikeDeedPersonName(cand)) name = cand;
     }
     out.add(DeedPerson(nie: nie, name: name, index: m.start));
   }
@@ -369,6 +372,25 @@ Map<String, String> alignDeedFieldsToCliente({
   return next;
 }
 
+/// Žlutý návrh bere strany z přepisu, ne z LLM (Kneznou ≠ kupující).
+Map<String, String> displayDocumentoFields({
+  required Map<String, String> fields,
+  String? bodyText,
+  String? clienteNombre,
+  String? clienteNie,
+}) {
+  final fromDoc = (bodyText ?? '').trim();
+  final fromFields = (fields['body_text'] ?? '').trim();
+  final body = fromDoc.isNotEmpty ? fromDoc : fromFields;
+  if (body.isEmpty) return fields;
+  return alignDeedFieldsToCliente(
+    fields: fields,
+    bodyText: body,
+    clienteNombre: clienteNombre,
+    clienteNie: clienteNie,
+  );
+}
+
 DeedPerson? pickDeedClient({
   required DeedFacts facts,
   String? clienteNombre,
@@ -474,7 +496,7 @@ List<DeedPerson> _pairRespectivamente(List<DeedPerson> people, String text) {
     final window = text.substring(from, m.end);
     final names = [
       for (final n in _dName.allMatches(window)) _tidyName(n.group(1) ?? ''),
-    ].where((n) => n.isNotEmpty).toList();
+    ].where(looksLikeDeedPersonName).toList();
     final nies = [
       for (final n in _deedNie.allMatches(window))
         '${n.group(1)}${n.group(2)}${n.group(3)}'.toUpperCase(),
@@ -596,6 +618,16 @@ String? _deedAddress(String text) {
 
 String _tidyName(String raw) {
   return raw.replaceAll(RegExp(r'\s+'), ' ').trim();
+}
+
+/// D. jméno má aspoň dvě slova. Jedno slovo je město (Kneznou) nebo národnost.
+bool looksLikeDeedPersonName(String raw) {
+  final parts = raw
+      .trim()
+      .split(RegExp(r'\s+'))
+      .where((w) => w.length >= 2)
+      .toList();
+  return parts.length >= 2;
 }
 
 String _foldEs(String raw) {

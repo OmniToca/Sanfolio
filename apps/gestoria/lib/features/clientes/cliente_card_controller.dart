@@ -7,6 +7,7 @@ import '../../core/documents/documento_storage.dart';
 import '../ai/ai_providers.dart';
 import '../ai/escritura_parties.dart';
 import '../ai/extract_text.dart';
+import '../carpeta/carpeta_controller.dart';
 import 'cliente_audit.dart';
 import 'clientes_providers.dart';
 
@@ -37,6 +38,7 @@ class ClienteDocumento {
     this.extracted = const {},
     this.bodyText,
     this.storagePurged = false,
+    this.bloqueId,
   });
 
   final String id;
@@ -46,11 +48,16 @@ class ClienteDocumento {
   final Map<String, String> extracted;
   final String? bodyText;
   final bool storagePurged;
+  /// Papír ze složky (ESCRITURA, voda…). Na kartě žijí jen doklady bez bloku.
+  final String? bloqueId;
+
+  bool get fromDesk => (bloqueId ?? '').isNotEmpty;
 
   ClienteDocumento copyWith({
     Map<String, String>? extracted,
     String? bodyText,
     bool? storagePurged,
+    String? bloqueId,
   }) {
     return ClienteDocumento(
       id: id,
@@ -60,16 +67,24 @@ class ClienteDocumento {
       extracted: extracted ?? this.extracted,
       bodyText: bodyText ?? this.bodyText,
       storagePurged: storagePurged ?? this.storagePurged,
+      bloqueId: bloqueId ?? this.bloqueId,
     );
   }
 }
 
-/// Koš na kartě: jen schované s originálem. Vysypané zmizí z UI, řádek v DB zůstane.
+/// Koš na kartě: schované s originálem z karty i ze složky. Vysypané zmizí z UI.
 List<ClienteDocumento> trashVisibleOnCard(List<ClienteDocumento> hidden) {
   return [
     for (final d in hidden.reversed)
       if (!d.storagePurged) d,
   ];
+}
+
+/// Živý papír na kartě — ne schovaný a nevisí na bloku desky.
+bool isClienteCardLiveDoc({required Object? deletedAt, required Object? bloqueId}) {
+  if (deletedAt != null) return false;
+  final b = '$bloqueId'.trim();
+  return b.isEmpty || b == 'null';
 }
 
 /// Typy papírů na kartě, ne na desce. Úřední názvy se nepřekládají pryč.
@@ -189,11 +204,10 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
         .from('documentos')
         .select(
           'id, tipo, storage_path, original_name, extracted, body_text, '
-          'storage_purged_at, deleted_at',
+          'storage_purged_at, deleted_at, bloque_id',
         )
         .eq('cliente_id', clienteId)
         .eq('tenant_id', tenantId)
-        .isFilter('bloque_id', null)
         .order('created_at');
 
     final documents = <ClienteDocumento>[];
@@ -203,7 +217,10 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
       final doc = _clienteDocumentoFromRow(raw);
       if (raw['deleted_at'] != null) {
         hidden.add(doc);
-      } else {
+      } else if (isClienteCardLiveDoc(
+        deletedAt: raw['deleted_at'],
+        bloqueId: raw['bloque_id'],
+      )) {
         documents.add(doc);
       }
     }
@@ -470,6 +487,7 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
         .update({'deleted_at': null})
         .eq('id', documentId)
         .eq('tenant_id', current.tenantId);
+    ref.invalidate(carpetaControllerProvider);
     _refresh();
   }
 
@@ -589,6 +607,7 @@ Future<_CoOwnerFolder?> _coOwnerFolderFor({
 
 ClienteDocumento _clienteDocumentoFromRow(Map raw) {
   final t = transcriptFromDocumentoRow(raw);
+  final bloque = '${raw['bloque_id'] ?? ''}'.trim();
   return ClienteDocumento(
     id: '${raw['id']}',
     tipo: '${raw['tipo'] ?? 'other'}',
@@ -597,6 +616,7 @@ ClienteDocumento _clienteDocumentoFromRow(Map raw) {
     extracted: t.fields,
     bodyText: t.bodyText,
     storagePurged: storagePurgedFromRow(raw),
+    bloqueId: bloque.isEmpty || bloque == 'null' ? null : bloque,
   );
 }
 

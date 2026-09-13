@@ -17,7 +17,7 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `documentos.extracted` | JSONB na dokladu | uložená pole po Guardar; AI sem nezapisuje |
 | `documentos.body_text` | TEXT na dokladu | přepis PDF po Guardar |
 | `purge_documento_storage` | SQL RPC | owner vysype blob schovaného dokumentu |
-| `trashVisibleOnCard` | karta klienta | koš jen se schovaným originálem; vysypané z karty zmizí |
+| `trashVisibleOnCard` | karta klienta | koš schovaných s originálem z karty i ze složky; vysypané zmizí |
 | `pickOfficeFile` | `office_file_pick.dart` | web: `<input>` overlay na tlačítku (Safari); raw POST do Storage, ne multipart |
 | `paper_glance` | `features/ai/paper_glance.dart` | součet faktur a krátký řádek na šanonu |
 | `query_suministro` / `query_plazos_office` / `query_escritura` | SQL RPC | office-wide čtení desky; escritura i notář / právník / catastral / strany |

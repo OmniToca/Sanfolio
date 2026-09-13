@@ -39,4 +39,31 @@ void main() {
     expect(trashVisibleOnCard([live, purged]), [live]);
     expect(trashVisibleOnCard([purged]), isEmpty);
   });
+
+  test('koš na kartě bere schovanou smlouvu ze složky', () {
+    expect(
+      isClienteCardLiveDoc(deletedAt: null, bloqueId: null),
+      isTrue,
+    );
+    expect(
+      isClienteCardLiveDoc(deletedAt: null, bloqueId: 'bloque-escritura'),
+      isFalse,
+    );
+    expect(
+      isClienteCardLiveDoc(deletedAt: '2026-09-13', bloqueId: null),
+      isFalse,
+    );
+    const deed = ClienteDocumento(
+      id: 'e',
+      tipo: 'copia_escritura',
+      storagePath: 't/c/smlouva.pdf',
+      originalName: 'smlouva_spanelsko.pdf',
+      bloqueId: 'bloque-escritura',
+    );
+    expect(deed.fromDesk, isTrue);
+    expect(
+      trashVisibleOnCard([deed]).single.originalName,
+      'smlouva_spanelsko.pdf',
+    );
+  });
 }

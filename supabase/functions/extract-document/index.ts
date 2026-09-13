@@ -293,6 +293,7 @@ function extractSystemPrompt(docTipo: string, includeBody: boolean): string {
     "Dates YYYY-MM-DD. Omit unknown. Do not invent. " +
     "Escritura de compraventa: list ALL sellers in sellers and ALL real buyers in buyers as 'NAME (NIE); NAME (NIE)'. " +
     "A representative (en nombre y representación) is attorney, not a buyer. Interpreter is not a party. " +
+    "A town in the address (Rychnov nad Kněžnou, Nad Kneznou) is not a surname. Nationality (británica, checa) is not a name. " +
     "nombre and nie = the office client if they appear among the parties. " +
     "salePrice = precio de esta compraventa only, not valor de referencia, not hipoteca, not partial transfers. " +
     "referenceValue = valor de referencia catastral. lawyer = despacho/abogado. " +
@@ -612,10 +613,15 @@ type DeedPerson = { nie: string; name: string; index: number };
 
 const deedNieRe = /\b([XYZ])\s*-?\s*(\d{7})\s*-?\s*([A-Z])\b/gi;
 const dNameRe =
-  /D[ªºa]?\.?\s+([A-ZÁÉÍÓÚÜÑ][A-ZÁÉÍÓÚÜÑa-záéíóúüñ.\-\s]{2,80}?)(?:,|\n|nacida|nacido|mayor|con |de soltera)/gi;
+  /(?:^|[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ])(?:D[ªº]\.?|D\.|Doña|Don)\s+([A-ZÁÉÍÓÚÜÑ][A-ZÁÉÍÓÚÜÑa-záéíóúüñ.\-\s]{2,80}?)(?:,|\n|nacida|nacido|mayor|con |de soltera)/gi;
 
 function tidyName(raw: string): string {
   return raw.replace(/\s+/g, " ").trim();
+}
+
+function looksLikeDeedPersonName(raw: string): boolean {
+  const parts = raw.trim().split(/\s+/).filter((w) => w.length >= 2);
+  return parts.length >= 2;
 }
 
 function deedPeople(text: string): DeedPerson[] {
@@ -631,11 +637,46 @@ function deedPeople(text: string): DeedPerson[] {
     const names = new RegExp(dNameRe.source, "gi");
     let n: RegExpExecArray | null;
     while ((n = names.exec(window))) {
-      name = tidyName(n[1] ?? "");
+      const cand = tidyName(n[1] ?? "");
+      if (looksLikeDeedPersonName(cand)) name = cand;
     }
     out.push({ nie, name, index: m.index });
   }
-  return out;
+  return pairRespectivamente(out, text);
+}
+
+function pairRespectivamente(people: DeedPerson[], text: string): DeedPerson[] {
+  if (!people.length) return people;
+  const byNie = new Map(people.map((p) => [p.nie, p]));
+  const resp = /respectivamente/gi;
+  let m: RegExpExecArray | null;
+  while ((m = resp.exec(text))) {
+    const from = Math.max(0, m.index - 900);
+    const window = text.slice(from, m.index + m[0].length);
+    const names: string[] = [];
+    const nameRe = new RegExp(dNameRe.source, "gi");
+    let n: RegExpExecArray | null;
+    while ((n = nameRe.exec(window))) {
+      const cand = tidyName(n[1] ?? "");
+      if (looksLikeDeedPersonName(cand)) names.push(cand);
+    }
+    const nies: string[] = [];
+    const nieRe = new RegExp(deedNieRe.source, "gi");
+    let k: RegExpExecArray | null;
+    while ((k = nieRe.exec(window))) {
+      nies.push(`${k[1]}${k[2]}${k[3]}`.toUpperCase());
+    }
+    const take = Math.min(names.length, nies.length);
+    if (take < 2) continue;
+    const nameSlice = names.slice(names.length - take);
+    const nieSlice = nies.slice(nies.length - take);
+    for (let i = 0; i < take; i++) {
+      const prev = byNie.get(nieSlice[i]);
+      if (!prev) continue;
+      byNie.set(nieSlice[i], { ...prev, name: nameSlice[i] });
+    }
+  }
+  return people.map((p) => byNie.get(p.nie) ?? p);
 }
 
 function partyLabel(p: DeedPerson): string {
