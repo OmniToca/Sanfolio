@@ -5,6 +5,7 @@ import 'package:gestoria_auth/gestoria_auth.dart';
 
 import '../../core/documents/documento_storage.dart';
 import '../ai/ai_providers.dart';
+import '../ai/escritura_parties.dart';
 import '../ai/extract_text.dart';
 import 'cliente_audit.dart';
 import 'clientes_providers.dart';
@@ -91,6 +92,10 @@ class ClienteCard {
     this.contacts = const [],
     this.documents = const [],
     this.hiddenDocuments = const [],
+    this.coOwnerFolderId,
+    this.coOwnerFolderNombre,
+    this.coOwnerDireccion,
+    this.coOwnerExpedienteId,
   });
 
   final String id;
@@ -107,6 +112,12 @@ class ClienteCard {
   final List<ClienteContact> contacts;
   final List<ClienteDocumento> documents;
   final List<ClienteDocumento> hiddenDocuments;
+  final String? coOwnerFolderId;
+  final String? coOwnerFolderNombre;
+  final String? coOwnerDireccion;
+  final String? coOwnerExpedienteId;
+
+  bool get isCoOwnerOnly => (coOwnerFolderId ?? '').isNotEmpty;
 }
 
 class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
@@ -197,6 +208,12 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
       }
     }
 
+    final coOwner = await _coOwnerFolderFor(
+      client: client,
+      tenantId: tenantId,
+      clienteId: clienteId,
+    );
+
     return ClienteCard(
       id: '${row['id']}',
       tenantId: tenantId,
@@ -212,6 +229,10 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
       contacts: contacts,
       documents: documents,
       hiddenDocuments: hidden,
+      coOwnerFolderId: coOwner?.folderId,
+      coOwnerFolderNombre: coOwner?.folderNombre,
+      coOwnerDireccion: coOwner?.direccion,
+      coOwnerExpedienteId: coOwner?.expedienteId,
     );
   }
 
@@ -383,9 +404,30 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
     if (client == null) throw StateError('not configured');
     final t = splitDocumentoTranscript(fields);
     if (t.fields.isEmpty && t.bodyText == null) return;
+    ClienteDocumento? doc;
+    for (final d in current.documents) {
+      if (d.id == documentId) {
+        doc = d;
+        break;
+      }
+    }
+    final body = t.bodyText ?? doc?.bodyText ?? '';
+    final aligned = looksLikeEscrituraText(body)
+        ? alignDeedFieldsToCliente(
+            fields: t.fields,
+            bodyText: body,
+            clienteNombre: current.nombre,
+            clienteNie: current.nie,
+          )
+        : t.fields;
+    final nextTipo = (doc?.tipo == 'other' || (doc?.tipo ?? '').isEmpty) &&
+            looksLikeEscrituraText(body)
+        ? 'copia_escritura'
+        : null;
     await client.from('documentos').update({
-      'extracted': t.fields,
+      'extracted': aligned,
       if (t.bodyText != null) 'body_text': t.bodyText,
+      if (nextTipo != null) 'tipo': nextTipo,
     }).eq('id', documentId).eq('tenant_id', current.tenantId);
     _refresh();
   }
@@ -466,6 +508,83 @@ String? _trimOrNull(Object? value) {
   final s = '$value'.trim();
   if (s.isEmpty || s == 'null') return null;
   return s;
+}
+
+class _CoOwnerFolder {
+  const _CoOwnerFolder({
+    required this.folderId,
+    required this.folderNombre,
+    required this.direccion,
+    this.expedienteId,
+  });
+
+  final String folderId;
+  final String folderNombre;
+  final String direccion;
+  final String? expedienteId;
+}
+
+Future<_CoOwnerFolder?> _coOwnerFolderFor({
+  required dynamic client,
+  required String tenantId,
+  required String clienteId,
+}) async {
+  try {
+    final owned = await client
+        .from('inmuebles')
+        .select('id')
+        .eq('cliente_id', clienteId)
+        .eq('tenant_id', tenantId)
+        .isFilter('deleted_at', null)
+        .limit(1);
+    if (owned is List && owned.isNotEmpty) return null;
+    final tit = await client
+        .from('inmueble_titulares')
+        .select('inmueble_id')
+        .eq('cliente_id', clienteId)
+        .eq('lado', 'comprador')
+        .isFilter('deleted_at', null)
+        .limit(1)
+        .maybeSingle();
+    final inmId = '${tit?['inmueble_id'] ?? ''}'.trim();
+    if (inmId.isEmpty) return null;
+    final inm = await client
+        .from('inmuebles')
+        .select('id, direccion, cliente_id')
+        .eq('id', inmId)
+        .isFilter('deleted_at', null)
+        .maybeSingle();
+    if (inm == null) return null;
+    final folderId = '${inm['cliente_id'] ?? ''}'.trim();
+    if (folderId.isEmpty || folderId == clienteId) return null;
+    final owner = await client
+        .from('clientes')
+        .select('nombre, apellidos')
+        .eq('id', folderId)
+        .maybeSingle();
+    final folderNombre = [
+      '${owner?['nombre'] ?? ''}'.trim(),
+      '${owner?['apellidos'] ?? ''}'.trim(),
+    ].where((s) => s.isNotEmpty).join(' ');
+    final exp = await client
+        .from('expedientes')
+        .select('id')
+        .eq('inmueble_id', inmId)
+        .eq('tipo', 'compraventa')
+        .isFilter('deleted_at', null)
+        .order('created_at', ascending: false)
+        .limit(1)
+        .maybeSingle();
+    final expId = '${exp?['id'] ?? ''}'.trim();
+    return _CoOwnerFolder(
+      folderId: folderId,
+      folderNombre: folderNombre,
+      direccion: '${inm['direccion'] ?? ''}'.trim(),
+      expedienteId: expId.isEmpty ? null : expId,
+    );
+  } on Object {
+    return null;
+  }
 }
 
 ClienteDocumento _clienteDocumentoFromRow(Map raw) {

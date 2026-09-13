@@ -92,6 +92,16 @@ bool isExtractPending(Map<String, String> fields) =>
 bool isExtractFailed(Map<String, String> fields) =>
     (fields[kExtractStatus] ?? '') == 'failed';
 
+const kLongExtractKeys = {
+  'fields.buyers',
+  'fields.sellers',
+  'fields.address',
+  'fields.registry',
+  'fields.lawyer',
+  'fields.attorney',
+  'fields.notes',
+};
+
 /// Zahodí odpad z OCR/PDF, ať se nenabízí k uložení přes platný NIE.
 Map<String, String> sanitizeExtractedFields(Map<String, String> raw) {
   final out = <String, String>{};
@@ -102,6 +112,7 @@ Map<String, String> sanitizeExtractedFields(Map<String, String> raw) {
       case kExtractStatus:
         if (v == 'pending' || v == 'failed') out[e.key] = v;
       case 'fields.nie':
+      case 'fields.sellerNie':
         if (looksLikeNie(v)) out[e.key] = v.toUpperCase().replaceAll(' ', '');
       case 'fields.tel':
         if (looksLikeTel(v)) out[e.key] = compactTel(v);
@@ -110,7 +121,8 @@ Map<String, String> sanitizeExtractedFields(Map<String, String> raw) {
       case 'body_text':
         out[e.key] = v.length > 100000 ? v.substring(0, 100000) : v;
       default:
-        if (v.length <= 200) out[e.key] = v;
+        final max = kLongExtractKeys.contains(e.key) ? 2000 : 200;
+        if (v.length <= max) out[e.key] = v;
     }
   }
   return out;

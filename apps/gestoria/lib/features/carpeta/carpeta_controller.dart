@@ -12,8 +12,10 @@ import '../../core/theme/app_theme.dart';
 import '../../core/money/cents.dart';
 import '../../core/money/provision.dart';
 import '../ai/documento_fields.dart';
+import '../ai/escritura_parties.dart';
 import '../ai/extract_text.dart';
 import '../clientes/cliente_audit.dart';
+import '../clientes/clientes_providers.dart';
 import 'bloque_template.dart';
 
 enum BloqueUiStatus { off, missingData, missingDocument, watching, done }
@@ -38,13 +40,14 @@ class CarpetaDocumento {
   final bool storagePurged;
 
   CarpetaDocumento copyWith({
+    String? tipo,
     Map<String, String>? extracted,
     String? bodyText,
     bool? storagePurged,
   }) {
     return CarpetaDocumento(
       id: id,
-      tipo: tipo,
+      tipo: tipo ?? this.tipo,
       storagePath: storagePath,
       originalName: originalName,
       extracted: extracted ?? this.extracted,
@@ -87,6 +90,68 @@ class BloqueState {
   }
 }
 
+/// Podíl na finca. Ne `client_contacts`.
+class InmuebleTitular {
+  const InmuebleTitular({
+    required this.id,
+    required this.nombre,
+    required this.nieRaw,
+    required this.lado,
+    required this.cuotaBps,
+    this.clienteId,
+  });
+
+  final String id;
+  final String nombre;
+  final String nieRaw;
+  final String lado;
+  final int cuotaBps;
+  final String? clienteId;
+
+  bool get isComprador => lado == 'comprador';
+
+  InmuebleTitular copyWith({int? cuotaBps, String? clienteId}) {
+    return InmuebleTitular(
+      id: id,
+      nombre: nombre,
+      nieRaw: nieRaw,
+      lado: lado,
+      cuotaBps: cuotaBps ?? this.cuotaBps,
+      clienteId: clienteId ?? this.clienteId,
+    );
+  }
+}
+
+int compradorCuotaBpsSum(Iterable<InmuebleTitular> rows) {
+  var sum = 0;
+  for (final t in rows) {
+    if (t.isComprador) sum += t.cuotaBps;
+  }
+  return sum;
+}
+
+/// 210: podíl tohoto klienta na finca. Vendedor se neplete.
+String? titularSharePercentForCliente({
+  required Iterable<InmuebleTitular> rows,
+  required String clienteId,
+  String? clienteNie,
+}) {
+  for (final t in rows) {
+    if (!t.isComprador) continue;
+    if (t.clienteId == clienteId) return sharePercentFromBps(t.cuotaBps);
+  }
+  final nie = (clienteNie ?? '').trim();
+  if (nie.isEmpty) return null;
+  final want = normalizeNie(nie);
+  for (final t in rows) {
+    if (!t.isComprador) continue;
+    if (normalizeNie(t.nieRaw) == want) {
+      return sharePercentFromBps(t.cuotaBps);
+    }
+  }
+  return null;
+}
+
 class CarpetaView {
   const CarpetaView({
     required this.clienteId,
@@ -95,8 +160,10 @@ class CarpetaView {
     required this.bloques,
     this.expedienteId,
     this.expedienteEstado = 'abierto',
+    this.inmuebleId,
     this.inmuebleDireccion,
     this.movements = const [],
+    this.titulares = const [],
   });
 
   final String clienteId;
@@ -104,9 +171,11 @@ class CarpetaView {
   final String nombre;
   final String? expedienteId;
   final String expedienteEstado;
+  final String? inmuebleId;
   final String? inmuebleDireccion;
   final Map<String, BloqueState> bloques;
   final List<ProvisionMovement> movements;
+  final List<InmuebleTitular> titulares;
 
   CarpetaView withBloque(String key, BloqueState bloque) {
     return CarpetaView(
@@ -115,9 +184,11 @@ class CarpetaView {
       nombre: nombre,
       expedienteId: expedienteId,
       expedienteEstado: expedienteEstado,
+      inmuebleId: inmuebleId,
       inmuebleDireccion: inmuebleDireccion,
       bloques: {...bloques, key: bloque},
       movements: movements,
+      titulares: titulares,
     );
   }
 
@@ -128,9 +199,26 @@ class CarpetaView {
       nombre: nombre,
       expedienteId: expedienteId,
       expedienteEstado: expedienteEstado,
+      inmuebleId: inmuebleId,
       inmuebleDireccion: inmuebleDireccion,
       bloques: bloques,
       movements: next,
+      titulares: titulares,
+    );
+  }
+
+  CarpetaView withTitulares(List<InmuebleTitular> next) {
+    return CarpetaView(
+      clienteId: clienteId,
+      tenantId: tenantId,
+      nombre: nombre,
+      expedienteId: expedienteId,
+      expedienteEstado: expedienteEstado,
+      inmuebleId: inmuebleId,
+      inmuebleDireccion: inmuebleDireccion,
+      bloques: bloques,
+      movements: movements,
+      titulares: next,
     );
   }
 }
@@ -181,7 +269,7 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
 
     final persona = await client
         .from('clientes')
-        .select('id, nombre, apellidos, email, tel, direccion, iban')
+        .select('id, nombre, apellidos, email, tel, direccion, iban, locale')
         .eq('id', clienteId)
         .eq('tenant_id', tenantId)
         .isFilter('deleted_at', null)
@@ -209,11 +297,14 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
       throw StateError('missing expediente');
     }
     String? inmuebleDir;
+    String? inmuebleId;
     final inm = exp['inmuebles'];
     if (inm is Map) {
       inmuebleDir = '${inm['direccion'] ?? ''}'.trim();
       if (inmuebleDir.isEmpty) inmuebleDir = null;
     }
+    inmuebleId = '${exp['inmueble_id'] ?? ''}'.trim();
+    if (inmuebleId.isEmpty || inmuebleId == 'null') inmuebleId = null;
 
     final rows = await client
         .from('bloques')
@@ -318,15 +409,35 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
       );
     }
 
+    final titulares = await _fetchTitulares(inmuebleId);
+    if (inmuebleId != null &&
+        titulares.any(
+          (t) => titularNeedsCoOwnerCard(
+            isComprador: t.isComprador,
+            clienteId: t.clienteId,
+            nieNormalized: normalizeNie(t.nieRaw),
+          ),
+        )) {
+      await _ensureCompradorClientes(
+        inmuebleId: inmuebleId,
+        tenantId: tenantId,
+        folderClienteId: clienteId,
+        rows: titulares,
+      );
+    }
+    final liveTitulares = await _fetchTitulares(inmuebleId);
+
     return CarpetaView(
       clienteId: clienteId,
       tenantId: tenantId,
       nombre: nombre,
       expedienteId: '${exp['id']}',
       expedienteEstado: '${exp['estado'] ?? 'abierto'}',
+      inmuebleId: inmuebleId,
       inmuebleDireccion: inmuebleDir,
       bloques: bloques,
       movements: movements,
+      titulares: liveTitulares,
     );
   }
 
@@ -550,25 +661,80 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
     }
     final t = splitDocumentoTranscript(fields);
     if (t.fields.isEmpty && t.bodyText == null) return;
+    CarpetaDocumento? currentDoc;
+    for (final d in bloque.documents) {
+      if (d.id == documentId) {
+        currentDoc = d;
+        break;
+      }
+    }
+    final body = t.bodyText ?? currentDoc?.bodyText ?? '';
+    final deed = looksLikeEscrituraText(body) ||
+        currentDoc?.tipo == 'copia_escritura';
+    final aligned = deed
+        ? alignDeedFieldsToCliente(
+            fields: t.fields,
+            bodyText: body,
+            clienteNombre: view.nombre,
+            clienteNie: view.bloques['cliente_snapshot']?.values['fields.nie'],
+          )
+        : t.fields;
+    final nextTipo = (currentDoc?.tipo == 'other' ||
+                (currentDoc?.tipo ?? '').isEmpty) &&
+            looksLikeEscrituraText(body)
+        ? 'copia_escritura'
+        : currentDoc?.tipo;
     await client.from('documentos').update({
-      'extracted': t.fields,
+      'extracted': aligned,
       if (t.bodyText != null) 'body_text': t.bodyText,
+      if (nextTipo != null && nextTipo != currentDoc?.tipo) 'tipo': nextTipo,
     }).eq('id', documentId);
     final docs = [
       for (final d in bloque.documents)
         d.id == documentId
-            ? d.copyWith(extracted: t.fields, bodyText: t.bodyText)
+            ? d.copyWith(
+                extracted: aligned,
+                bodyText: t.bodyText ?? d.bodyText,
+                tipo: nextTipo ?? d.tipo,
+              )
             : d,
     ];
+    var paper = aligned;
+    if (templateKey == 'cliente_snapshot' && deed) {
+      final nie = (aligned['fields.nie'] ?? '').trim();
+      final fits = documentFitsCliente(
+        cardName: view.nombre,
+        cardNie: view.bloques['cliente_snapshot']?.values['fields.nie'],
+        fields: aligned,
+      );
+      paper = {
+        if (fits && nie.isNotEmpty) 'fields.nie': nie,
+      };
+    }
     final merged = promotePaperToDesk(
       deskFieldKeys: _templateByKey(templateKey).fieldKeys,
       desk: bloque.values,
-      paper: t.fields,
+      paper: paper,
     );
     _draft[templateKey] = merged;
     final next = bloque.copyWith(values: merged, documents: docs);
     state = AsyncData(view.withBloque(templateKey, next));
     await _persistBloque(templateKey);
+    if (deed && bloque.id != null) {
+      await _persistInmuebleFromDeed(
+        bloque.id!,
+        paper: aligned,
+        desk: merged,
+      );
+      await _persistTitularesFromDeed(
+        bloqueId: bloque.id!,
+        bodyText: body,
+        tenantId: view.tenantId,
+        folderClienteId: view.clienteId,
+        folderNombre: view.nombre,
+        deskDate: merged['fields.date'] ?? aligned['fields.date'],
+      );
+    }
   }
 
   Future<void> removeDocument(String templateKey, String documentId) async {
@@ -625,10 +791,21 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
   }
 
   Future<void> _persistEscrituraFecha(String bloqueId, String? raw) async {
+    await _persistInmuebleFromDeed(
+      bloqueId,
+      paper: const {},
+      desk: {'fields.date': raw ?? ''},
+    );
+  }
+
+  /// Listina drží strany a cenu. Na inmueble jde finca, notář a datum (plusvalía / 210).
+  Future<void> _persistInmuebleFromDeed(
+    String bloqueId, {
+    required Map<String, String> paper,
+    required Map<String, String> desk,
+  }) async {
     final client = trySupabaseClient();
     if (client == null) return;
-    final parsed = DateTime.tryParse((raw ?? '').trim());
-    if (parsed == null) return;
     final row = await client
         .from('bloques')
         .select('expedientes(inmueble_id)')
@@ -640,9 +817,397 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
     if (inmuebleId == null || inmuebleId.isEmpty || inmuebleId == 'null') {
       return;
     }
-    final day =
-        '${parsed.year.toString().padLeft(4, '0')}-${parsed.month.toString().padLeft(2, '0')}-${parsed.day.toString().padLeft(2, '0')}';
-    await client.from('inmuebles').update({'escritura_fecha': day}).eq('id', inmuebleId);
+    final patch = <String, dynamic>{};
+    final dateRaw =
+        (desk['fields.date'] ?? paper['fields.date'] ?? '').trim();
+    final parsed = DateTime.tryParse(dateRaw);
+    if (parsed != null) {
+      patch['escritura_fecha'] =
+          '${parsed.year.toString().padLeft(4, '0')}-${parsed.month.toString().padLeft(2, '0')}-${parsed.day.toString().padLeft(2, '0')}';
+    }
+    final notary =
+        (desk['fields.notary'] ?? paper['fields.notary'] ?? '').trim();
+    if (notary.isNotEmpty) patch['notario'] = notary;
+    final protocol =
+        (desk['fields.protocol'] ?? paper['fields.protocol'] ?? '').trim();
+    if (protocol.isNotEmpty) patch['protocolo'] = protocol;
+    final cat = (paper['fields.cadastral'] ?? '').trim();
+    if (cat.isNotEmpty) patch['referencia_catastral'] = cat;
+    final addr = (paper['fields.address'] ?? '').trim();
+    if (addr.isNotEmpty) patch['direccion'] = addr;
+    if (patch.isEmpty) return;
+    await client.from('inmuebles').update(patch).eq('id', inmuebleId);
+  }
+
+  Future<String?> _inmuebleIdForBloque(String bloqueId) async {
+    final client = trySupabaseClient();
+    if (client == null) return null;
+    final row = await client
+        .from('bloques')
+        .select('expedientes(inmueble_id)')
+        .eq('id', bloqueId)
+        .maybeSingle();
+    final exp = row?['expedientes'];
+    if (exp is! Map) return null;
+    final id = '${exp['inmueble_id'] ?? ''}'.trim();
+    if (id.isEmpty || id == 'null') return null;
+    return id;
+  }
+
+  /// Jen když na finca ještě nikdo není. Druhý Guardar nesmí přepsat tužku.
+  Future<void> _persistTitularesFromDeed({
+    required String bloqueId,
+    required String bodyText,
+    required String tenantId,
+    required String folderClienteId,
+    required String folderNombre,
+    String? deskDate,
+  }) async {
+    final client = trySupabaseClient();
+    if (client == null || !looksLikeEscrituraText(bodyText)) return;
+    final proposed = proposeTitularesFromDeed(extractDeedFacts(bodyText));
+    if (proposed.isEmpty) return;
+    final inmuebleId = await _inmuebleIdForBloque(bloqueId);
+    if (inmuebleId == null) return;
+    try {
+      final existing = await client
+          .from('inmueble_titulares')
+          .select('id')
+          .eq('inmueble_id', inmuebleId)
+          .isFilter('deleted_at', null)
+          .limit(1);
+      if (existing is List && existing.isNotEmpty) {
+        await _ensureCompradorClientes(
+          inmuebleId: inmuebleId,
+          tenantId: tenantId,
+          folderClienteId: folderClienteId,
+        );
+        await _reloadTitulares(inmuebleId);
+        return;
+      }
+
+      final nies = [
+        for (final p in proposed)
+          if (p.nieNormalized.isNotEmpty) p.nieNormalized,
+      ];
+      final nieToCliente = <String, String>{};
+      if (nies.isNotEmpty) {
+        final ids = await client
+            .from('client_identifiers')
+            .select('cliente_id, value_normalized')
+            .eq('tenant_id', tenantId)
+            .inFilter('value_normalized', nies)
+            .isFilter('deleted_at', null);
+        if (ids is List) {
+          for (final raw in ids) {
+            if (raw is! Map) continue;
+            final nie = '${raw['value_normalized'] ?? ''}'.trim();
+            final cid = '${raw['cliente_id'] ?? ''}'.trim();
+            if (nie.isNotEmpty && cid.isNotEmpty) nieToCliente[nie] = cid;
+          }
+        }
+      }
+
+      String? desde;
+      final parsed = DateTime.tryParse((deskDate ?? '').trim());
+      if (parsed != null) {
+        desde =
+            '${parsed.year.toString().padLeft(4, '0')}-${parsed.month.toString().padLeft(2, '0')}-${parsed.day.toString().padLeft(2, '0')}';
+      }
+
+      await client.from('inmueble_titulares').insert([
+        for (final p in proposed)
+          {
+            'tenant_id': tenantId,
+            'inmueble_id': inmuebleId,
+            'lado': p.lado,
+            'nombre': p.nombre,
+            'nie_raw': p.nieRaw,
+            'nie_normalized': p.nieNormalized,
+            'cuota_bps': p.cuotaBps,
+            'cliente_id': matchTitularClienteId(
+              row: p,
+              nieToClienteId: nieToCliente,
+              folderClienteId: folderClienteId,
+              folderNombre: folderNombre,
+            ),
+            if (desde != null) 'desde': desde,
+          },
+      ]);
+      await _ensureCompradorClientes(
+        inmuebleId: inmuebleId,
+        tenantId: tenantId,
+        folderClienteId: folderClienteId,
+      );
+      await _reloadTitulares(inmuebleId);
+    } on Object {
+      // Tužka musí zůstat. Unique race = druhý Guardar.
+    }
+  }
+
+  Future<List<InmuebleTitular>> _fetchTitulares(String? inmuebleId) async {
+    final client = trySupabaseClient();
+    if (client == null || inmuebleId == null || inmuebleId.isEmpty) {
+      return const [];
+    }
+    try {
+      final rows = await client
+          .from('inmueble_titulares')
+          .select('id, nombre, nie_raw, lado, cuota_bps, cliente_id')
+          .eq('inmueble_id', inmuebleId)
+          .isFilter('deleted_at', null)
+          .order('nombre');
+      final out = <InmuebleTitular>[];
+      if (rows is! List) return out;
+      for (final raw in rows) {
+        if (raw is! Map) continue;
+        final parsed = _titularFromRow(raw);
+        if (parsed != null) out.add(parsed);
+      }
+    out.sort((a, b) {
+      if (a.lado != b.lado) return a.isComprador ? -1 : 1;
+      return a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase());
+    });
+    return out;
+    } on Object {
+      return const [];
+    }
+  }
+
+  /// Kupující s NIE dostane kartu kanceláře, ne druhou desku.
+  Future<void> _ensureCompradorClientes({
+    required String inmuebleId,
+    required String tenantId,
+    required String folderClienteId,
+    List<InmuebleTitular>? rows,
+  }) async {
+    final client = trySupabaseClient();
+    if (client == null) return;
+    try {
+      final folderRow = await client
+          .from('clientes')
+          .select('locale')
+          .eq('id', folderClienteId)
+          .maybeSingle();
+      var locale = '${folderRow?['locale'] ?? 'cs'}'.trim();
+      if (locale.isEmpty) locale = 'cs';
+      final list = rows ?? await _fetchTitulares(inmuebleId);
+      var changed = false;
+      for (final t in list) {
+        if (!titularNeedsCoOwnerCard(
+          isComprador: t.isComprador,
+          clienteId: t.clienteId,
+          nieNormalized: normalizeNie(t.nieRaw),
+        )) {
+          continue;
+        }
+        final nie = normalizeNie(t.nieRaw);
+        var clienteId = await _findClienteIdByNie(
+          tenantId: tenantId,
+          nieNormalized: nie,
+        );
+        clienteId ??= await _insertCoOwnerCliente(
+          tenantId: tenantId,
+          nombre: t.nombre,
+          nieRaw: t.nieRaw,
+          nieNormalized: nie,
+          locale: locale,
+        );
+        if (clienteId == null) continue;
+        await client.from('inmueble_titulares').update({
+          'cliente_id': clienteId,
+        }).eq('id', t.id).eq('tenant_id', tenantId);
+        changed = true;
+      }
+      if (changed) ref.invalidate(clientesListProvider);
+    } on Object {
+      // Tužka / deska musí zůstat.
+    }
+  }
+
+  Future<String?> _findClienteIdByNie({
+    required String tenantId,
+    required String nieNormalized,
+  }) async {
+    final client = trySupabaseClient();
+    if (client == null || nieNormalized.isEmpty) return null;
+    final hit = await client
+        .from('client_identifiers')
+        .select('cliente_id')
+        .eq('tenant_id', tenantId)
+        .eq('value_normalized', nieNormalized)
+        .isFilter('deleted_at', null)
+        .maybeSingle();
+    final id = '${hit?['cliente_id'] ?? ''}'.trim();
+    if (id.isEmpty || id == 'null') return null;
+    return id;
+  }
+
+  Future<String?> _insertCoOwnerCliente({
+    required String tenantId,
+    required String nombre,
+    required String nieRaw,
+    required String nieNormalized,
+    required String locale,
+  }) async {
+    final client = trySupabaseClient();
+    if (client == null) return null;
+    final inserted = await client.from('clientes').insert({
+      'tenant_id': tenantId,
+      'kind': 'persona',
+      'nombre': nombre,
+      'locale': locale,
+      'status': 'activo',
+    }).select('id').single();
+    final id = '${inserted['id']}'.trim();
+    if (id.isEmpty) return null;
+    try {
+      await client.from('client_identifiers').insert({
+        'tenant_id': tenantId,
+        'cliente_id': id,
+        'kind': identifierKindFromNormalized(nieNormalized),
+        'value_raw': nieRaw,
+        'value_normalized': nieNormalized,
+        'checksum': 'unknown',
+      });
+      return id;
+    } on Object {
+      final existing = await _findClienteIdByNie(
+        tenantId: tenantId,
+        nieNormalized: nieNormalized,
+      );
+      if (existing != null && existing != id) {
+        await client.from('clientes').update({
+          'deleted_at': DateTime.now().toUtc().toIso8601String(),
+        }).eq('id', id).eq('tenant_id', tenantId);
+        return existing;
+      }
+      return id;
+    }
+  }
+
+  InmuebleTitular? _titularFromRow(Map raw) {
+    final id = '${raw['id'] ?? ''}'.trim();
+    final nombre = '${raw['nombre'] ?? ''}'.trim();
+    if (id.isEmpty || nombre.isEmpty) return null;
+    final bps = raw['cuota_bps'];
+    final cuota = bps is int
+        ? bps
+        : int.tryParse('$bps') ?? 0;
+    if (cuota < 1) return null;
+    final cliente = '${raw['cliente_id'] ?? ''}'.trim();
+    return InmuebleTitular(
+      id: id,
+      nombre: nombre,
+      nieRaw: '${raw['nie_raw'] ?? ''}'.trim(),
+      lado: '${raw['lado'] ?? ''}'.trim(),
+      cuotaBps: cuota,
+      clienteId: cliente.isEmpty || cliente == 'null' ? null : cliente,
+    );
+  }
+
+  Future<void> _reloadTitulares(String inmuebleId) async {
+    final view = state.valueOrNull;
+    if (view == null) return;
+    final rows = await _fetchTitulares(inmuebleId);
+    state = AsyncData(view.withTitulares(rows));
+  }
+
+  void setTitularShare(String titularId, String percentRaw) {
+    final view = state.valueOrNull;
+    if (view == null) return;
+    final bps = cuotaBpsFromSharePercent(percentRaw);
+    if (bps == null) return;
+    state = AsyncData(
+      view.withTitulares([
+        for (final t in view.titulares)
+          if (t.id == titularId) t.copyWith(cuotaBps: bps) else t,
+      ]),
+    );
+    _debounce['titular:$titularId']?.cancel();
+    _debounce['titular:$titularId'] = Timer(
+      const Duration(milliseconds: 450),
+      () {
+        unawaited(_persistTitularCuota(titularId, bps));
+      },
+    );
+  }
+
+  Future<void> _persistTitularCuota(String titularId, int cuotaBps) async {
+    final client = trySupabaseClient();
+    final view = state.valueOrNull;
+    if (client == null || view == null) return;
+    try {
+      await client.from('inmueble_titulares').update({
+        'cuota_bps': cuotaBps,
+      }).eq('id', titularId).eq('tenant_id', view.tenantId);
+    } on Object {
+      // Tužka musí zůstat.
+    }
+  }
+
+  Future<void> removeTitular(String titularId) async {
+    final client = trySupabaseClient();
+    final view = state.valueOrNull;
+    if (client == null || view == null) return;
+    try {
+      await client.from('inmueble_titulares').update({
+        'deleted_at': DateTime.now().toUtc().toIso8601String(),
+      }).eq('id', titularId).eq('tenant_id', view.tenantId);
+      state = AsyncData(
+        view.withTitulares([
+          for (final t in view.titulares)
+            if (t.id != titularId) t,
+        ]),
+      );
+    } on Object {
+      // Tužka musí zůstat.
+    }
+  }
+
+  Future<void> addTitular({
+    required String nombre,
+    required String lado,
+    required String nie,
+    required String sharePercent,
+  }) async {
+    final client = trySupabaseClient();
+    final view = state.valueOrNull;
+    final inmuebleId = view?.inmuebleId;
+    if (client == null || view == null || inmuebleId == null) return;
+    final name = nombre.trim();
+    if (name.isEmpty) throw ArgumentError('nombre');
+    final side = lado.trim() == 'vendedor' ? 'vendedor' : 'comprador';
+    final bps = cuotaBpsFromSharePercent(sharePercent) ?? 10000;
+    var normalized = nie.trim().isEmpty ? '' : normalizeNie(nie);
+    if (normalized.isNotEmpty) {
+      try {
+        final n = await client.rpc('normalize_id', params: {'raw': nie});
+        if (n != null) normalized = '$n';
+      } on Object {
+        normalized = normalizeNie(nie);
+      }
+    }
+    final inserted = await client.from('inmueble_titulares').insert({
+      'tenant_id': view.tenantId,
+      'inmueble_id': inmuebleId,
+      'lado': side,
+      'nombre': name,
+      'nie_raw': nie.trim(),
+      'nie_normalized': normalized,
+      'cuota_bps': bps,
+    }).select('id, nombre, nie_raw, lado, cuota_bps, cliente_id').single();
+    final row = _titularFromRow(inserted);
+    if (row == null) return;
+    state = AsyncData(view.withTitulares([...view.titulares, row]));
+    if (side == 'comprador') {
+      await _ensureCompradorClientes(
+        inmuebleId: inmuebleId,
+        tenantId: view.tenantId,
+        folderClienteId: view.clienteId,
+      );
+      await _reloadTitulares(inmuebleId);
+    }
   }
 
   Future<void> _persistCliente(Map<String, String> values) async {

@@ -143,6 +143,8 @@ class _ClientesScreenState extends ConsumerState<ClientesScreen> {
                               ? AppTheme.pencil
                               : row.status == 'inactivo'
                               ? AppTheme.rule
+                              : row.isCoOwnerOnly
+                              ? AppTheme.rule
                               : AppTheme.accent,
                           onTap: () => context.go('/clientes/${row.id}'),
                           child: Padding(
@@ -160,6 +162,22 @@ class _ClientesScreenState extends ConsumerState<ClientesScreen> {
                                           context,
                                         ).textTheme.titleMedium,
                                       ),
+                                      if (row.isCoOwnerOnly) ...[
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'clients.coOwner'.tr(
+                                            namedArgs: {
+                                              'owner': row.coOwnerNombre ?? '',
+                                              'address':
+                                                  row.coOwnerAddress ?? '',
+                                            },
+                                          ),
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(color: AppTheme.pencil),
+                                        ),
+                                      ],
                                       if (row.subtitle.isNotEmpty) ...[
                                         const SizedBox(height: 4),
                                         Text(
@@ -201,6 +219,7 @@ class _ClientesScreenState extends ConsumerState<ClientesScreen> {
   String _statusLabel(ClienteRow row) {
     if (row.deleted) return 'clients.filterDeleted'.tr();
     if (row.status == 'inactivo') return 'clients.statusInactivo'.tr();
+    if (row.isCoOwnerOnly) return 'clients.coOwnerShort'.tr();
     return '';
   }
 }

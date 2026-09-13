@@ -24,6 +24,7 @@ Není to účetní deník, není to a3, není to GestoLab.
 | Usuario | Usuario | Zaměstnanec kanceláře nebo Support |
 | Cliente | Cliente | Osoba nebo firma, pro kterou kancelář pracuje |
 | Inmueble | Inmueble | Byt / dům / pozemek; nese escritura |
+| Titular | Titular | Spoluvlastník finca (`inmueble_titulares`); NIE + cuota; není druhý kontakt |
 | Expediente | Expediente | Jeden úkon z katalogu nad klientem (volitelně nad nemovitostí) |
 | Bloque | Bloque | Položka ze šablony desky (Agua, Luz, Poder, …) se stavem tužky |
 | Documento | Documento | Sken / foto. Chybějící **typ** je entita, ne prázdný upload |
@@ -36,9 +37,10 @@ Není to účetní deník, není to a3, není to GestoLab.
 
 ```
 Tenant 1──* Cliente
-Cliente 1──* Inmueble
+Cliente 1──* Inmueble           (složka kanceláře, ne jediný vlastník)
 Cliente 1──* Expediente
-Cliente 1──* ClientContact     (druhá osoba + locale)
+Cliente 1──* ClientContact     (komunikace + locale, ne vlastnictví)
+Inmueble 1──* Titular          (NIE, cuota; daně osoby × finca)
 Inmueble 0──* Expediente
 Expediente 1──* Bloque
 Bloque 0──* Documento
@@ -50,9 +52,10 @@ Expediente 0──* Provisión movimiento
 
 Klient bez nemovitosti je platný (např. jen NIE / poder / renta).  
 Klient bez NIE je platný — první úkon může být vyřízení NIE.  
-Nemovitost bez klienta není.  
+Nemovitost bez **složky** (klienta kanceláře) není. Spoluvlastník-kupující dostane **kartu** (hledání, e-mail), ne druhou desku. Titulares drží podíl na finca.  
 Expediente typu koupě/prodej skoro vždy nese `inmueble_id`.  
-Policie / magistrát / testament: stejný vztah (visí na klientovi); u Jarky moduly zapnuté, **tenký spis** (stav + cita + papír), ne dva tištěné listy.
+Policie / magistrát / testament: stejný vztah (visí na klientovi); u Jarky moduly zapnuté, **tenký spis** (stav + cita + papír), ne dva tištěné listy.  
+Spoluvlastnictví: [roadmap_titulares.md](roadmap_titulares.md).
 
 ## 4. Cliente
 
@@ -73,7 +76,7 @@ Karta klienta je hub. Pole z listu 1:
 
 Identifikátory jsou **samostatné řádky** (`client_identifiers`), ne jedno pole. Klient může mít NIE i pas. Hledání viz [search_spec.md](search_spec.md).
 
-Druhý kontakt: `client_contacts` (jméno, vztah, tel, e-mail, **locale, kterým mluví**). Občas.
+Druhý kontakt: `client_contacts` (jméno, vztah, tel, e-mail, **locale, kterým mluví**). Občas. Není spoluvlastník — ten je `inmueble_titulares`.
 
 Soft-delete klienta nesmaže historii expedientes. Neaktivní (`inactivo`) jsou schovaní v seznamu, ne smazaní. Support / owner umí obnovit soft-delete.
 
@@ -89,7 +92,9 @@ Nese to, co papír píše u ESCRITURA, plus adresu bytu.
 | `protocolo` | ne | Číslo protokolu |
 | `referencia_catastral` | většinou | Gestorie Jarka ji obvykle má |
 
-Jeden klient může mít více nemovitostí. Šablona desky se instancuje **na expediente vázané k inmueble**, ne globálně na osobu (jinak by Agua z bytu A spadla na byt B).
+`inmuebles.cliente_id` je složka (pro koho kancelář vede desku). Podíly na finca jsou `inmueble_titulares` (NIE, `cuota_bps`, lado comprador/vendedor). Modelo 210 čte `sharePercent` z titulare tohoto klienta, ne z kontaktu.
+
+Jeden klient může mít více nemovitostí. Šablona desky se instancuje **na expediente vázané k inmueble**, ne globálně na osobu (jinak by Agua z bytu A spadla na byt B). Nemovitost jen B+C nepatří do složky A.
 
 ## 6. Expediente
 

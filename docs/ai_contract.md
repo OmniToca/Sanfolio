@@ -86,7 +86,7 @@ Výsledek do UI: `{ "type": "prefill", "draft_id": "uuid", "fields": … }`.
 
 ### 2.5 `extract_document`
 
-Vstup: `attachment_id` v Storage. Vision/OCR → strukturovaný JSON podle cíle (`dni_nie`, `escritura`, `contrato_luz`, `folder_scan`).
+Vstup: `attachment_id` v Storage. Vision/OCR → strukturovaný JSON podle cíle (`dni_nie`, `escritura`, `contrato_luz`, `folder_scan`). Escritura: všichni kupující i prodávající, cena, finca, právník — ne jen první compareciente.
 
 Výstup vždy končí jako `prefill` draft, ne jako uložený klient. Gestor na desce klikne Guardar → `documentos.extracted` + pole bloku. Pak `ai_get_cliente` umí říct, kdy končí pas.
 
@@ -124,7 +124,7 @@ Při odeslání člověkem: do kanálu jde překlad (`clientes.locale`), origin�
 
 ### 2.7 `search_document_text`
 
-Read-only fulltext v `documentos.body_text` (RPC stejného jména). Limit 20, tenant RLS. Prázdný přepis ≠ „ve smlouvě to není“. `open_screen` na `/clientes/{id}/carpeta/{bloque}`. Žádný pgvector.
+Read-only fulltext v `documentos.body_text` (RPC stejného jména). Limit 20, tenant RLS. Prázdný přepis ≠ „ve smlouvě to není“. `open_screen` na `/clientes/{id}/carpeta/{bloque}`. Žádný pgvector. Notář / právník / catastral / strana napříč kanceláří = `query_escritura`, ne fulltext.
 
 ## 3. Zakázané tools (nesmí být v schématu)
 

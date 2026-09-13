@@ -17,6 +17,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/time/office_date.dart';
 import '../ai/ai_providers.dart';
 import '../ai/documento_fields.dart';
+import '../ai/escritura_parties.dart';
 import '../ai/extract_text.dart';
 import 'cliente_audit.dart';
 import 'cliente_card_controller.dart';
@@ -195,14 +196,6 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
                               const SizedBox(height: 16),
                               _expedientesCard(),
                             ],
-                            const SizedBox(height: 8),
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: TextButton(
-                                onPressed: _busy ? null : _softDelete,
-                                child: Text('clients.softDelete'.tr()),
-                              ),
-                            ),
                           ],
                           if (showAudit) ...[
                             const SizedBox(height: 16),
@@ -225,6 +218,13 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
   Widget _cardHeader(ClienteCard card, {required bool messagingOn}) {
     final nie = card.nie?.trim();
     final subtitle = [
+      if (card.isCoOwnerOnly)
+        'clients.coOwner'.tr(
+          namedArgs: {
+            'owner': card.coOwnerFolderNombre ?? '',
+            'address': card.coOwnerDireccion ?? '',
+          },
+        ),
       if ((card.email ?? '').trim().isNotEmpty) card.email!.trim(),
       if ((card.tel ?? '').trim().isNotEmpty) card.tel!.trim(),
     ].join(' · ');
@@ -249,11 +249,31 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
                   children: [
                     Expanded(
                       child: FilledButton.icon(
-                        onPressed: () => context.go(
-                          '/clientes/${widget.clienteId}/carpeta',
-                        ),
+                        onPressed: () {
+                          if (card.isCoOwnerOnly &&
+                              (card.coOwnerFolderId ?? '').isNotEmpty) {
+                            final exp = card.coOwnerExpedienteId;
+                            context.go(
+                              exp == null || exp.isEmpty
+                                  ? '/clientes/${card.coOwnerFolderId}/carpeta'
+                                  : '/clientes/${card.coOwnerFolderId}/carpeta?exp=$exp',
+                            );
+                            return;
+                          }
+                          context.go(
+                            '/clientes/${widget.clienteId}/carpeta',
+                          );
+                        },
                         icon: const Icon(Icons.folder_open, size: 18),
-                        label: Text('clients.openFolder'.tr()),
+                        label: Text(
+                          card.isCoOwnerOnly
+                              ? 'clients.openOwnerFolder'.tr(
+                                  namedArgs: {
+                                    'owner': card.coOwnerFolderNombre ?? '',
+                                  },
+                                )
+                              : 'clients.openFolder'.tr(),
+                        ),
                       ),
                     ),
                     if (messagingOn) ...[
@@ -360,6 +380,32 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
             child: FilledButton(
               onPressed: _busy ? null : _save,
               child: Text('clients.save'.tr()),
+            ),
+          ),
+          const SizedBox(height: 16),
+          const ColoredBox(
+            color: AppTheme.rule,
+            child: SizedBox(height: 1, width: double.infinity),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'clients.softDeleteSection'.tr(),
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'clients.softDeleteHint'.tr(),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppTheme.pencil),
+          ),
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              onPressed: _busy ? null : _softDelete,
+              icon: const Icon(Icons.visibility_off_outlined, size: 18),
+              label: Text('clients.softDelete'.tr()),
             ),
           ),
         ],
@@ -880,8 +926,12 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
         if ((values[k] ?? '').trim().isNotEmpty) k,
     ];
     final nombre = (values['fields.nombre'] ?? '').trim();
-    final mismatch =
-        nombre.isNotEmpty && !namesLikelyMatch(card.nombre, nombre);
+    final mismatch = nombre.isNotEmpty &&
+        !documentFitsCliente(
+          cardName: card.nombre,
+          cardNie: card.nie,
+          fields: values,
+        );
     return DecoratedBox(
       decoration: BoxDecoration(
         color: pending != null ? AppTheme.proposal : AppTheme.surfaceMuted,

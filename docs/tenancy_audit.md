@@ -48,7 +48,8 @@ Každá ne-globální tabulka: `id uuid`, `tenant_id uuid not null`, `created_at
 | `modules` / `organization_modules` | licence |
 | `clientes` | kind, jméno, kontakt, iban, search_vector |
 | `client_identifiers` | viz search_spec |
-| `inmuebles` | cliente_id, escritura pole |
+| `inmuebles` | cliente_id = složka, escritura pole |
+| `inmueble_titulares` | podíl finca (NIE, cuota_bps); ne `client_contacts` |
 | `expedientes` | tipo, estado, cliente_id, inmueble_id nullable |
 | `bloques` | expediente_id, key, status, fields jsonb |
 | `documentos` | storage_path, tipo, cliente/bloque |

@@ -16,11 +16,13 @@ class ClienteInmueblePick {
     required this.id,
     required this.direccion,
     this.catastral,
+    this.sharePercent,
   });
 
   final String id;
   final String direccion;
   final String? catastral;
+  final String? sharePercent;
 }
 
 class ClienteExpedienteRow {
@@ -168,20 +170,41 @@ class ThinExpedienteController
         .eq('tenant_id', tenantId)
         .isFilter('deleted_at', null)
         .order('created_at');
-    final inmuebles = <ClienteInmueblePick>[];
+    final inmIds = <String>[];
+    final inmRows = <Map>[];
     for (final raw in inmRaw as List) {
       if (raw is! Map) continue;
       final dir = '${raw['direccion'] ?? ''}'.trim();
       if (dir.isEmpty) continue;
+      inmRows.add(raw);
+      inmIds.add('${raw['id']}');
+    }
+    final shareByInmueble = await _sharePercentByInmueble(
+      client: client,
+      inmuebleIds: inmIds,
+      clienteId: clienteId,
+      clienteNie: clienteNie,
+    );
+    final inmuebles = <ClienteInmueblePick>[];
+    for (final raw in inmRows) {
+      final id = '${raw['id']}';
       final cat = '${raw['referencia_catastral'] ?? ''}'.trim();
       inmuebles.add(
         ClienteInmueblePick(
-          id: '${raw['id']}',
-          direccion: dir,
+          id: id,
+          direccion: '${raw['direccion'] ?? ''}'.trim(),
           catastral: cat.isEmpty ? null : cat,
+          sharePercent: shareByInmueble[id],
         ),
       );
     }
+    await _mergeTitularInmuebles(
+      client: client,
+      tenantId: tenantId,
+      clienteId: clienteId,
+      clienteNie: clienteNie,
+      into: inmuebles,
+    );
     final compraRows = await client
         .from('expedientes')
         .select('id')
@@ -236,7 +259,7 @@ class ThinExpedienteController
     if (kind.linksInmueble && inmuebleId.isNotEmpty) {
       for (final pick in inmuebles) {
         if (pick.id == inmuebleId) {
-          values = _withInmuebleFacts(values, pick);
+          values = withInmuebleFacts(values, pick);
           break;
         }
       }
@@ -290,7 +313,7 @@ class ThinExpedienteController
       }
     }
     var values = current.bloque.values;
-    if (pick != null) values = _withInmuebleFacts(values, pick);
+    if (pick != null) values = withInmuebleFacts(values, pick);
     state = AsyncData(
       current.copyWith(
         inmuebleId: empty ? null : id,
@@ -509,7 +532,7 @@ Map<String, String> _fields(Object? raw) {
   return {for (final e in raw.entries) '${e.key}': '${e.value ?? ''}'};
 }
 
-Map<String, String> _withInmuebleFacts(
+Map<String, String> withInmuebleFacts(
   Map<String, String> values,
   ClienteInmueblePick pick,
 ) {
@@ -521,7 +544,124 @@ Map<String, String> _withInmuebleFacts(
   if ((next['fields.cadastral'] ?? '').trim().isEmpty && cat.isNotEmpty) {
     next['fields.cadastral'] = cat;
   }
+  final share = pick.sharePercent?.trim() ?? '';
+  if ((next['fields.sharePercent'] ?? '').trim().isEmpty && share.isNotEmpty) {
+    next['fields.sharePercent'] = share;
+  }
   return next;
+}
+
+Future<Map<String, String>> _sharePercentByInmueble({
+  required dynamic client,
+  required List<String> inmuebleIds,
+  required String clienteId,
+  String? clienteNie,
+}) async {
+  if (inmuebleIds.isEmpty) return {};
+  try {
+    final rows = await client
+        .from('inmueble_titulares')
+        .select(
+          'id, inmueble_id, nombre, nie_raw, lado, cuota_bps, cliente_id',
+        )
+        .inFilter('inmueble_id', inmuebleIds)
+        .eq('lado', 'comprador')
+        .isFilter('deleted_at', null);
+    final byInm = <String, List<InmuebleTitular>>{};
+    if (rows is List) {
+      for (final raw in rows) {
+        if (raw is! Map) continue;
+        final inm = '${raw['inmueble_id'] ?? ''}'.trim();
+        final id = '${raw['id'] ?? ''}'.trim();
+        final nombre = '${raw['nombre'] ?? ''}'.trim();
+        final bps = raw['cuota_bps'];
+        final cuota = bps is int ? bps : int.tryParse('$bps') ?? 0;
+        if (inm.isEmpty || id.isEmpty || nombre.isEmpty || cuota < 1) continue;
+        final cid = '${raw['cliente_id'] ?? ''}'.trim();
+        byInm.putIfAbsent(inm, () => []).add(
+              InmuebleTitular(
+                id: id,
+                nombre: nombre,
+                nieRaw: '${raw['nie_raw'] ?? ''}'.trim(),
+                lado: 'comprador',
+                cuotaBps: cuota,
+                clienteId: cid.isEmpty || cid == 'null' ? null : cid,
+              ),
+            );
+      }
+    }
+    final out = <String, String>{};
+    for (final e in byInm.entries) {
+      final share = titularSharePercentForCliente(
+        rows: e.value,
+        clienteId: clienteId,
+        clienteNie: clienteNie,
+      );
+      if (share != null) out[e.key] = share;
+    }
+    return out;
+  } on Object {
+    return {};
+  }
+}
+
+Future<void> _mergeTitularInmuebles({
+  required dynamic client,
+  required String tenantId,
+  required String clienteId,
+  String? clienteNie,
+  required List<ClienteInmueblePick> into,
+}) async {
+  try {
+    final tit = await client
+        .from('inmueble_titulares')
+        .select('inmueble_id')
+        .eq('cliente_id', clienteId)
+        .eq('lado', 'comprador')
+        .isFilter('deleted_at', null);
+    final have = {for (final p in into) p.id};
+    final extraIds = <String>[];
+    if (tit is List) {
+      for (final raw in tit) {
+        if (raw is! Map) continue;
+        final id = '${raw['inmueble_id'] ?? ''}'.trim();
+        if (id.isEmpty || have.contains(id)) continue;
+        extraIds.add(id);
+        have.add(id);
+      }
+    }
+    if (extraIds.isEmpty) return;
+    final inmRaw = await client
+        .from('inmuebles')
+        .select('id, direccion, referencia_catastral')
+        .eq('tenant_id', tenantId)
+        .inFilter('id', extraIds)
+        .isFilter('deleted_at', null);
+    final share = await _sharePercentByInmueble(
+      client: client,
+      inmuebleIds: extraIds,
+      clienteId: clienteId,
+      clienteNie: clienteNie,
+    );
+    if (inmRaw is! List) return;
+    for (final raw in inmRaw) {
+      if (raw is! Map) continue;
+      final id = '${raw['id']}';
+      final dir = '${raw['direccion'] ?? ''}'.trim();
+      if (dir.isEmpty) continue;
+      final cat = '${raw['referencia_catastral'] ?? ''}'.trim();
+      into.add(
+        ClienteInmueblePick(
+          id: id,
+          direccion: dir,
+          catastral: cat.isEmpty ? null : cat,
+          sharePercent: share[id],
+        ),
+      );
+    }
+  } on Object {
+    return;
+  }
 }
 
 String? _nieFromIdentifiers(Object? raw) {

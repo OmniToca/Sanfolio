@@ -22,6 +22,8 @@ class ClienteRow {
     this.email,
     this.tel,
     this.deleted = false,
+    this.coOwnerNombre,
+    this.coOwnerAddress,
   });
 
   final String id;
@@ -31,6 +33,11 @@ class ClienteRow {
   final String? email;
   final String? tel;
   final bool deleted;
+  final String? coOwnerNombre;
+  final String? coOwnerAddress;
+
+  bool get isCoOwnerOnly =>
+      (coOwnerNombre ?? '').isNotEmpty || (coOwnerAddress ?? '').isNotEmpty;
 
   String get subtitle {
     final bits = <String>[
@@ -39,6 +46,20 @@ class ClienteRow {
       if (tel != null && tel!.isNotEmpty) tel!,
     ];
     return bits.join(' · ');
+  }
+
+  ClienteRow withCoOwner({String? nombre, String? address}) {
+    return ClienteRow(
+      id: id,
+      nombre: this.nombre,
+      status: status,
+      nie: nie,
+      email: email,
+      tel: tel,
+      deleted: deleted,
+      coOwnerNombre: nombre,
+      coOwnerAddress: address,
+    );
   }
 }
 
@@ -117,7 +138,11 @@ final clientesListProvider = FutureProvider<List<ClienteRow>>((ref) async {
       return orderedIds.indexOf(a.id).compareTo(orderedIds.indexOf(b.id));
     });
   }
-  return out;
+  return _withCoOwnerHints(
+    client: client,
+    tenantId: tenantId,
+    rows: out,
+  );
 });
 
 Future<String> openCarpetaCompraventa({
@@ -155,6 +180,104 @@ Future<String> addInmuebleCompraventa({
     params: {'p_cliente_id': clienteId, 'p_direccion': direccion},
   );
   return '$id';
+}
+
+/// Složka má vlastní inmueble. Spoluvlastník jen titular jinde — ať seznam není druhá prázdná deska.
+Future<List<ClienteRow>> _withCoOwnerHints({
+  required dynamic client,
+  required String tenantId,
+  required List<ClienteRow> rows,
+}) async {
+  if (rows.isEmpty) return rows;
+  try {
+    final ids = [for (final r in rows) r.id];
+    final owned = <String>{};
+    final ownRows = await client
+        .from('inmuebles')
+        .select('cliente_id')
+        .eq('tenant_id', tenantId)
+        .inFilter('cliente_id', ids)
+        .isFilter('deleted_at', null);
+    if (ownRows is List) {
+      for (final raw in ownRows) {
+        if (raw is Map) {
+          final id = '${raw['cliente_id'] ?? ''}'.trim();
+          if (id.isNotEmpty) owned.add(id);
+        }
+      }
+    }
+    final titRows = await client
+        .from('inmueble_titulares')
+        .select('cliente_id, inmueble_id')
+        .eq('tenant_id', tenantId)
+        .eq('lado', 'comprador')
+        .inFilter('cliente_id', ids)
+        .isFilter('deleted_at', null);
+    final clienteToInm = <String, String>{};
+    final inmIds = <String>[];
+    if (titRows is List) {
+      for (final raw in titRows) {
+        if (raw is! Map) continue;
+        final cid = '${raw['cliente_id'] ?? ''}'.trim();
+        final iid = '${raw['inmueble_id'] ?? ''}'.trim();
+        if (cid.isEmpty || iid.isEmpty || owned.contains(cid)) continue;
+        if (clienteToInm.containsKey(cid)) continue;
+        clienteToInm[cid] = iid;
+        inmIds.add(iid);
+      }
+    }
+    if (inmIds.isEmpty) return rows;
+    final inmRows = await client
+        .from('inmuebles')
+        .select('id, direccion, cliente_id')
+        .inFilter('id', inmIds)
+        .isFilter('deleted_at', null);
+    final inmById = <String, Map>{};
+    final ownerIds = <String>[];
+    if (inmRows is List) {
+      for (final raw in inmRows) {
+        if (raw is! Map) continue;
+        inmById['${raw['id']}'] = raw;
+        final oid = '${raw['cliente_id'] ?? ''}'.trim();
+        if (oid.isNotEmpty) ownerIds.add(oid);
+      }
+    }
+    final ownerName = <String, String>{};
+    if (ownerIds.isNotEmpty) {
+      final people = await client
+          .from('clientes')
+          .select('id, nombre, apellidos')
+          .inFilter('id', ownerIds);
+      if (people is List) {
+        for (final raw in people) {
+          if (raw is! Map) continue;
+          ownerName['${raw['id']}'] = [
+            '${raw['nombre'] ?? ''}'.trim(),
+            '${raw['apellidos'] ?? ''}'.trim(),
+          ].where((s) => s.isNotEmpty).join(' ');
+        }
+      }
+    }
+    return [
+      for (final row in rows)
+        () {
+          final iid = clienteToInm[row.id];
+          if (iid == null) return row;
+          final inm = inmById[iid];
+          if (inm == null) return row;
+          final oid = '${inm['cliente_id'] ?? ''}'.trim();
+          final addr = '${inm['direccion'] ?? ''}'.trim();
+          final name = ownerName[oid] ?? '';
+          if (name.isEmpty && addr.isEmpty) return row;
+          return row.withCoOwner(
+            nombre: name.isEmpty ? null : name,
+            address: addr.isEmpty ? null : addr,
+          );
+        }(),
+    ];
+  } on Object {
+    return rows;
+  }
 }
 
 ClienteRow _rowFrom(Map<dynamic, dynamic> raw) {

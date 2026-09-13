@@ -13,14 +13,14 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `nie_poder` | bloky na desce | extras NIE = samostatný úkol |
 | `ai_copilot` | `features/ai` | search / open / prefill; uživatel ukládá |
 | `AiPanel` / `aiChatProvider` | `features/ai/ai_panel.dart` | trvalý chat; zápis `ai_conversations` + `ai_messages` |
-| `extract-document` | Edge Function | fotka/PDF → text LLM (faktura) nebo vision (průkaz) → `ai_drafts`; Guardar je gestor |
+| `extract-document` | Edge Function | fotka/PDF → text LLM nebo vision → `ai_drafts`; compraventa: všichni kupující/prodávající, cena, finca, právník; Guardar je gestor |
 | `documentos.extracted` | JSONB na dokladu | uložená pole po Guardar; AI sem nezapisuje |
 | `documentos.body_text` | TEXT na dokladu | přepis PDF po Guardar |
 | `purge_documento_storage` | SQL RPC | owner vysype blob schovaného dokumentu |
 | `trashVisibleOnCard` | karta klienta | koš jen se schovaným originálem; vysypané z karty zmizí |
 | `pickOfficeFile` | `office_file_pick.dart` | web: `<input>` overlay na tlačítku (Safari); raw POST do Storage, ne multipart |
 | `paper_glance` | `features/ai/paper_glance.dart` | součet faktur a krátký řádek na šanonu |
-| `query_suministro` / `query_plazos_office` / `query_escritura` | SQL RPC | office-wide čtení desky pro chat |
+| `query_suministro` / `query_plazos_office` / `query_escritura` | SQL RPC | office-wide čtení desky; escritura i notář / právník / catastral / strany |
 | `ai-assistant` | Edge Function | whitelist tools; žádný save/send |
 | `roadmap_dokumenty_ai` | `docs/roadmap_dokumenty_ai.md` | Fáze A–G + FTS v `body_text`; vektory později |
 | `ai-draft-message` | Edge Function | díry složky → `mensajes.draft`; odesílá gestor |
@@ -52,7 +52,8 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `invite-staff` | Edge Function | owner zve gestor/asistente, max 3 |
 | `cliente_audit_log` | SQL RPC + karta | LOPDGDD stopa; `audit_open` při vstupu; jen owner |
 | `tenant_settings` | SQL 1:1 tenant | display_name, offsety, slot_order, send_translated_outbound |
-| `client_contacts` | SQL | druhý kontakt + locale |
+| `client_contacts` | SQL | druhý kontakt + locale (komunikace, ne vlastnictví) |
+| `inmueble_titulares` | SQL + šanon escritura | spoluvlastníci finca; Guardar založí kartu kupujícího bez carpeta; 210 čte sharePercent |
 | `organization_modules` | SQL | které moduly kancelář má |
 
 Jazyky UI: `cs` `en` `es` `de` `fr` (per `profiles.locale`). Klient: `clientes.locale`. Outbound zpráva = překlad.

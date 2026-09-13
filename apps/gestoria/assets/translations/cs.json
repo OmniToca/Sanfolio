@@ -170,8 +170,10 @@
     "filterActive": "Aktivní",
     "filterInactive": "Neaktivní",
     "filterDeleted": "Schované",
-    "softDelete": "Schovat složku",
-    "softDeleteConfirm": "Složka zmizí ze seznamu. Historie zůstane. Owner ji může vrátit.",
+    "softDelete": "Schovat ze seznamu",
+    "softDeleteSection": "Seznam Klienti",
+    "softDeleteHint": "Klient zmizí ze seznamu Klienti — ne jen do filtru Neaktivní. Papíry, spisy a audit zůstanou. Vrátit ho smí owner kanceláře.",
+    "softDeleteConfirm": "Klient zmizí ze seznamu Klienti. Papíry, spisy a audit zůstanou. Owner ho může vrátit.",
     "restore": "Vrátit do seznamu",
     "deletedBanner": "Složka je schovaná (soft-delete).",
     "onlyOwnerRestore": "Vrátit ji smí jen owner kanceláře.",
@@ -181,6 +183,9 @@
     "contactAdd": "Přidat kontakt",
     "contactRemove": "Odebrat kontakt",
     "contactEmpty": "Žádný druhý kontakt.",
+    "coOwner": "Spoluvlastník · {owner} · {address}",
+    "coOwnerShort": "Spoluvlastník",
+    "openOwnerFolder": "Otevřít složku ({owner})",
     "documents": "Dokumenty klienta",
     "documentsEmpty": "Zatím žádný DNI, NIE ani pasaporte.",
     "docValid": "Platné",
@@ -220,6 +225,11 @@
         "insert": "Přidání kontaktu",
         "update": "Úprava kontaktu",
         "soft_delete": "Odebrání kontaktu"
+      },
+      "inmueble_titulares": {
+        "insert": "Přidání titulare",
+        "update": "Úprava podílu",
+        "soft_delete": "Odebrání titulare"
       }
     }
   },
@@ -308,7 +318,20 @@
     "watchToggle": "Sledovat. Vypnutím přesunete blok do Nesledujeme.",
     "offReason": "Proč blok vypínáte?",
     "offReasonHint": "Důvod do auditu (povinný)",
-    "offConfirm": "Vypnout"
+    "offConfirm": "Vypnout",
+    "titulares": "Titulares",
+    "titularEmpty": "Po Guardar listiny sem přijdou kupující a prodávající. Tužka opraví podíl.",
+    "titularAdd": "Přidat titulare",
+    "titularRemove": "Odebrat z finca",
+    "titularShareWarn": "Podíl kupujících je {sum} %, ne 100 %.",
+    "titularFolder": "složka",
+    "titularNombre": "Jméno",
+    "titularNie": "NIE",
+    "titularLado": "Strana",
+    "ladoComprador": "Comprador",
+    "ladoVendedor": "Vendedor",
+    "titularSaveError": "Titulare se nepodařilo uložit.",
+    "titularCard": "karta"
   },
   "docs": {
     "copia_escritura": "Copia escritura",
@@ -364,6 +387,8 @@
   "fields": {
     "nie": "NIE",
     "nombre": "Jméno",
+    "seller": "Prodávající",
+    "sellerNie": "NIE prodávající",
     "email": "E-mail",
     "tel": "Tel",
     "address": "Adresa",
@@ -402,6 +427,12 @@
     "tramiteStatus": "Stav úkonu",
     "appointment": "Cita",
     "attorney": "Zmocněnec",
+    "buyers": "Kupující",
+    "sellers": "Prodávající",
+    "lawyer": "Právník / despacho",
+    "parcela": "Parcela",
+    "registry": "Registro / finca",
+    "referenceValue": "Valor de referencia (€)",
     "periodicity": "Periodicidad",
     "modeloPeriod": "Periodo (210)",
     "exercise": "Ejercicio",

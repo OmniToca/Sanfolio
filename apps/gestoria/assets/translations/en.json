@@ -170,8 +170,10 @@
     "filterActive": "Active",
     "filterInactive": "Inactive",
     "filterDeleted": "Hidden",
-    "softDelete": "Hide folder",
-    "softDeleteConfirm": "The folder leaves the list. History stays. The owner can restore it.",
+    "softDelete": "Hide from the list",
+    "softDeleteSection": "Clients list",
+    "softDeleteHint": "The client leaves the Clients list — not just the Inactive filter. Papers, files and the audit stay. The office owner can restore it.",
+    "softDeleteConfirm": "The client leaves the Clients list. Papers, files and the audit stay. The owner can restore it.",
     "restore": "Restore to the list",
     "deletedBanner": "This folder is hidden (soft-delete).",
     "onlyOwnerRestore": "Only the office owner can restore it.",
@@ -181,6 +183,9 @@
     "contactAdd": "Add contact",
     "contactRemove": "Remove contact",
     "contactEmpty": "No second contact.",
+    "coOwner": "Co-owner · {owner} · {address}",
+    "coOwnerShort": "Co-owner",
+    "openOwnerFolder": "Open folder ({owner})",
     "documents": "Client documents",
     "documentsEmpty": "No DNI, NIE or passport yet.",
     "docValid": "Valid",
@@ -220,6 +225,11 @@
         "insert": "Added a contact",
         "update": "Updated a contact",
         "soft_delete": "Removed a contact"
+      },
+      "inmueble_titulares": {
+        "insert": "Added a titular",
+        "update": "Updated a share",
+        "soft_delete": "Removed a titular"
       }
     }
   },
@@ -308,7 +318,20 @@
     "watchToggle": "Watch this block. Turning it off moves it to Not tracking.",
     "offReason": "Why are you turning this block off?",
     "offReasonHint": "Reason for the audit (required)",
-    "offConfirm": "Turn off"
+    "offConfirm": "Turn off",
+    "titulares": "Titulares",
+    "titularEmpty": "After saving the deed, buyers and sellers appear here. The pencil corrects the share.",
+    "titularAdd": "Add titular",
+    "titularRemove": "Remove from the finca",
+    "titularShareWarn": "Buyers’ share is {sum} %, not 100 %.",
+    "titularFolder": "folder",
+    "titularNombre": "Name",
+    "titularNie": "NIE",
+    "titularLado": "Side",
+    "ladoComprador": "Comprador",
+    "ladoVendedor": "Vendedor",
+    "titularSaveError": "Could not save the titular.",
+    "titularCard": "card"
   },
   "docs": {
     "copia_escritura": "Copia escritura",
@@ -364,6 +387,8 @@
   "fields": {
     "nie": "NIE",
     "nombre": "Name",
+    "seller": "Seller",
+    "sellerNie": "Seller NIE",
     "email": "Email",
     "tel": "Phone",
     "address": "Address",
@@ -402,6 +427,12 @@
     "tramiteStatus": "File status",
     "appointment": "Appointment",
     "attorney": "Attorney-in-fact",
+    "buyers": "Buyers",
+    "sellers": "Sellers",
+    "lawyer": "Lawyer / firm",
+    "parcela": "Plot",
+    "registry": "Land registry / finca",
+    "referenceValue": "Catastro reference value (€)",
     "periodicity": "Periodicidad",
     "modeloPeriod": "Periodo (210)",
     "exercise": "Ejercicio",

@@ -95,6 +95,7 @@ Deno.serve(async (req) => {
     userClient,
     userId: userData.user.id,
     tenantId,
+    clienteId,
     draftId: `${draft.id}`,
     storagePath,
     mime,
@@ -128,6 +129,7 @@ async function finishExtract(args: {
   userClient: ReturnType<typeof createClient>;
   userId: string;
   tenantId: string;
+  clienteId: string;
   draftId: string;
   storagePath: string;
   mime: string;
@@ -135,6 +137,8 @@ async function finishExtract(args: {
   bloqueKey: string;
 }) {
   try {
+    const hint = await loadClienteHint(args.userClient, args.clienteId);
+    const docTipo = guessTipoFromPath(args.storagePath, args.docTipo);
     const { data: file, error: dlErr } = await args.userClient.storage
       .from("documentos")
       .download(args.storagePath);
@@ -150,7 +154,7 @@ async function finishExtract(args: {
 
     const isPdf = args.mime === "application/pdf" ||
       /\.pdf$/i.test(args.storagePath);
-    const identity = args.docTipo === "dni_nie" || args.docTipo === "pasaporte";
+    const identity = docTipo === "dni_nie" || docTipo === "pasaporte";
     let fields: Record<string, string> = {};
     if (!isPdf) {
       fields = sanitizeFields(fieldsFromText(latinText(bytes)));
@@ -177,7 +181,7 @@ async function finishExtract(args: {
         apiKey!,
         bytes,
         args.mime || guessMime(args.storagePath),
-        args.docTipo,
+        docTipo,
         isPdf,
       );
       if (vision) {
@@ -187,12 +191,20 @@ async function finishExtract(args: {
       }
     }
     if (apiKey && fields.body_text && !identity) {
-      const llm = await llmExtractFromText(apiKey, fields.body_text, args.docTipo);
+      const llm = await llmExtractFromText(
+        apiKey,
+        fields.body_text,
+        docTipo,
+        hint,
+      );
       if (llm) {
         const body = fields.body_text;
         fields = { ...fields, ...sanitizeFields(llm) };
         fields.body_text = body;
       }
+    }
+    if (fields.body_text) {
+      fields = alignDeedFields(fields, fields.body_text, hint);
     }
     const extracted = Object.keys(fields).length > 0;
     await markDraft(
@@ -253,6 +265,17 @@ const FIELD_MAP: Record<string, string> = {
   company: "fields.company",
   policy: "fields.policy",
   attorney: "fields.attorney",
+  seller: "fields.seller",
+  sellerNie: "fields.sellerNie",
+  sellers: "fields.sellers",
+  buyers: "fields.buyers",
+  lawyer: "fields.lawyer",
+  address: "fields.address",
+  cadastral: "fields.cadastral",
+  parcela: "fields.parcela",
+  registry: "fields.registry",
+  salePrice: "fields.salePrice",
+  referenceValue: "fields.referenceValue",
   body_text: "body_text",
 };
 
@@ -267,7 +290,15 @@ function extractSystemPrompt(docTipo: string, includeBody: boolean): string {
     "Periodo de facturación → periodFrom and periodTo (YYYY-MM-DD), not period (period is IBI year only). " +
     "Fecha de emisión → issued. Importe total → amount as 188.85 (dot, no currency). " +
     "Consumo kWh or m³ → consumption. Compañía / comercializadora → company. Titular → holder. " +
-    "Dates YYYY-MM-DD. Omit unknown. Do not invent." +
+    "Dates YYYY-MM-DD. Omit unknown. Do not invent. " +
+    "Escritura de compraventa: list ALL sellers in sellers and ALL real buyers in buyers as 'NAME (NIE); NAME (NIE)'. " +
+    "A representative (en nombre y representación) is attorney, not a buyer. Interpreter is not a party. " +
+    "nombre and nie = the office client if they appear among the parties. " +
+    "salePrice = precio de esta compraventa only, not valor de referencia, not hipoteca, not partial transfers. " +
+    "referenceValue = valor de referencia catastral. lawyer = despacho/abogado. " +
+    "parcela, registry (Registro de la Propiedad + finca), cadastral, address of the URBANA. " +
+    "protocol is the number at the very top (DOS MIL CIENTO DIECISÉIS = 2116), not a later year or poder. " +
+    "Do not put passport numbers into tel." +
     (includeBody
       ? " body_text = readable text with --- Strana n --- page marks, max 20000 chars."
       : " Do not return body_text.")
@@ -279,14 +310,18 @@ function mapLlmFields(parsed: Record<string, unknown>): Record<string, string> {
   for (const [src, dest] of Object.entries(FIELD_MAP)) {
     const v = str(parsed[src]);
     if (!v) continue;
-    out[dest] = src === "nie" ? v.toUpperCase() : src === "email" ? v.toLowerCase() : v;
+    out[dest] = src === "nie" || src === "sellerNie"
+      ? v.toUpperCase()
+      : src === "email"
+      ? v.toLowerCase()
+      : v;
   }
   return out;
 }
 
 function fieldsFromText(text: string): Record<string, string> {
   const out: Record<string, string> = {};
-  const nie = text.match(/\b(?:[XYZ][0-9*]{7}[A-Z]|[0-9*]{8}[A-Z])\b/i);
+  const nie = text.match(/\b(?:[XYZ]\s*-?\s*[0-9*]{7}\s*-?\s*[A-Z]|[0-9*]{8}[A-Z])\b/i);
   if (nie) out["fields.nie"] = nie[0].toUpperCase();
   const email = text.match(/[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}/i);
   if (email) out["fields.email"] = email[0].toLowerCase();
@@ -331,7 +366,7 @@ function sanitizeFields(raw: Record<string, string>): Record<string, string> {
   for (const [key, value] of Object.entries(raw)) {
     const v = value.trim();
     if (!v) continue;
-    if (key === "fields.nie") {
+    if (key === "fields.nie" || key === "fields.sellerNie") {
       if (looksLikeNie(v)) out[key] = v.toUpperCase().replace(/\s/g, "");
       continue;
     }
@@ -347,7 +382,13 @@ function sanitizeFields(raw: Record<string, string>): Record<string, string> {
       out[key] = v.slice(0, 100000);
       continue;
     }
-    if (v.length <= 200) out[key] = v;
+    const long = key === "fields.buyers" ||
+      key === "fields.sellers" ||
+      key === "fields.address" ||
+      key === "fields.registry" ||
+      key === "fields.lawyer" ||
+      key === "fields.attorney";
+    if (v.length <= (long ? 2000 : 200)) out[key] = v;
   }
   return out;
 }
@@ -356,8 +397,13 @@ async function llmExtractFromText(
   apiKey: string,
   text: string,
   docTipo: string,
+  hint: { nombre: string; nie: string },
 ): Promise<Record<string, string> | null> {
-  const clipped = text.slice(0, 16000);
+  const clipped = escrituraLlmFocus(text).slice(0, 24000);
+  const who = [
+    hint.nombre ? `Office client name: ${hint.nombre}.` : "",
+    hint.nie ? `Office client NIE: ${hint.nie}.` : "",
+  ].filter(Boolean).join(" ");
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -370,7 +416,10 @@ async function llmExtractFromText(
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: extractSystemPrompt(docTipo, false) },
-        { role: "user", content: clipped },
+        {
+          role: "user",
+          content: who ? `${who}\n\n${clipped}` : clipped,
+        },
       ],
     }),
   });
@@ -503,4 +552,346 @@ function json(status: number, body: Record<string, unknown>) {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+function guessTipoFromPath(path: string, declared: string): string {
+  if (declared && declared !== "other") return declared;
+  const name = path.split("/").pop() ?? "";
+  if (/escritur|compravent|smlouv|notari/i.test(name)) return "copia_escritura";
+  return declared;
+}
+
+async function loadClienteHint(
+  userClient: ReturnType<typeof createClient>,
+  clienteId: string,
+): Promise<{ nombre: string; nie: string }> {
+  const { data: cli } = await userClient
+    .from("clientes")
+    .select("nombre, apellidos")
+    .eq("id", clienteId)
+    .maybeSingle();
+  const nombre = [cli?.nombre, cli?.apellidos]
+    .map((x) => `${x ?? ""}`.trim())
+    .filter(Boolean)
+    .join(" ");
+  const { data: ids } = await userClient
+    .from("client_identifiers")
+    .select("value_raw")
+    .eq("cliente_id", clienteId)
+    .is("deleted_at", null)
+    .limit(4);
+  let nie = "";
+  for (const row of ids ?? []) {
+    const v = `${(row as { value_raw?: string }).value_raw ?? ""}`;
+    if (looksLikeNie(v)) {
+      nie = v;
+      break;
+    }
+  }
+  return { nombre, nie };
+}
+
+function looksLikeEscrituraText(text: string): boolean {
+  const t = text.toLowerCase();
+  const deed = t.includes("escritura") ||
+    t.includes("compraventa") ||
+    t.includes("notario") ||
+    t.includes("comparecen");
+  const parties = t.includes("vender") ||
+    t.includes("vendedor") ||
+    t.includes("comprar") ||
+    t.includes("comprador");
+  return deed && parties;
+}
+
+function normalizeNie(raw: string): string {
+  return raw.toUpperCase().replace(/[\s\-\./]/g, "");
+}
+
+type DeedPerson = { nie: string; name: string; index: number };
+
+const deedNieRe = /\b([XYZ])\s*-?\s*(\d{7})\s*-?\s*([A-Z])\b/gi;
+const dNameRe =
+  /D[ªºa]?\.?\s+([A-ZÁÉÍÓÚÜÑ][A-ZÁÉÍÓÚÜÑa-záéíóúüñ.\-\s]{2,80}?)(?:,|\n|nacida|nacido|mayor|con |de soltera)/gi;
+
+function tidyName(raw: string): string {
+  return raw.replace(/\s+/g, " ").trim();
+}
+
+function deedPeople(text: string): DeedPerson[] {
+  const out: DeedPerson[] = [];
+  const re = new RegExp(deedNieRe.source, "gi");
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text))) {
+    const nie = `${m[1]}${m[2]}${m[3]}`.toUpperCase();
+    if (!looksLikeNie(nie)) continue;
+    const from = Math.max(0, m.index - 800);
+    const window = text.slice(from, m.index);
+    let name = "";
+    const names = new RegExp(dNameRe.source, "gi");
+    let n: RegExpExecArray | null;
+    while ((n = names.exec(window))) {
+      name = tidyName(n[1] ?? "");
+    }
+    out.push({ nie, name, index: m.index });
+  }
+  return out;
+}
+
+function partyLabel(p: DeedPerson): string {
+  return p.name ? `${p.name} (${p.nie})` : p.nie;
+}
+
+function uniqueNie(people: DeedPerson[]): DeedPerson[] {
+  const seen = new Set<string>();
+  return people.filter((p) => {
+    if (seen.has(p.nie)) return false;
+    seen.add(p.nie);
+    return true;
+  });
+}
+
+function indexOfAny(lower: string, marks: string[]): number {
+  let best = -1;
+  for (const m of marks) {
+    const i = lower.indexOf(m);
+    if (i < 0) continue;
+    if (best < 0 || i < best) best = i;
+  }
+  return best;
+}
+
+function firstEuro(text: string, at: number, window: number): string | null {
+  const slice = text.slice(at, Math.min(text.length, at + window));
+  const m = slice.match(/\((\d{1,3}(?:\.\d{3})*(?:,\d{2})?|\d+(?:,\d{2})?)\s*€\)/);
+  if (!m) return null;
+  return m[1].replace(/\./g, "").replace(",", ".");
+}
+
+type DeedFacts = {
+  sellers: DeedPerson[];
+  buyers: DeedPerson[];
+  representatives: DeedPerson[];
+  notary: string | null;
+  protocol: number | null;
+  address: string | null;
+  cadastral: string | null;
+  parcela: string | null;
+  registry: string | null;
+  lawyer: string | null;
+  salePrice: string | null;
+  referenceValue: string | null;
+};
+
+function extractDeedFacts(text: string): DeedFacts {
+  const people = deedPeople(text);
+  const lower = text.toLowerCase();
+  const sellAt = indexOfAny(lower, ["para vender", "parte vendedora"]);
+  const buyAt = indexOfAny(lower, ["para comprar", "parte compradora"]);
+  const interpAt = indexOfAny(lower, ["intérprete", "interprete"]);
+  const intervienen = lower.indexOf("intervienen");
+  let exponen = indexOfAny(lower, ["exponen:", "otorgan:"]);
+  if (exponen < 0) exponen = lower.length;
+  const interpEnd = interpAt < 0
+    ? -1
+    : (intervienen > interpAt ? intervienen : interpAt + 800);
+  const skipInterp = (p: DeedPerson) =>
+    interpAt >= 0 && interpEnd >= 0 && p.index >= interpAt && p.index < interpEnd;
+  const sellers = uniqueNie(people.filter((p) =>
+    !skipInterp(p) &&
+    (sellAt < 0 || p.index >= sellAt) &&
+    (buyAt < 0 || p.index < buyAt)
+  ));
+  const reprAt = lower.indexOf("representaci");
+  const represented = uniqueNie(people.filter((p) =>
+    !skipInterp(p) && reprAt >= 0 && p.index > reprAt && p.index < exponen
+  ));
+  const afterBuy = people.filter((p) =>
+    !skipInterp(p) && buyAt >= 0 && p.index > buyAt && p.index < exponen
+  );
+  const buyers = represented.length
+    ? represented
+    : uniqueNie(afterBuy.filter((p) => !sellers.some((s) => s.nie === p.nie)));
+  const representatives = uniqueNie(afterBuy.filter((p) =>
+    represented.length > 0 && !represented.some((b) => b.nie === p.nie)
+  ));
+  const urbAt = lower.indexOf("urbana");
+  const urb = urbAt < 0 ? text : text.slice(urbAt, urbAt + 2200);
+  const urbFlat = urb.replace(/\n/g, " ");
+  const hoy = urbFlat.match(/hoy calle\s+([^,\n]+?),\s+n[úu]mero\s+([^\s,]+)/i);
+  const mun = urbFlat.match(/t[ée]rmino de\s+([A-ZÁÉÍÓÚÜÑa-záéíóúüñ]+)/i);
+  let address: string | null = null;
+  if (hoy) {
+    address = tidyName(`calle ${hoy[1]}, ${hoy[2]}${mun ? `, ${mun[1]}` : ""}`);
+  }
+  const parcela = urb.match(/parcela\s+([A-Z0-9][A-Z0-9.\-]{1,12})/i);
+  const cat = text.replace(/\n/g, " ").match(
+    /referencia\s+catastral[.\s:\-]*([0-9]{7}[A-Z]{2}[0-9]{4}[A-Z][0-9]{4}[A-Z]{2})/i,
+  );
+  const lugar = text.replace(/\n/g, " ").match(
+    /Registro de la Propiedad de\s+([A-ZÁÉÍÓÚÜÑa-záéíóúüñ\s]+?)(?:\s+N[úu]mero|,)/i,
+  );
+  const finca = text.replace(/\n/g, " ").match(/finca\s+n[úu]mero\s+([\d.]+)/i);
+  const lawyer = text.match(
+    /[“"«]([^“"»]{6,80}ABOGAD[^“"»]{0,40})[”"»]/i,
+  );
+  const priceAt = lower.indexOf("precio de esta compraventa");
+  const refAt = lower.indexOf("valor de referencia");
+  const notary = text.match(
+    /Ante m[ií],\s+([A-ZÁÉÍÓÚÜÑ][A-ZÁÉÍÓÚÜÑ\s.]+?),\s+Notario/i,
+  );
+  return {
+    sellers,
+    buyers,
+    representatives,
+    notary: notary ? tidyName(notary[1]) : null,
+    protocol: spanishDeedNumber(text),
+    address,
+    cadastral: cat?.[1]?.toUpperCase() ?? null,
+    parcela: parcela?.[1]?.toUpperCase() ?? null,
+    registry: [lugar ? tidyName(lugar[1]) : "", finca ? `finca ${finca[1]}` : ""]
+      .filter(Boolean).join(", ") || null,
+    lawyer: lawyer ? tidyName(lawyer[1]) : null,
+    salePrice: priceAt >= 0 ? firstEuro(text, priceAt, 500) : null,
+    referenceValue: refAt >= 0 ? firstEuro(text, refAt, 400) : null,
+  };
+}
+
+function pickDeedClientFromFacts(
+  facts: DeedFacts,
+  hint: { nombre: string; nie: string },
+): DeedPerson | null {
+  const pool = [...facts.buyers, ...facts.sellers, ...facts.representatives];
+  if (!pool.length) return null;
+  const wantNie = hint.nie.trim() ? normalizeNie(hint.nie) : "";
+  if (wantNie) {
+    const hit = pool.find((p) => p.nie === wantNie);
+    if (hit) return hit;
+  }
+  const tokens = hint.nombre.trim().toLowerCase().split(/\s+/).filter((t) =>
+    t.length >= 2
+  );
+  if (tokens.length) {
+    const hit = pool.find((p) => tokens.some((t) => p.name.toLowerCase().includes(t)));
+    if (hit) return hit;
+  }
+  return facts.buyers[0] ?? pool[0];
+}
+
+function escrituraLlmFocus(text: string, head = 4500, chunk = 5000): string {
+  if (text.length <= head + 2000) return text;
+  const lower = text.toLowerCase();
+  let out = text.slice(0, Math.min(head, text.length));
+  const add = (label: string, marks: string[], size: number) => {
+    const at = indexOfAny(lower, marks);
+    if (at < 0) return;
+    out += `\n\n--- ${label} ---\n` +
+      text.slice(at, Math.min(text.length, at + size));
+  };
+  add("Comprador", ["para comprar", "parte compradora", "en nombre y representaci"], chunk);
+  add("Finca", ["exponen:", "urbana", "referencia catastral"], 4000);
+  add("Precio", ["precio de esta compraventa", "es precio de", "otorgan:"], 3500);
+  add("Abogado", ["abogad", "letrado", "despacho profesional"], 2500);
+  add("Registro", ["registro de la propiedad"], 2000);
+  return out;
+}
+
+const esNum: Record<string, number> = {
+  cero: 0, un: 1, uno: 1, una: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5,
+  seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10, once: 11, doce: 12,
+  trece: 13, catorce: 14, quince: 15, dieciseis: 16, diecisiete: 17,
+  dieciocho: 18, diecinueve: 19, veinte: 20, veintiun: 21, veintiuno: 21,
+  veintidos: 22, veintitres: 23, veinticuatro: 24, veinticinco: 25,
+  veintiseis: 26, veintisiete: 27, veintiocho: 28, veintinueve: 29,
+  treinta: 30, cuarenta: 40, cincuenta: 50, sesenta: 60, setenta: 70,
+  ochenta: 80, noventa: 90, cien: 100, ciento: 100, doscientos: 200,
+  trescientos: 300, cuatrocientos: 400, quinientos: 500, seiscientos: 600,
+  setecientos: 700, ochocientos: 800, novecientos: 900,
+};
+
+function foldEs(raw: string): string {
+  return raw.toLowerCase()
+    .replace(/á/g, "a")
+    .replace(/é/g, "e")
+    .replace(/í/g, "i")
+    .replace(/ó/g, "o")
+    .replace(/ú/g, "u")
+    .replace(/ü/g, "u")
+    .replace(/ñ/g, "n");
+}
+
+function parseSpanishInt(raw: string): number | null {
+  let total = 0;
+  let current = 0;
+  for (const w of foldEs(raw).split(/[^a-z]+/)) {
+    if (!w || w === "y") continue;
+    if (w === "mil") {
+      current = (current === 0 ? 1 : current) * 1000;
+      total += current;
+      current = 0;
+      continue;
+    }
+    const v = esNum[w];
+    if (v == null) continue;
+    current += v;
+  }
+  const n = total + current;
+  return n === 0 ? null : n;
+}
+
+function spanishDeedNumber(text: string): number | null {
+  const head = text.slice(0, 900);
+  const m = head.match(/N[ÚU]MERO\s+([A-ZÁÉÍÓÚÜÑ\s]+)/i);
+  if (!m) return null;
+  const n = parseSpanishInt(m[1]);
+  if (n == null || n < 1 || n > 99999) return null;
+  return n;
+}
+
+function alignDeedFields(
+  fields: Record<string, string>,
+  bodyText: string,
+  hint: { nombre: string; nie: string },
+): Record<string, string> {
+  if (!looksLikeEscrituraText(bodyText)) return fields;
+  const facts = extractDeedFacts(bodyText);
+  const next = { ...fields };
+  if (facts.sellers.length) {
+    next["fields.sellers"] = facts.sellers.map(partyLabel).join("; ");
+    if (facts.sellers[0].name) next["fields.seller"] = facts.sellers[0].name;
+    next["fields.sellerNie"] = facts.sellers[0].nie;
+  }
+  if (facts.buyers.length) {
+    next["fields.buyers"] = facts.buyers.map(partyLabel).join("; ");
+  }
+  if (facts.representatives.length) {
+    next["fields.attorney"] = facts.representatives.map(partyLabel).join("; ");
+  }
+  if (facts.notary) next["fields.notary"] = facts.notary;
+  if (facts.protocol != null) next["fields.protocol"] = `${facts.protocol}`;
+  if (facts.address) next["fields.address"] = facts.address;
+  if (facts.cadastral) next["fields.cadastral"] = facts.cadastral;
+  if (facts.parcela) next["fields.parcela"] = facts.parcela;
+  if (facts.registry) next["fields.registry"] = facts.registry;
+  if (facts.lawyer) next["fields.lawyer"] = facts.lawyer;
+  if (facts.salePrice) next["fields.salePrice"] = facts.salePrice;
+  if (facts.referenceValue) next["fields.referenceValue"] = facts.referenceValue;
+  const client = pickDeedClientFromFacts(facts, hint);
+  if (client) {
+    next["fields.nie"] = client.nie;
+    next["fields.nombre"] = hint.nombre.trim() || client.name;
+  } else if (facts.buyers[0]) {
+    next["fields.nie"] = facts.buyers[0].nie;
+    if (facts.buyers[0].name) next["fields.nombre"] = facts.buyers[0].name;
+  }
+  for (const k of [
+    "fields.expiry",
+    "fields.issued",
+    "fields.nationality",
+    "fields.docNumber",
+    "fields.tel",
+  ]) {
+    delete next[k];
+  }
+  return sanitizeFields(next);
 }

@@ -170,8 +170,10 @@
     "filterActive": "Activos",
     "filterInactive": "Inactivos",
     "filterDeleted": "Ocultos",
-    "softDelete": "Ocultar carpeta",
-    "softDeleteConfirm": "La carpeta sale de la lista. El historial queda. El owner puede restaurarla.",
+    "softDelete": "Ocultar de la lista",
+    "softDeleteSection": "Lista de clientes",
+    "softDeleteHint": "El cliente sale de la lista Clientes — no solo del filtro Inactivos. Los papeles, expedientes y la auditoría quedan. El owner de la oficina puede restaurarlo.",
+    "softDeleteConfirm": "El cliente sale de la lista Clientes. Los papeles, expedientes y la auditoría quedan. El owner puede restaurarlo.",
     "restore": "Restaurar a la lista",
     "deletedBanner": "Esta carpeta está oculta (soft-delete).",
     "onlyOwnerRestore": "Solo el owner de la oficina puede restaurarla.",
@@ -181,6 +183,9 @@
     "contactAdd": "Añadir contacto",
     "contactRemove": "Quitar contacto",
     "contactEmpty": "No hay segundo contacto.",
+    "coOwner": "Copropietario · {owner} · {address}",
+    "coOwnerShort": "Copropietario",
+    "openOwnerFolder": "Abrir carpeta ({owner})",
     "documents": "Documentos del cliente",
     "documentsEmpty": "Todavía no hay DNI, NIE ni pasaporte.",
     "docValid": "Vigente",
@@ -220,6 +225,11 @@
         "insert": "Alta de contacto",
         "update": "Cambio de contacto",
         "soft_delete": "Baja de contacto"
+      },
+      "inmueble_titulares": {
+        "insert": "Alta de titular",
+        "update": "Cambio de cuota",
+        "soft_delete": "Baja de titular"
       }
     }
   },
@@ -308,7 +318,20 @@
     "watchToggle": "Seguir el bloque. Al apagarlo pasa a No seguimos.",
     "offReason": "¿Por qué apaga este bloque?",
     "offReasonHint": "Motivo para la auditoría (obligatorio)",
-    "offConfirm": "Apagar"
+    "offConfirm": "Apagar",
+    "titulares": "Titulares",
+    "titularEmpty": "Tras Guardar la escritura, compradores y vendedores salen aquí. El lápiz corrige la cuota.",
+    "titularAdd": "Añadir titular",
+    "titularRemove": "Quitar de la finca",
+    "titularShareWarn": "La cuota de compradores es {sum} %, no 100 %.",
+    "titularFolder": "carpeta",
+    "titularNombre": "Nombre",
+    "titularNie": "NIE",
+    "titularLado": "Parte",
+    "ladoComprador": "Comprador",
+    "ladoVendedor": "Vendedor",
+    "titularSaveError": "No se pudo guardar el titular.",
+    "titularCard": "ficha"
   },
   "docs": {
     "copia_escritura": "Copia escritura",
@@ -364,6 +387,8 @@
   "fields": {
     "nie": "NIE",
     "nombre": "Nombre",
+    "seller": "Vendedor",
+    "sellerNie": "NIE del vendedor",
     "email": "Correo electrónico",
     "tel": "Tel",
     "address": "Dirección",
@@ -402,6 +427,12 @@
     "tramiteStatus": "Estado del trámite",
     "appointment": "Cita",
     "attorney": "Apoderado",
+    "buyers": "Compradores",
+    "sellers": "Vendedores",
+    "lawyer": "Abogado / despacho",
+    "parcela": "Parcela",
+    "registry": "Registro / finca",
+    "referenceValue": "Valor de referencia (€)",
     "periodicity": "Periodicidad",
     "modeloPeriod": "Periodo (210)",
     "exercise": "Ejercicio",

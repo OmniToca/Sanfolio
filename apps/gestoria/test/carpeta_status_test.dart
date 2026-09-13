@@ -4,6 +4,7 @@ import 'package:gestoria_os/core/theme/app_theme.dart';
 import 'package:gestoria_os/features/carpeta/bloque_template.dart';
 import 'package:gestoria_os/features/carpeta/carpeta_controller.dart';
 import 'package:gestoria_os/features/carpeta/carpeta_screen.dart';
+import 'package:gestoria_os/features/clientes/clientes_providers.dart';
 
 void main() {
   test('zapnutý cliente_snapshot bez NIE je done — jméno žije na clientes', () {
@@ -196,5 +197,77 @@ void main() {
     );
     expect(bloqueDocsHint(template, full)!.satisfied, isTrue);
     expect(bloqueDocsHint(template, full)!.showBar, isFalse);
+  });
+
+  test('podíl kupujících varuje, když není 100 %', () {
+    const petr = InmuebleTitular(
+      id: '1',
+      nombre: 'Petr',
+      nieRaw: 'Y9736943E',
+      lado: 'comprador',
+      cuotaBps: 5000,
+    );
+    const monika = InmuebleTitular(
+      id: '2',
+      nombre: 'Monika',
+      nieRaw: 'Y9737090P',
+      lado: 'comprador',
+      cuotaBps: 4000,
+    );
+    const seller = InmuebleTitular(
+      id: '3',
+      nombre: 'Patricia',
+      nieRaw: 'X7183596Y',
+      lado: 'vendedor',
+      cuotaBps: 10000,
+    );
+    expect(compradorCuotaBpsSum([petr, monika]), 9000);
+    expect(compradorCuotaBpsSum([petr, monika.copyWith(cuotaBps: 5000)]), 10000);
+    expect(compradorCuotaBpsSum([petr, monika, seller]), 9000);
+    expect(
+      titularSharePercentForCliente(
+        rows: [
+          InmuebleTitular(
+            id: '1',
+            nombre: 'Petr',
+            nieRaw: 'Y9736943E',
+            lado: 'comprador',
+            cuotaBps: 5000,
+            clienteId: 'petr-id',
+          ),
+          monika,
+          seller,
+        ],
+        clienteId: 'petr-id',
+      ),
+      '50',
+    );
+    expect(
+      titularSharePercentForCliente(
+        rows: [monika, petr],
+        clienteId: 'other',
+        clienteNie: 'Y9736943E',
+      ),
+      '50',
+    );
+  });
+
+  test('spoluvlastník v seznamu není prázdná složka', () {
+    const row = ClienteRow(
+      id: 'm',
+      nombre: 'Monika',
+      status: 'activo',
+      nie: 'Y9737090P',
+      coOwnerNombre: 'Petr Sokol',
+      coOwnerAddress: 'Islandia 14',
+    );
+    expect(row.isCoOwnerOnly, isTrue);
+    expect(row.subtitle, 'Y9737090P');
+    const owner = ClienteRow(
+      id: 'p',
+      nombre: 'Petr Sokol',
+      status: 'activo',
+    );
+    expect(owner.isCoOwnerOnly, isFalse);
   });
 }

@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gestoria_os/features/expedientes/expediente_controller.dart';
 import 'package:gestoria_os/features/expedientes/modelo_210.dart';
 
 void main() {
@@ -130,5 +131,32 @@ void main() {
     });
     expect(out['fields.taxBase'], '');
     expect(out['fields.taxFormula'], '');
+  });
+
+  test('210 doplní share z titulare, ruční hodnotu nepřepíše', () {
+    const pick = ClienteInmueblePick(
+      id: 'inm',
+      direccion: 'Islandia 14',
+      catastral: '8443304XH9184S0025KY',
+      sharePercent: '50',
+    );
+    final filled = withInmuebleFacts(const {}, pick);
+    expect(filled['fields.sharePercent'], '50');
+    expect(filled['fields.address'], 'Islandia 14');
+    expect(filled['fields.cadastral'], '8443304XH9184S0025KY');
+    final kept = withInmuebleFacts(
+      const {
+        'fields.sharePercent': '100',
+        'fields.address': 'jinde',
+      },
+      pick,
+    );
+    expect(kept['fields.sharePercent'], '100');
+    expect(kept['fields.address'], 'jinde');
+    final none = withInmuebleFacts(
+      const {},
+      const ClienteInmueblePick(id: 'inm', direccion: 'Islandia 14'),
+    );
+    expect(none.containsKey('fields.sharePercent'), isFalse);
   });
 }

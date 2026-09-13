@@ -68,7 +68,7 @@ Tužka na papíře u CLIENTE = tento spis je aktivní zakázka. V systému se t�
 | tel | ne | WhatsApp / telefon |
 | direccion | ne | — |
 | iban | ne | povinný **jen** když je inkaso |
-| druhý kontakt | ne | `client_contacts` + `locale` (občas partner / překladatel) |
+| druhý kontakt | ne | `client_contacts` + `locale` (občas partner / překladatel). Spoluvlastník sem ne. |
 
 Plazo: žádné.  
 Inbox: klient bez e-mailu i telefonu + existuje `missing_document` jinde → kanál `none` (nelze poslat, jen úkol kanceláři).
@@ -82,7 +82,9 @@ Inbox: klient bez e-mailu i telefonu + existuje `missing_document` jinde → kan
 | `protocolo` | ne | |
 
 Dokument: `copia_escritura` obvykle (Gestorie Jarka: většinou ve složce).  
-`referencia_catastral` na inmueble: většinou.  
+U notářské compraventy extract bere **všechny** prodávající a **všechny** skutečné kupující (zastoupení cónyuges, ne zmocněnce), cenu (`precio de esta compraventa`, ne valor de referencia ani hypotéku), catastral, parcelu, registro, právníka/despacho a notáře. Klient kanceláře je jen jeden z nich — ať jde 210 / plusvalía spočítat z papíru, ne z první strany PDF. Věta v 40stranové smlouvě = `search_document_text` (uložený `body_text`). Notář / Zenia / catastral napříč kanceláří = `query_escritura`.  
+`referencia_catastral` na inmueble: většinou; po Guardar listiny se doplní z přepisu.  
+Kupující/prodávající po Guardar (fáze T2+) jdou do `inmueble_titulares` (cuota, NIE), ne do `client_contacts`. Kupující s NIE dostane **kartu** (hledání, e-mail), ne druhou desku. Default stejný díl mezi kupujícími; gananciales se nehádají z českého režimu. Tužka na šanonu ESCRITURA opraví %. 210 čte `sharePercent` z titulare tohoto klienta — [roadmap_titulares.md](roadmap_titulares.md).  
 Plazo: žádné vlastní. Zapnutá plusvalía odvodí lhůtu z `escritura_fecha` + `tenant_settings.plusvalia_days`.
 
 ### 3.3 `agua` / `luz` / `gaz` / `comunidad`
@@ -199,6 +201,7 @@ Plazo: `poder_caducidad`. Offset z `tenant_settings.poder_warn_days`. Propadlý 
 | `taxResidency` | ano | `ue` (19 %) \| `other` (24 %; UK po Brexitu) |
 | `presentado_at` | ne |
 | `address` / `cadastral` / `sumaId` | ne | z navázaného `inmueble` |
+| `sharePercent` | výpočet | z `inmueble_titulares.cuota_bps` tohoto klienta; prázdné = 100 |
 
 Další pole podle druhu (jinak by se míchal nájem s imputací): valor catastral a sazba 1,1/2 %; nájemné a výdaje; cena prodeje a modelo 211. Peníze v centech. Formule `irnr-210-2026.1` v `modelo_210.dart`.
 

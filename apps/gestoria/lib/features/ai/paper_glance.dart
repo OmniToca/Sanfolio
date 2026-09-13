@@ -106,19 +106,21 @@ String? paperPeriodRaw(PaperGlance g) {
   return '$from – $to';
 }
 
-List<String> extraPaperFieldKeys(Map<String, String> fields) {
+List<String> extraPaperFieldKeys(Map<String, String> fields, {String tipo = ''}) {
+  final skip = {
+    ...kPaperIdentityKeys,
+    'fields.amount',
+    'fields.periodFrom',
+    'fields.periodTo',
+    'fields.consumption',
+    'fields.invoiceNo',
+    'body_text',
+    kExtractStatus,
+  };
+  if (tipo == 'copia_escritura') skip.remove('fields.nombre');
   return [
     for (final e in fields.entries)
-      if (e.value.trim().isNotEmpty &&
-          !kPaperIdentityKeys.contains(e.key) &&
-          e.key != 'fields.amount' &&
-          e.key != 'fields.periodFrom' &&
-          e.key != 'fields.periodTo' &&
-          e.key != 'fields.consumption' &&
-          e.key != 'fields.invoiceNo' &&
-          e.key != 'body_text' &&
-          e.key != kExtractStatus)
-        e.key,
+      if (e.value.trim().isNotEmpty && !skip.contains(e.key)) e.key,
   ];
 }
 

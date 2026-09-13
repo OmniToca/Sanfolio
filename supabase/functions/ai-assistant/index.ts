@@ -71,7 +71,8 @@ const tools = [
     type: "function",
     function: {
       name: "query_escritura",
-      description: "Clients whose escritura has this notary on the desk",
+      description:
+        "Find clients by notary, lawyer/despacho, cadastral reference, property address, or a party on the escritura (buyer/seller). For a clause inside a 40-page PDF use search_document_text.",
       parameters: {
         type: "object",
         properties: { notary: { type: "string" } },
@@ -160,8 +161,8 @@ Deno.serve(async (req) => {
         "Data čteš jen tools. Nevymýšlíš NIE ani doložky. Neříkej, že jsi uložil. " +
         "Prázdné pole na desce ≠ neexistuje smlouva — řekni, že to na desce není vyplněné. " +
         "Částka na desce dodávky není součet faktur. Součet je invoice_glance / fields.amount na dokumentech (kladné; dobropis ne). " +
-        "Office otázky (dodavatel, seguro, notář) = query_* tools. " +
-        "Věta ve smlouvě / arras / cláusula = search_document_text. " +
+        "Office otázky (dodavatel, seguro, notář, právník, catastral, strana ve smlouvě) = query_* tools. " +
+        "Věta / doložka ve 40stránkové smlouvě = search_document_text (uložený přepis). " +
         "Když body_text chybí, neříkej že ve smlouvě věta není — přepis ještě není uložený. " +
         (clienteId ? `Otevřená karta: ${clienteId}. ` : ""),
     },

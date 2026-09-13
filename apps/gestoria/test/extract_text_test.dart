@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gestoria_os/features/ai/documento_fields.dart';
+import 'package:gestoria_os/features/ai/escritura_parties.dart';
 import 'package:gestoria_os/features/ai/extract_text.dart';
 import 'package:gestoria_os/features/ai/paper_glance.dart';
 import 'package:gestoria_os/features/carpeta/bloque_template.dart';
@@ -221,5 +222,202 @@ void main() {
       carpetaBloqueRoute('c1', 'agua', expedienteId: 'e1'),
       '/clientes/c1/carpeta/agua?exp=e1',
     );
+  });
+
+  test('smlouva_spanelsko.pdf je copia_escritura i na kartě klienta', () {
+    expect(
+      guessDocumentoTipo(
+        requiredDocTypes: const [],
+        alreadyHave: {},
+        originalName: 'smlouva_spanelsko.pdf',
+      ),
+      'copia_escritura',
+    );
+    expect(
+      guessDocumentoTipo(
+        requiredDocTypes: const ['copia_escritura'],
+        alreadyHave: {},
+        originalName: 'escritura_compraventa.pdf',
+      ),
+      'copia_escritura',
+    );
+  });
+
+  test('compraventa pozná kupujícího za zmocněncem, ne prodávající', () {
+    const deed = '''
+COMPRAVENTA
+NUMERO DOS MIL CIENTO DIECISÉIS.
+En Almoradí, a veintinueve de Julio de dos mil veintidós.
+Ante mí, LUÍS LORENZO SERRA, Notario del Ilustre Colegio de Valencia,
+COMPARECEN:
+DE UNA PARTE Y PARA VENDER:
+Dª PATRICIA FRANCIS DAVIDSON, de soltera AYRES, nacida el día 16 de Marzo de 1955,
+con pasaporte número 557432941, y con N.I.E. número X-7183596-Y.
+Y DE OTRA, PARA COMPRAR:
+Dª SOPHIE ELIZABETH RODRIGUEZ FITZ-HENLEY, nacida el día 30 de Septiembre de 1983,
+con N.I.E. número X-8764216-C.
+Y EN SU CONDICIÓN DE INTÉRPRETE:
+Dª ABBIGAIL DAPHNE BARRATT, nacida el día 21 de Julio de 1992, con N.I.E. número X-9922948-N.
+INTERVIENEN: A) La Sra. Rodríguez Fitz-Henry interviene en nombre y representación
+de los cónyuges D. PETR SOKOL, nacido el día 5 de Junio de 1987, y Dª MONIKA SOKOLOVA,
+nacida el día 16 de Abril de 1985, con N.I.E. números Y-9736943-E e Y-9737090-P,
+respectivamente.
+EXPONEN:
+URBANA.- Vivienda en término de Algorfa, de la parcela R-2.2, hoy calle Islandia, número catorce.
+INSCRIPCIÓN.- En el Registro de la Propiedad de Torrevieja Número Uno, finca número 4.297.
+REFERENCIA CATASTRAL. - 8443304XH9184S0025KY, según manifiestan.
+OTORGAN:
+Es precio de esta compraventa, la suma de CIENTO CUARENTA MIL EUROS (140.000,00 €).
+Valor de referencia del inmueble que es (107.317,62 €).
+Designa como representante frente a la Hacienda a la mercantil “ZENIA ABOGADOS, SOCIEDAD LIMITADA PROFESIONAL”.
+TITULO.- herencia de su esposo, el día 12 de Abril de 2016, número 527 de protocolo.
+''';
+    expect(deedPeople(deed).first.nie, 'X7183596Y');
+    final facts = extractDeedFacts(deed);
+    expect(facts.sellers.map((p) => p.nie), ['X7183596Y']);
+    expect(facts.buyers.map((p) => p.nie), ['Y9736943E', 'Y9737090P']);
+    expect(facts.buyers.any((p) => p.name.contains('SOPHIE')), isFalse);
+    expect(facts.salePrice, '140000.00');
+    expect(facts.referenceValue, '107317.62');
+    expect(facts.cadastral, '8443304XH9184S0025KY');
+    expect(facts.lawyer, contains('ZENIA ABOGADOS'));
+    expect(facts.parcela, 'R-2.2');
+    final aligned = alignDeedFieldsToCliente(
+      fields: {
+        'fields.nombre': 'PATRICIA FRANCIS DAVIDSON',
+        'fields.nie': 'X7183596Y',
+        'fields.tel': '557432941',
+        'fields.protocol': '2016',
+      },
+      bodyText: deed,
+      clienteNombre: 'Petr Sokol',
+      clienteNie: 'Y9736943E',
+    );
+    expect(aligned['fields.nombre'], 'Petr Sokol');
+    expect(aligned['fields.nie'], 'Y9736943E');
+    expect(aligned['fields.buyers'], contains('PETR SOKOL'));
+    expect(aligned['fields.buyers'], contains('MONIKA'));
+    expect(aligned['fields.sellers'], contains('PATRICIA'));
+    expect(aligned['fields.sellerNie'], 'X7183596Y');
+    expect(aligned['fields.protocol'], '2116');
+    expect(aligned['fields.salePrice'], '140000.00');
+    expect(aligned.containsKey('fields.tel'), isFalse);
+    expect(
+      documentFitsCliente(
+        cardName: 'Petr Sokol',
+        cardNie: 'Y-9736943-E',
+        fields: aligned,
+      ),
+      isTrue,
+    );
+    expect(
+      documentFitsCliente(
+        cardName: 'Petr Sokol',
+        cardNie: 'Y9736943E',
+        fields: {
+          'fields.nombre': 'PATRICIA FRANCIS DAVIDSON',
+          'fields.nie': 'X7183596Y',
+        },
+      ),
+      isFalse,
+    );
+    final padded = '${'x' * 5000}\n$deed';
+    expect(escrituraLlmFocus(padded), contains('PETR SOKOL'));
+    expect(spanishDeedNumber(deed), 2116);
+    final proposed = proposeTitularesFromDeed(facts);
+    expect(
+      proposed.where((t) => t.lado == 'comprador').map((t) => t.nieNormalized),
+      ['Y9736943E', 'Y9737090P'],
+    );
+    expect(
+      proposed.where((t) => t.lado == 'comprador').map((t) => t.cuotaBps),
+      [5000, 5000],
+    );
+    expect(
+      proposed.where((t) => t.lado == 'vendedor').map((t) => t.cuotaBps),
+      [10000],
+    );
+    expect(
+      matchTitularClienteId(
+        row: proposed.firstWhere((t) => t.nieNormalized == 'Y9736943E'),
+        nieToClienteId: const {'Y9736943E': 'petr-id'},
+      ),
+      'petr-id',
+    );
+    expect(
+      matchTitularClienteId(
+        row: proposed.firstWhere((t) => t.nieNormalized == 'Y9737090P'),
+        nieToClienteId: const {'Y9736943E': 'petr-id'},
+      ),
+      isNull,
+    );
+  });
+
+  test('compraventa se dvěma prodávajícími bez zmocněnce', () {
+    const deed = '''
+ESCRITURA DE COMPRAVENTA
+NUMERO CIENTO VEINTITRÉS.
+Ante mí, MARIA GOMEZ RUIZ, Notario del Ilustre Colegio de Murcia,
+COMPARECEN:
+DE UNA PARTE Y PARA VENDER:
+D. JUAN PEREZ LOPEZ, nacido el día 1 de Enero de 1960, con N.I.E. número X-1111111-A,
+y Dª ANA PEREZ LOPEZ, nacida el día 2 de Enero de 1962, con N.I.E. número X-2222222-B.
+Y DE OTRA, PARA COMPRAR:
+D. LUIS GARCIA MARTIN, nacido el día 3 de Marzo de 1980, con N.I.E. número Y-3333333-C.
+EXPONEN:
+URBANA.- Vivienda en término de Torrevieja, parcela 12.
+OTORGAN:
+Es precio de esta compraventa la suma de OCHENTA MIL EUROS (80.000,00 €).
+REFERENCIA CATASTRAL. - 1234567XH1234S0001AB
+''';
+    final facts = extractDeedFacts(deed);
+    expect(facts.sellers.map((p) => p.nie).toList(), ['X1111111A', 'X2222222B']);
+    expect(facts.buyers.map((p) => p.nie).toList(), ['Y3333333C']);
+    expect(facts.representatives, isEmpty);
+    expect(facts.salePrice, '80000.00');
+    final aligned = alignDeedFieldsToCliente(
+      fields: const {},
+      bodyText: deed,
+      clienteNombre: 'Luis Garcia',
+      clienteNie: 'Y3333333C',
+    );
+    expect(aligned['fields.nombre'], 'Luis Garcia');
+    expect(aligned['fields.sellers']!.split(';'), hasLength(2));
+    final proposed = proposeTitularesFromDeed(facts);
+    expect(splitCuotaBps(3), [3333, 3333, 3334]);
+    expect(sharePercentFromBps(5000), '50');
+    expect(
+      proposed.where((t) => t.lado == 'vendedor').map((t) => t.cuotaBps),
+      [5000, 5000],
+    );
+    expect(
+      proposed.where((t) => t.lado == 'comprador').map((t) => t.cuotaBps),
+      [10000],
+    );
+    expect(
+      titularNeedsCoOwnerCard(
+        isComprador: true,
+        clienteId: null,
+        nieNormalized: 'Y9737090P',
+      ),
+      isTrue,
+    );
+    expect(
+      titularNeedsCoOwnerCard(
+        isComprador: true,
+        clienteId: 'petr-id',
+        nieNormalized: 'Y9736943E',
+      ),
+      isFalse,
+    );
+    expect(
+      titularNeedsCoOwnerCard(
+        isComprador: false,
+        clienteId: null,
+        nieNormalized: 'X7183596Y',
+      ),
+      isFalse,
+    );
+    expect(identifierKindFromNormalized('Y9737090P'), 'nie');
   });
 }

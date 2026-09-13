@@ -15,6 +15,7 @@ import '../../core/presentation/widgets/app_widgets.dart';
 import '../../core/theme/app_theme.dart';
 import '../ai/ai_providers.dart';
 import '../ai/documento_fields.dart';
+import '../ai/escritura_parties.dart';
 import '../ai/extract_text.dart';
 import '../ai/paper_glance.dart';
 import '../expedientes/expediente_controller.dart';
@@ -155,6 +156,7 @@ class CarpetaScreen extends ConsumerWidget {
                     state: state,
                     movements: view.movements,
                     clienteNombre: view.nombre,
+                    clienteNie: view.bloques['cliente_snapshot']?.values['fields.nie'],
                     compact: compact,
                   );
                 }
@@ -593,6 +595,7 @@ class BloqueScreen extends ConsumerWidget {
                       state: state,
                       movements: view.movements,
                       clienteNombre: view.nombre,
+                      clienteNie: view.bloques['cliente_snapshot']?.values['fields.nie'],
                     ),
                   ),
                 ),
@@ -613,6 +616,7 @@ class _BloqueCard extends ConsumerStatefulWidget {
     required this.state,
     this.movements = const [],
     this.clienteNombre = '',
+    this.clienteNie,
     this.compact = false,
   });
 
@@ -621,6 +625,7 @@ class _BloqueCard extends ConsumerStatefulWidget {
   final BloqueState state;
   final List<ProvisionMovement> movements;
   final String clienteNombre;
+  final String? clienteNie;
   final bool compact;
 
   @override
@@ -728,6 +733,8 @@ class _BloqueCardState extends ConsumerState<_BloqueCard> {
                         onChanged: (v) => _onField(ctrl, template.key, field, v),
                       ),
                     ),
+              if (template.key == 'escritura')
+                _TitularesPanel(target: widget.target),
               Align(
                 alignment: Alignment.centerLeft,
                 child: OfficeAttachButton(
@@ -787,6 +794,7 @@ class _BloqueCardState extends ConsumerState<_BloqueCard> {
                       templateKey: template.key,
                       doc: doc,
                       clienteNombre: widget.clienteNombre,
+                      clienteNie: widget.clienteNie,
                       onOpen: () => _openDoc(context, ctrl, doc),
                       onRemove: () => _removeDoc(
                         context,
@@ -1089,6 +1097,263 @@ class _BloqueCardState extends ConsumerState<_BloqueCard> {
   }
 }
 
+class _TitularesPanel extends ConsumerWidget {
+  const _TitularesPanel({required this.target});
+
+  final CarpetaTarget target;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final view = ref.watch(carpetaControllerProvider(target)).valueOrNull;
+    if (view == null || view.inmuebleId == null) {
+      return const SizedBox.shrink();
+    }
+    final ctrl = ref.read(carpetaControllerProvider(target).notifier);
+    final rows = view.titulares;
+    final buyerSum = compradorCuotaBpsSum(rows);
+    final buyers = [for (final t in rows) if (t.isComprador) t];
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'folder.titulares'.tr(),
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          if (rows.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 6, bottom: 8),
+              child: Text(
+                'folder.titularEmpty'.tr(),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppTheme.pencil,
+                    ),
+              ),
+            )
+          else ...[
+            if (buyers.isNotEmpty && buyerSum != 10000)
+              Padding(
+                padding: const EdgeInsets.only(top: 6, bottom: 8),
+                child: Text(
+                  'folder.titularShareWarn'.tr(
+                    namedArgs: {'sum': sharePercentFromBps(buyerSum)},
+                  ),
+                  style: const TextStyle(color: AppTheme.statusAlert),
+                ),
+              ),
+            for (final t in rows)
+              _TitularRow(
+                key: ValueKey(t.id),
+                row: t,
+                isFolderOwner: t.clienteId == view.clienteId,
+                onShare: (v) => ctrl.setTitularShare(t.id, v),
+                onRemove: () => ctrl.removeTitular(t.id),
+                onOpenCard: (t.clienteId ?? '').isEmpty
+                    ? null
+                    : () => context.go('/clientes/${t.clienteId}'),
+              ),
+          ],
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton(
+              onPressed: () => _addTitular(context, ctrl),
+              child: Text('folder.titularAdd'.tr()),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TitularRow extends StatefulWidget {
+  const _TitularRow({
+    super.key,
+    required this.row,
+    required this.isFolderOwner,
+    required this.onShare,
+    required this.onRemove,
+    this.onOpenCard,
+  });
+
+  final InmuebleTitular row;
+  final bool isFolderOwner;
+  final ValueChanged<String> onShare;
+  final VoidCallback onRemove;
+  final VoidCallback? onOpenCard;
+
+  @override
+  State<_TitularRow> createState() => _TitularRowState();
+}
+
+class _TitularRowState extends State<_TitularRow> {
+  late final TextEditingController _share;
+  late final FocusNode _focus;
+
+  @override
+  void initState() {
+    super.initState();
+    _share = TextEditingController(
+      text: sharePercentFromBps(widget.row.cuotaBps),
+    );
+    _focus = FocusNode();
+  }
+
+  @override
+  void didUpdateWidget(covariant _TitularRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_focus.hasFocus) return;
+    final shown = sharePercentFromBps(widget.row.cuotaBps);
+    if (_share.text != shown) _share.text = shown;
+  }
+
+  @override
+  void dispose() {
+    _share.dispose();
+    _focus.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final lado = widget.row.isComprador
+        ? 'folder.ladoComprador'.tr()
+        : 'folder.ladoVendedor'.tr();
+    final bits = [
+      widget.row.nombre,
+      if (widget.row.nieRaw.isNotEmpty)       widget.row.nieRaw,
+      lado,
+      if (widget.isFolderOwner) 'folder.titularFolder'.tr(),
+      if (!widget.isFolderOwner && widget.onOpenCard != null)
+        'folder.titularCard'.tr(),
+    ];
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Expanded(
+            child: Text(bits.join(' · ')),
+          ),
+          SizedBox(
+            width: 88,
+            child: AppTextField(
+              controller: _share,
+              focusNode: _focus,
+              label: 'fields.sharePercent'.tr(),
+              keyboardType: TextInputType.number,
+              onChanged: widget.onShare,
+            ),
+          ),
+          if (widget.onOpenCard != null)
+            IconButton(
+              tooltip: 'folder.titularCard'.tr(),
+              onPressed: widget.onOpenCard,
+              icon: const Icon(Icons.person_outline),
+            ),
+          IconButton(
+            tooltip: 'folder.titularRemove'.tr(),
+            onPressed: widget.onRemove,
+            icon: const Icon(Icons.delete_outline),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+Future<void> _addTitular(
+  BuildContext context,
+  CarpetaController ctrl,
+) async {
+  final nombre = TextEditingController();
+  final nie = TextEditingController();
+  final share = TextEditingController(text: '50');
+  var lado = 'comprador';
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) {
+      return StatefulBuilder(
+        builder: (ctx, setLocal) {
+          return AlertDialog(
+            title: Text('folder.titularAdd'.tr()),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AppTextField(
+                  controller: nombre,
+                  label: 'folder.titularNombre'.tr(),
+                ),
+                const SizedBox(height: 12),
+                AppTextField(
+                  controller: nie,
+                  label: 'folder.titularNie'.tr(),
+                ),
+                const SizedBox(height: 12),
+                AppTextField(
+                  controller: share,
+                  label: 'fields.sharePercent'.tr(),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 12),
+                DropdownMenu<String>(
+                  initialSelection: lado,
+                  label: Text('folder.titularLado'.tr()),
+                  dropdownMenuEntries: [
+                    DropdownMenuEntry(
+                      value: 'comprador',
+                      label: 'folder.ladoComprador'.tr(),
+                    ),
+                    DropdownMenuEntry(
+                      value: 'vendedor',
+                      label: 'folder.ladoVendedor'.tr(),
+                    ),
+                  ],
+                  onSelected: (v) {
+                    if (v != null) setLocal(() => lado = v);
+                  },
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text('clients.cancel'.tr()),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: Text('folder.titularAdd'.tr()),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
+  final nameText = nombre.text;
+  final nieText = nie.text;
+  final shareText = share.text;
+  nombre.dispose();
+  nie.dispose();
+  share.dispose();
+  if (ok != true) return;
+  try {
+    await ctrl.addTitular(
+      nombre: nameText,
+      nie: nieText,
+      lado: lado,
+      sharePercent: shareText,
+    );
+  } on Object {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('folder.titularSaveError'.tr())),
+      );
+    }
+  }
+}
+
 class _AiPrefillBar extends ConsumerWidget {
   const _AiPrefillBar({
     required this.target,
@@ -1294,6 +1559,7 @@ class _DocumentoForm extends ConsumerStatefulWidget {
     required this.templateKey,
     required this.doc,
     required this.clienteNombre,
+    this.clienteNie,
     required this.onOpen,
     required this.onRemove,
   });
@@ -1302,6 +1568,7 @@ class _DocumentoForm extends ConsumerStatefulWidget {
   final String templateKey;
   final CarpetaDocumento doc;
   final String clienteNombre;
+  final String? clienteNie;
   final VoidCallback onOpen;
   final VoidCallback onRemove;
 
@@ -1332,10 +1599,14 @@ class _DocumentoFormState extends ConsumerState<_DocumentoForm> {
     }
     final values = pending?.fields ?? doc.extracted;
     final glance = paperGlanceOf(tipo: doc.tipo, fields: values);
-    final extra = extraPaperFieldKeys(values);
+    final extra = extraPaperFieldKeys(values, tipo: doc.tipo);
     final nombre = (values['fields.nombre'] ?? '').trim();
-    final mismatch =
-        nombre.isNotEmpty && !namesLikelyMatch(widget.clienteNombre, nombre);
+    final mismatch = nombre.isNotEmpty &&
+        !documentFitsCliente(
+          cardName: widget.clienteNombre,
+          cardNie: widget.clienteNie,
+          fields: values,
+        );
     final period = _officePeriod(context, glance);
     final hasGlance = glance.isInvoice &&
         (period.isNotEmpty || glance.amountCents != null);
@@ -1400,6 +1671,42 @@ class _DocumentoFormState extends ConsumerState<_DocumentoForm> {
                         : 'folder.original'.tr(),
                     icon: const Icon(Icons.open_in_new, size: 18),
                     onPressed: doc.storagePurged ? null : widget.onOpen,
+                  ),
+                  IconButton(
+                    tooltip: 'ai.extract'.tr(),
+                    icon: const Icon(Icons.document_scanner_outlined, size: 18),
+                    onPressed: doc.storagePurged
+                        ? null
+                        : () {
+                            final tenantId = ref
+                                .read(carpetaControllerProvider(widget.target))
+                                .valueOrNull
+                                ?.tenantId;
+                            if (tenantId == null) return;
+                            startExtractInBackground(
+                              tenantId: tenantId,
+                              clienteId: widget.target.clienteId,
+                              storagePath: doc.storagePath,
+                              mime: mimeForOfficeFile(doc.originalName),
+                              docTipo: looksLikeEscrituraName(doc.originalName)
+                                  ? 'copia_escritura'
+                                  : doc.tipo,
+                              bloqueKey: widget.templateKey,
+                              onDone: (draft) {
+                                if (draft != null &&
+                                    !isExtractPending(draft.fields) &&
+                                    !isExtractFailed(draft.fields)) {
+                                  ref.read(aiPrefillProvider.notifier).state =
+                                      draft;
+                                }
+                                ref.invalidate(
+                                  liveAiDraftsProvider(
+                                    widget.target.clienteId,
+                                  ),
+                                );
+                              },
+                            );
+                          },
                   ),
                   IconButton(
                     tooltip: 'folder.remove'.tr(),

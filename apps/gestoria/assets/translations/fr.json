@@ -170,8 +170,10 @@
     "filterActive": "Actifs",
     "filterInactive": "Inactifs",
     "filterDeleted": "Masqués",
-    "softDelete": "Masquer le dossier",
-    "softDeleteConfirm": "Le dossier quitte la liste. L’historique reste. Le owner peut le restaurer.",
+    "softDelete": "Masquer de la liste",
+    "softDeleteSection": "Liste des clients",
+    "softDeleteHint": "Le client quitte la liste Clients — pas seulement le filtre Inactifs. Les papiers, dossiers et l’audit restent. Le owner du cabinet peut le restaurer.",
+    "softDeleteConfirm": "Le client quitte la liste Clients. Les papiers, dossiers et l’audit restent. Le owner peut le restaurer.",
     "restore": "Remettre dans la liste",
     "deletedBanner": "Ce dossier est masqué (soft-delete).",
     "onlyOwnerRestore": "Seul le owner du cabinet peut le restaurer.",
@@ -181,6 +183,9 @@
     "contactAdd": "Ajouter un contact",
     "contactRemove": "Retirer le contact",
     "contactEmpty": "Pas de second contact.",
+    "coOwner": "Copropriétaire · {owner} · {address}",
+    "coOwnerShort": "Copropriétaire",
+    "openOwnerFolder": "Ouvrir le dossier ({owner})",
     "documents": "Documents du client",
     "documentsEmpty": "Pas encore de DNI, NIE ni passeport.",
     "docValid": "Valide",
@@ -220,6 +225,11 @@
         "insert": "Contact ajouté",
         "update": "Contact modifié",
         "soft_delete": "Contact retiré"
+      },
+      "inmueble_titulares": {
+        "insert": "Titular ajouté",
+        "update": "Quote-part modifiée",
+        "soft_delete": "Titular retiré"
       }
     }
   },
@@ -308,7 +318,20 @@
     "watchToggle": "Suivre le bloc. L’éteindre l’envoie dans Non suivi.",
     "offReason": "Pourquoi désactivez-vous ce bloc ?",
     "offReasonHint": "Motif pour l’audit (obligatoire)",
-    "offConfirm": "Désactiver"
+    "offConfirm": "Désactiver",
+    "titulares": "Titulares",
+    "titularEmpty": "Après Guardar l’escritura, acheteurs et vendeurs apparaissent ici. Le crayon corrige la quote-part.",
+    "titularAdd": "Ajouter un titular",
+    "titularRemove": "Retirer de la finca",
+    "titularShareWarn": "La quote-part des acheteurs est {sum} %, pas 100 %.",
+    "titularFolder": "dossier",
+    "titularNombre": "Nom",
+    "titularNie": "NIE",
+    "titularLado": "Partie",
+    "ladoComprador": "Comprador",
+    "ladoVendedor": "Vendedor",
+    "titularSaveError": "Impossible d’enregistrer le titular.",
+    "titularCard": "fiche"
   },
   "docs": {
     "copia_escritura": "Copia escritura",
@@ -364,6 +387,8 @@
   "fields": {
     "nie": "NIE",
     "nombre": "Nom",
+    "seller": "Vendeur",
+    "sellerNie": "NIE du vendeur",
     "email": "E-mail",
     "tel": "Tél",
     "address": "Adresse",
@@ -402,6 +427,12 @@
     "tramiteStatus": "État du dossier",
     "appointment": "Rendez-vous",
     "attorney": "Mandataire",
+    "buyers": "Acheteurs",
+    "sellers": "Vendeurs",
+    "lawyer": "Avocat / cabinet",
+    "parcela": "Parcelle",
+    "registry": "Registre / finca",
+    "referenceValue": "Valeur de référence (€)",
     "periodicity": "Periodicidad",
     "modeloPeriod": "Periodo (210)",
     "exercise": "Ejercicio",

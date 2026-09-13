@@ -170,8 +170,10 @@
     "filterActive": "Aktiv",
     "filterInactive": "Inaktiv",
     "filterDeleted": "Versteckt",
-    "softDelete": "Mappe verstecken",
-    "softDeleteConfirm": "Die Mappe verschwindet aus der Liste. Die Historie bleibt. Der Owner kann sie wiederherstellen.",
+    "softDelete": "Aus der Liste ausblenden",
+    "softDeleteSection": "Mandantenliste",
+    "softDeleteHint": "Der Mandant verschwindet aus der Liste Mandanten — nicht nur in den Filter Inaktiv. Papiere, Akten und das Audit bleiben. Der Owner der Kanzlei kann ihn wiederherstellen.",
+    "softDeleteConfirm": "Der Mandant verschwindet aus der Liste Mandanten. Papiere, Akten und das Audit bleiben. Der Owner kann ihn wiederherstellen.",
     "restore": "Wieder in die Liste",
     "deletedBanner": "Diese Mappe ist versteckt (Soft-Delete).",
     "onlyOwnerRestore": "Nur der Owner der Kanzlei kann sie wiederherstellen.",
@@ -181,6 +183,9 @@
     "contactAdd": "Kontakt hinzufügen",
     "contactRemove": "Kontakt entfernen",
     "contactEmpty": "Kein zweiter Kontakt.",
+    "coOwner": "Miteigentümer · {owner} · {address}",
+    "coOwnerShort": "Miteigentümer",
+    "openOwnerFolder": "Ordner öffnen ({owner})",
     "documents": "Mandanten-Dokumente",
     "documentsEmpty": "Noch kein DNI, NIE oder Pass.",
     "docValid": "Gültig",
@@ -220,6 +225,11 @@
         "insert": "Kontakt hinzugefügt",
         "update": "Kontakt geändert",
         "soft_delete": "Kontakt entfernt"
+      },
+      "inmueble_titulares": {
+        "insert": "Titular hinzugefügt",
+        "update": "Anteil geändert",
+        "soft_delete": "Titular entfernt"
       }
     }
   },
@@ -308,7 +318,20 @@
     "watchToggle": "Block beobachten. Aus schiebt ihn nach Nicht verfolgt.",
     "offReason": "Warum schalten Sie diesen Block aus?",
     "offReasonHint": "Grund für das Audit (Pflicht)",
-    "offConfirm": "Ausschalten"
+    "offConfirm": "Ausschalten",
+    "titulares": "Titulares",
+    "titularEmpty": "Nach dem Speichern der Escritura stehen Käufer und Verkäufer hier. Der Stift korrigiert den Anteil.",
+    "titularAdd": "Titular hinzufügen",
+    "titularRemove": "Von der Finca entfernen",
+    "titularShareWarn": "Der Käuferanteil ist {sum} %, nicht 100 %.",
+    "titularFolder": "Ordner",
+    "titularNombre": "Name",
+    "titularNie": "NIE",
+    "titularLado": "Seite",
+    "ladoComprador": "Comprador",
+    "ladoVendedor": "Vendedor",
+    "titularSaveError": "Titular konnte nicht gespeichert werden.",
+    "titularCard": "Karte"
   },
   "docs": {
     "copia_escritura": "Copia escritura",
@@ -364,6 +387,8 @@
   "fields": {
     "nie": "NIE",
     "nombre": "Name",
+    "seller": "Verkäufer",
+    "sellerNie": "NIE des Verkäufers",
     "email": "E-Mail",
     "tel": "Tel",
     "address": "Adresse",
@@ -402,6 +427,12 @@
     "tramiteStatus": "Verfahrensstand",
     "appointment": "Termin",
     "attorney": "Bevollmächtigter",
+    "buyers": "Käufer",
+    "sellers": "Verkäufer",
+    "lawyer": "Anwalt / Kanzlei",
+    "parcela": "Parzelle",
+    "registry": "Grundbuch / finca",
+    "referenceValue": "Referenzwert Catastro (€)",
     "periodicity": "Periodicidad",
     "modeloPeriod": "Periodo (210)",
     "exercise": "Ejercicio",

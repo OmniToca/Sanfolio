@@ -51,7 +51,7 @@ Rozhodnutí, která už platí a neotevíráme je znovu:
 
 ## Stav teď (neplánovat znovu)
 
-Hotovo A–G v kódu (2026-09-13): jedna cesta nahrání, přepis|originál, `body_text`, koš, office-wide RPC, otevřený blok, extract na pozadí (pending `ai_drafts`). F = Postgres fulltext v `body_text`, bez pgvector. Edge timeout u obřího PDF (~60 s) zůstává — waitUntil drží isolate, ne UI.
+Hotovo A–G v kódu (2026-09-13): jedna cesta nahrání, přepis|originál, `body_text`, koš, office-wide RPC, otevřený blok, extract na pozadí (pending `ai_drafts`). F = Postgres fulltext v `body_text`, bez pgvector. Edge timeout u obřího PDF (~60 s) zůstává — waitUntil drží isolate, ne UI. Escritura: extract páruje kupujícího s kartou (ne první compareciente / prodávající). Spoluvlastníci (cuota, 210) = [roadmap_titulares.md](roadmap_titulares.md), ne `client_contacts`.
 
 ---
 
@@ -115,7 +115,7 @@ Nejdřív Edge `ai-assistant` podle [ai_contract.md](ai_contract.md) (whitelist 
 | --- | --- | --- |
 | `query_suministro` | kdo má elektřinu/vodu/plyn od společnosti X | `bloques.fields` u `luz` / `agua` / `gaz` |
 | `query_plazos` | komu končí pojištění / alarm / poder v intervalu | `plazos` + `seguro_warn_days` stejná logika jako inbox |
-| `query_escritura` | které smlouvy mají tohoto notáře (později i zdroj/despacho) | blok `escritura` |
+| `query_escritura` | které smlouvy mají tohoto notáře, právníka, catastral nebo stranu | blok `escritura` + `documentos.extracted` |
 
 Pravidla:
 
