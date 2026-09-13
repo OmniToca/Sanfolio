@@ -109,6 +109,40 @@ String _codeForHttp(int status) {
   };
 }
 
+/// INSERT `documentos` po uploadu. Když řádek spadne, blob se uklidí.
+Future<String> insertDocumentoRow({
+  required String tenantId,
+  required String clienteId,
+  required String tipo,
+  required String storagePath,
+  required String originalName,
+  String? bloqueId,
+  String? createdBy,
+}) async {
+  final client = trySupabaseClient();
+  if (client == null) throw OfficeUploadException('not_configured');
+  try {
+    final inserted = await client
+        .from('documentos')
+        .insert({
+          'tenant_id': tenantId,
+          'cliente_id': clienteId,
+          'tipo': tipo,
+          'storage_path': storagePath,
+          'original_name': originalName,
+          if (bloqueId != null && bloqueId.isNotEmpty) 'bloque_id': bloqueId,
+          if (createdBy != null && createdBy.isNotEmpty) 'created_by': createdBy,
+        })
+        .select('id')
+        .single();
+    return '${inserted['id']}';
+  } on Object catch (e) {
+    debugPrint('documentos insert $e');
+    await rollbackDocumentoUpload(storagePath);
+    throw OfficeUploadException('db');
+  }
+}
+
 /// Best-effort úklid blobu bez řádku v `documentos`.
 Future<void> rollbackDocumentoUpload(String path) async {
   final client = trySupabaseClient();

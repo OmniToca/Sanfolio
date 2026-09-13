@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gestoria_auth/gestoria_auth.dart';
 
+import '../../core/identity/nie_persist.dart';
+
 /// Filtr seznamu: neaktivní schovat, nesmazat. Smazané jen owner.
 enum ClientesListFilter { activo, inactivo, deleted }
 
@@ -285,16 +287,7 @@ ClienteRow _rowFrom(Map<dynamic, dynamic> raw) {
     '${raw['nombre'] ?? ''}'.trim(),
     '${raw['apellidos'] ?? ''}'.trim(),
   ].where((s) => s.isNotEmpty).join(' ');
-  String? nie;
-  final ids = raw['client_identifiers'];
-  if (ids is List) {
-    for (final item in ids) {
-      if (item is! Map) continue;
-      if (item['deleted_at'] != null) continue;
-      nie = '${item['value_raw'] ?? ''}'.trim();
-      if (nie.isNotEmpty) break;
-    }
-  }
+  final nie = preferredFiscalRawFromRows(raw['client_identifiers']);
   return ClienteRow(
     id: '${raw['id']}',
     nombre: nombre,

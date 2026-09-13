@@ -25,7 +25,9 @@ Uložené hodnoty:
 | `value_pattern` | `value_normalized` kde `*` zůstane; pro LIKE |
 | `kind` | `nie` \| `dni` \| `nif` \| `passport` \| `nss` \| `other` |
 
-Tabulka `client_identifiers` (soft-delete, `tenant_id`, unique živý `(tenant_id, kind, value_normalized)` tam, kde `value_normalized` **neobsahuje** `*`).
+Tabulka `client_identifiers` (soft-delete, `tenant_id`, unique živý `(tenant_id, value_normalized)` pro `kind` nie/dni/nif, tam kde `value_normalized` **neobsahuje** `*`). Kind dál říká, co číslo je; nesmí existovat dvě karty se stejným číslem pod jiným kind.
+
+Persist pole NIE na desce / kartě sahá jen na fiskální řádek (`nie`/`dni`/`nif`). Prázdné pole soft-delete **jen** `kind=nie`; pas a NSS nechá. Načtení NIE pole nesmí vzít první identifikátor — pas by se pak ukázal jako NIE. Konflikt s jinou kartou NIE **neuloží** a gestor uvidí důvod; JSON desky se vrátí na živé číslo karty.
 
 Neúplné / maskované číslo **smí** existovat jako identifikátor (přišlo z úřadu). Nesmí ale kolidovat unique s plným číslem — unique jen na záznamech bez `*`.
 

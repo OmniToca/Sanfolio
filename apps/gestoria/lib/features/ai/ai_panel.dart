@@ -444,8 +444,9 @@ class _AiPanelState extends ConsumerState<AiPanel> {
     }
     setState(() => _working = true);
     try {
-      final client = trySupabaseClient();
-      if (client == null) throw OfficeUploadException('not_configured');
+      if (trySupabaseClient() == null) {
+        throw OfficeUploadException('not_configured');
+      }
       final path = documentoStoragePath(
         tenantId: tenantId,
         clienteId: id,
@@ -456,18 +457,13 @@ class _AiPanelState extends ConsumerState<AiPanel> {
         bytes: file.bytes,
         originalName: file.name,
       );
-      try {
-        await client.from('documentos').insert({
-          'tenant_id': tenantId,
-          'cliente_id': id,
-          'tipo': 'other',
-          'storage_path': path,
-          'original_name': file.name,
-        });
-      } on Object {
-        await rollbackDocumentoUpload(path);
-        throw OfficeUploadException('db');
-      }
+      await insertDocumentoRow(
+        tenantId: tenantId,
+        clienteId: id,
+        tipo: 'other',
+        storagePath: path,
+        originalName: file.name,
+      );
       await ref.read(aiChatProvider.notifier).addUser(file.name);
       await ref.read(aiChatProvider.notifier).addAssistant(
             encodeAiChatPayload(AiChatPayload(text: 'ai.readingDoc'.tr())),

@@ -1,5 +1,6 @@
 import 'documento_fields.dart';
 import 'extract_text.dart';
+export '../../core/identity/nie_persist.dart' show identifierKindFromNormalized;
 
 /// Notářská compraventa: první compareciente je skoro vždy prodávající.
 bool looksLikeEscrituraText(String text) {
@@ -126,14 +127,93 @@ bool titularNeedsCoOwnerCard({
   return linked.isEmpty || linked == 'null';
 }
 
-String identifierKindFromNormalized(String normalized) {
-  final n = normalized.trim().toUpperCase();
-  if (RegExp(r'^[XYZ][0-9*]{7}[A-Z]$').hasMatch(n)) return 'nie';
-  if (RegExp(r'^[0-9*]{8}[A-Z]$').hasMatch(n)) return 'dni';
-  if (RegExp(r'^[A-HJ-NP-SUVW][0-9*]{7}[0-9A-J]$').hasMatch(n)) {
-    return 'nif';
+/// Živý titular na finca. Druhý Guardar sahá jen na prázdná pole.
+class LiveTitularRow {
+  const LiveTitularRow({
+    required this.id,
+    required this.lado,
+    required this.nombre,
+    required this.nieNormalized,
+  });
+
+  final String id;
+  final String lado;
+  final String nombre;
+  final String nieNormalized;
+}
+
+class TitularGapPatch {
+  const TitularGapPatch({
+    required this.id,
+    this.nieRaw,
+    this.nieNormalized,
+    this.nombre,
+  });
+
+  final String id;
+  final String? nieRaw;
+  final String? nieNormalized;
+  final String? nombre;
+
+  bool get isEmpty =>
+      nieRaw == null && nieNormalized == null && nombre == null;
+}
+
+/// Doplní NIE / jméno když zejí. Cuota a ruční NIE se nepřepíšou.
+List<TitularGapPatch> planFillEmptyTitulares({
+  required List<LiveTitularRow> existing,
+  required List<ProposedTitular> proposed,
+}) {
+  final remaining = [...proposed];
+  ProposedTitular? takeMatch(LiveTitularRow e) {
+    final haveNie = e.nieNormalized.trim();
+    if (haveNie.isNotEmpty) {
+      for (var i = 0; i < remaining.length; i++) {
+        if (remaining[i].lado == e.lado &&
+            remaining[i].nieNormalized == haveNie) {
+          return remaining.removeAt(i);
+        }
+      }
+    }
+    if (e.nombre.trim().isNotEmpty) {
+      for (var i = 0; i < remaining.length; i++) {
+        if (remaining[i].lado != e.lado) continue;
+        if (namesLikelyMatch(e.nombre, remaining[i].nombre)) {
+          return remaining.removeAt(i);
+        }
+      }
+    }
+    for (var i = 0; i < remaining.length; i++) {
+      if (remaining[i].lado == e.lado) return remaining.removeAt(i);
+    }
+    return null;
   }
-  return 'other';
+
+  final out = <TitularGapPatch>[];
+  for (final e in existing) {
+    final p = takeMatch(e);
+    if (p == null) continue;
+    String? nieRaw;
+    String? nieNormalized;
+    String? nombre;
+    if (e.nieNormalized.trim().isEmpty && p.nieNormalized.isNotEmpty) {
+      nieRaw = p.nieRaw;
+      nieNormalized = p.nieNormalized;
+    }
+    if (e.nombre.trim().isEmpty && p.nombre.trim().isNotEmpty) {
+      nombre = p.nombre.trim();
+    }
+    if (nieRaw == null && nieNormalized == null && nombre == null) continue;
+    out.add(
+      TitularGapPatch(
+        id: e.id,
+        nieRaw: nieRaw,
+        nieNormalized: nieNormalized,
+        nombre: nombre,
+      ),
+    );
+  }
+  return out;
 }
 
 /// Fakta z listiny — všichni, ne první pas. Pro 210, plusvalía i hledání v kanceláři.
@@ -372,6 +452,58 @@ Map<String, String> alignDeedFieldsToCliente({
   return next;
 }
 
+/// Společný Guardar přepisu: karta i deska. AI sem nesmí.
+class PreparedDocumentoExtract {
+  const PreparedDocumentoExtract({
+    required this.fields,
+    required this.body,
+    required this.deed,
+    this.bodyText,
+    this.nextTipo,
+  });
+
+  final Map<String, String> fields;
+  final String? bodyText;
+  final String body;
+  final bool deed;
+  final String? nextTipo;
+
+  bool get isEmpty => fields.isEmpty && bodyText == null;
+}
+
+PreparedDocumentoExtract prepareDocumentoExtract({
+  required Map<String, String> fields,
+  required String existingBody,
+  String? currentTipo,
+  required String cardName,
+  String? cardNie,
+}) {
+  final t = splitDocumentoTranscript(fields);
+  final body = t.bodyText ?? existingBody;
+  final deed =
+      looksLikeEscrituraText(body) || currentTipo == 'copia_escritura';
+  final aligned = deed
+      ? alignDeedFieldsToCliente(
+          fields: t.fields,
+          bodyText: body,
+          clienteNombre: cardName,
+          clienteNie: cardNie,
+        )
+      : t.fields;
+  final nextTipo =
+      (currentTipo == 'other' || (currentTipo ?? '').isEmpty) &&
+              looksLikeEscrituraText(body)
+          ? 'copia_escritura'
+          : currentTipo;
+  return PreparedDocumentoExtract(
+    fields: aligned,
+    bodyText: t.bodyText,
+    body: body,
+    deed: deed,
+    nextTipo: nextTipo,
+  );
+}
+
 /// Žlutý návrh bere strany z přepisu, ne z LLM (Kneznou ≠ kupující).
 Map<String, String> displayDocumentoFields({
   required Map<String, String> fields,
@@ -415,14 +547,25 @@ DeedPerson? pickDeedClient({
   return facts.buyers.isNotEmpty ? facts.buyers.first : pool.first;
 }
 
-/// Červená jen když na listině není karta. Prodávající ani zmocněnec stačí.
+bool _hasDeedParties(Map<String, String> fields) {
+  return [
+    fields['fields.buyers'],
+    fields['fields.sellers'],
+    fields['fields.seller'],
+    fields['fields.sellerNie'],
+    fields['fields.attorney'],
+  ].any((s) => (s ?? '').trim().isNotEmpty);
+}
+
+/// Červená / zákaz přepisu identity: karta s NIE musí to číslo na dokladu mít.
+/// Jméno z [alignDeedFieldsToCliente] není důkaz — vepíše se jméno karty.
 bool documentFitsCliente({
   required String cardName,
   String? cardNie,
   required Map<String, String> fields,
 }) {
   final blob = [
-    fields['fields.nombre'],
+    if (!_hasDeedParties(fields)) fields['fields.nombre'],
     fields['fields.nie'],
     fields['fields.buyers'],
     fields['fields.sellers'],
@@ -431,11 +574,96 @@ bool documentFitsCliente({
     fields['fields.attorney'],
   ].whereType<String>().join(' ');
   final want = (cardNie ?? '').trim().isEmpty ? null : normalizeNie(cardNie!);
-  if (want != null && blob.toUpperCase().replaceAll(RegExp(r'[\s\-\./]'), '').contains(want)) {
-    return true;
+  if (want != null && want.isNotEmpty) {
+    final compact = blob.toUpperCase().replaceAll(RegExp(r'[\s\-\./]'), '');
+    return compact.contains(want);
   }
-  if (cardName.trim().isEmpty) return true;
+  if (cardName.trim().isEmpty) return false;
   return namesLikelyMatch(cardName, blob);
+}
+
+/// Snackbar po Guardar: přepis ano, identita / strany ne.
+String? applyExtractNotice({
+  required bool mismatch,
+  required bool skippedDeedParties,
+}) {
+  if (skippedDeedParties) return 'folder.deedPartiesSkipped';
+  if (mismatch) return 'folder.applyMismatch';
+  return null;
+}
+
+/// NIE na kartě se mění jen stejným číslem. Prázdná karta přijme jen platný NIE/DNI.
+bool nieMayReplaceCard({required String cardNie, required String paperNie}) {
+  final paper = paperNie.trim();
+  if (paper.isEmpty) return true;
+  final p = normalizeNie(paper);
+  if (!looksLikeNie(p)) return false;
+  final c = normalizeNie(cardNie);
+  if (c.isEmpty) return true;
+  return c == p;
+}
+
+const _identityDeskKeys = {
+  'fields.nie',
+  'fields.email',
+  'fields.tel',
+  'fields.nombre',
+  'fields.iban',
+  'fields.address',
+};
+
+/// Na desku klienta jen když doklad patří kartě a NIE se neruší cizím číslem.
+Map<String, String> lockIdentityPaper({
+  required Map<String, String> paper,
+  required String cardName,
+  String? cardNie,
+}) {
+  final fits = documentFitsCliente(
+    cardName: cardName,
+    cardNie: cardNie,
+    fields: paper,
+  );
+  final nieOk = nieMayReplaceCard(
+    cardNie: cardNie ?? '',
+    paperNie: paper['fields.nie'] ?? '',
+  );
+  if (fits && nieOk) return paper;
+  return {
+    for (final e in paper.entries)
+      if (!_identityDeskKeys.contains(e.key)) e.key: e.value,
+  };
+}
+
+/// Titulares a finca jen když je karta stranou. Align vepíše jméno karty — to nestačí.
+bool deedBelongsToCliente({
+  required String cardName,
+  String? cardNie,
+  required String bodyText,
+  Map<String, String> paper = const {},
+}) {
+  final fields = Map<String, String>.from(paper);
+  if (looksLikeEscrituraText(bodyText)) {
+    final facts = extractDeedFacts(bodyText);
+    if (facts.buyers.isNotEmpty) {
+      fields['fields.buyers'] = formatDeedParties(facts.buyers);
+    }
+    if (facts.sellers.isNotEmpty) {
+      fields['fields.sellers'] = formatDeedParties(facts.sellers);
+      fields['fields.seller'] = facts.sellers.first.name;
+      fields['fields.sellerNie'] = facts.sellers.first.nie;
+    }
+    if (facts.representatives.isNotEmpty) {
+      fields['fields.attorney'] = formatDeedParties(facts.representatives);
+    }
+  }
+  // pickDeedClient sem dává kartu, ne stranu z listiny.
+  fields.remove('fields.nombre');
+  fields.remove('fields.nie');
+  return documentFitsCliente(
+    cardName: cardName,
+    cardNie: cardNie,
+    fields: fields,
+  );
 }
 
 /// Číslo listiny nahoře (DOS MIL CIENTO DIECISÉIS = 2116), ne rok v dědické doložce.

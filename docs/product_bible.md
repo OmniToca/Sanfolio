@@ -4,17 +4,34 @@ Zdroj pravdy pro entity, role a hranice. Staff UI je vícejazyčné (`cs`/`en`/`
 
 ## 1. Co produkt je
 
-**Gestoría OS** je provozní systém malé španělské gestoría. Nahrazuje tiskárnu, tužku a šanon.
+**Sanfolio** (kód: Gestoría OS) je provozní systém španělské kanceláře — gestoría i asesoría. Jedna data o klientovi, službách, papírech a penězích. Kancelář si zapne **moduly**. Vzor rozsahu: [myUcto.cz](https://myucto.cz) pro Česko (evidence → doklady → podání → banka), tady totéž pro Španělsko.
 
-Design partner tiskne ke každé složce dva listy. Tužkou označí, co za klienta řeší. Po digitalizaci stejná deska:
+Gestorie Jarka je **první kancelář**, na které ověřujeme, že jádro drží. Není strop trhu a není definice produktu.
 
-- drží všechna pole z papíru,
-- ví, který blok je zapnutý,
-- vidí chybějící data a dokumenty,
-- hlídá termíny,
-- nachystá výzvu klientovi (odesílá gestor).
+### Co každá kancelář dělá
 
-Není to účetní deník, není to a3, není to GestoLab.
+Než se liší (cizinci na Costa Blanca vs. laborál v Madridu), dělá totéž:
+
+1. Ví, **kdo je klient** (jméno, NIE/DNI/NIF, jazyk, kontakty).
+2. Ví, **co pro něj dělá** — a co ne. Vypnutá služba se nehlídá.
+3. Drží **doklady** (originál + přepis), ne jen poznámku v chatu.
+4. Hlídá **termíny** vůči úřadu, dodavateli i sobě.
+5. **Mluví s klientem** v jeho jazyce; ve spisu zůstane originál.
+6. **Účtuje si práci** a ví, kdo zaplatil.
+7. Časem **podává na úřady** a páruje banku — z týchž dat, ne z druhé aplikace.
+
+První vrstva v kódu je 1–5 (evidence + deska + inbox + výzvy). 6 je zatím tři čísla zálohy. 7 je horizont modulů. Žádná z těch vrstev neničí jádro.
+
+### Jádro, které se nemění
+
+- Složka / deska je pravda o klientovi a úkonu. Ne obecný CRM a ne účetní deník jako start.
+- Služba se **zapíná**. Vypnutá neexistuje v inboxu (v kódu: blok).
+- AI hledá, otevírá, navrhuje. Ukládá, maže, odesílá a podává **člověk**.
+- Soft-delete, append-only audit, i18n JSON, moduly + sloty. Žádný JSON page-builder.
+
+### První deska (teď)
+
+Na kartě a ve složce koupě kancelář vidí pole, zapnuté služby, chybějící papíry, termíny a výzvu klientovi. Modelo 210 se **počítá**. Podání AEAT, faktury s VeriFactu a banka jsou další moduly, až tahle deska žije v každé kanceláři, ne jen u Jarky.
 
 ## 2. Slovník
 
@@ -54,12 +71,12 @@ Klient bez nemovitosti je platný (např. jen NIE / poder / renta).
 Klient bez NIE je platný — první úkon může být vyřízení NIE.  
 Nemovitost bez **složky** (klienta kanceláře) není. Spoluvlastník-kupující dostane **kartu** (hledání, e-mail), ne druhou desku. Titulares drží podíl na finca.  
 Expediente typu koupě/prodej skoro vždy nese `inmueble_id`.  
-Policie / magistrát / testament: stejný vztah (visí na klientovi); u Jarky moduly zapnuté, **tenký spis** (stav + cita + papír), ne dva tištěné listy.  
+Policie / magistrát / testament: stejný vztah (visí na klientovi); u Jarky moduly zapnuté, **tenký spis** (stav + cita + papír), dokud kancelář nechce plnou desku.  
 Spoluvlastnictví: [roadmap_titulares.md](roadmap_titulares.md).
 
 ## 4. Cliente
 
-Karta klienta je hub. Pole z listu 1:
+Karta klienta je hub. Pole evidence osoby:
 
 | Pole | Povinné v MVP | Poznámka |
 | --- | --- | --- |
@@ -82,7 +99,7 @@ Soft-delete klienta nesmaže historii expedientes. Neaktivní (`inactivo`) jsou 
 
 ## 5. Inmueble
 
-Nese to, co papír píše u ESCRITURA, plus adresu bytu.
+Nese to, co patří k finca (adresa, notář, catastral), ne jen poznámka na kartě.
 
 | Pole | Povinné když je blok escritura zapnutý | Poznámka |
 | --- | --- | --- |
@@ -102,7 +119,7 @@ Katalog úkonů z náčrtu:
 
 | Kód | MVP | Papír |
 | --- | --- | --- |
-| `compraventa` | ano | Celá 2stránková deska |
+| `compraventa` | ano | Deska koupě (zapnuté bloky) |
 | `suministros_seguros` | ano jako součást desky, ne nutně samostatný spis | Agua…Alarma |
 | `impuestos_ibi` | ano (plazo + checklist) | SUMA / IBI |
 | `impuestos_210` | ano (plazo + checklist + výpočet IRNR) | modelo 210 |
@@ -116,9 +133,9 @@ Katalog úkonů z náčrtu:
 
 Stavy expedientes: `abierto` → `en_curso` → `espera_cliente` → `espera_admin` → `hecho` → `archivado`. Soft-delete je mimo tyto stavy (`deleted_at`).
 
-## 7. Bloque (tužka)
+## 7. Bloque (zapnutá služba)
 
-Blok je instance položky šablony u konkrétního expedientes. Stroj stavů a seznam bloků: [folder_template.md](folder_template.md).
+Blok je instance položky šablony u konkrétního expedientes — „tuto službu pro klienta děláme“. Stroj stavů a seznam bloků: [folder_template.md](folder_template.md).
 
 Pravidlo: **vypnutý blok neexistuje v inboxu**. Zapnutý blok bez povinných polí je `missing_data`. Zapnutý s poli bez dokumentu je `missing_document`. Zapnutý kompletní s budoucím termínem je `watching`. Zapnutý kompletní bez dalšího termínu je `done`.
 
@@ -166,7 +183,7 @@ Tři čísla na expediente, ne kniha:
 
 Pohyby (`provision_movements`): `ingreso` | `factura` | `ajuste`. Inbox upozorní, když `saldo <= 0` a existuje otevřená práce, nebo když práce `hecho` a `facturado = 0`.
 
-Žádné DPH výpočty, žádný VeriFactu, žádné asientos.
+Tohle je **základní** evidence peněz kanceláře. Modul fakturace (vydané / přijaté, DPH, VeriFactu přes certifikovaného poskytovatele, párování plateb) přijde později a napojí se na stejného klienta a spis. Není to účetní deník PGC.
 
 ## 12. Role
 
@@ -186,22 +203,41 @@ Support **bez** impersonace nečte klienty kanceláře.
 | `gestor` | Klienti, spisy, dokumenty, odesílání zpráv, ne správa licence |
 | `asistente` | Stejné čtení, zápis dokumentů a polí; nesmí mazat expedientes ani odesílat bez kontroly gestora (MVP: odesílat smí, mazat ne) |
 
-Budoucí `cliente_final` (portál klienta) v MVP neexistuje.
+Portál klienta (`cliente_final`) v první desce není; model zpráv už počítá s originálem + překladem.
 
-## 13. Non-goals (závazné NO)
+## 13. Co se nesmí rozbít vs. co přijde jako modul
 
-- Účetní deník, PGC, asientos
-- XML / telematické podání AEAT (modelo 210, renta, 303) — výpočet 210 na desce ano, podání kliknutím gestora až po ověření
+### Trvalé zákazy (destrukce produktu)
+
+- Fyzické DELETE business dat
+- AI s tools `save_*` / `delete_*` / `send_*` / podání na úřad bez kliknutí člověka
+- Vlastní VeriFactu SIF (až faktury: certifikovaný poskytovatel, ne stavět SIF v jádru)
+- Volný JSON page-builder / drag-drop layout
+- Nativní aplikace, offline, Drift, IndexedDB backlog
+- Hardcoded UI text
+
+### Teď ne (první deska musí nejdřív držet u víc kanceláří)
+
+- Telematické podání AEAT (210, 211, 303, renta) — výpočet 210 na desce ano
 - Výpočet renta / IRPF a modelo 303
-- Vlastní VeriFactu SIF
-- 21 EX formulářů
+- Vydané a přijaté faktury, DPH, párování banky
+- Účetní deník PGC / asientos
+- 21 EX formulářů (extranjería jako **modul**, ne jádro)
 - WhatsApp Business API (copy-to-WhatsApp ano)
 - Digitální podpis
-- Portál klienta (v2; model zpráv už originál + překlad)
-- Nativní aplikace, offline, Drift
-- Samostatné desky policie / magistrát / testament před tím, než deska koupě žije v prohlížeči — **teď tenký spis** (stav + cita + papír), ne dva listy.
-- Fyzické DELETE business dat
-- AI s tools `save_*` / `delete_*` / `send_*`
+- Portál klienta
+
+Tyhle věci nejsou „nikdy“. Jsou to **další licence v `organization_modules`**, až evidence, deska a inbox unesou druhou kancelář. Pořadí jako myUcto: nejdřív doklad a klient, pak podání a peníze, účetnictví poslední.
+
+### Horizont modulů
+
+| Vrstva | Příklady | Stav |
+| --- | --- | --- |
+| Evidence | klient, finca, titulares, papíry, lhůty, výzvy | první deska |
+| Trámites | 210 / IBI / NIE / poder; později podání XML | výpočet a checklist teď |
+| Despacho | faktury kanceláře, inkaso, banka | záloha tři čísla teď |
+| Contabilidad | PGC, DPH 303, asientos | až despacho žije |
+| Vertikály | extranjería EX, tráfico, laborál | jen jako modul, ne přepis jádra |
 
 ## 14. Jazyk a stack (až kód)
 

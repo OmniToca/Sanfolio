@@ -5,12 +5,12 @@ alwaysApply: true
 
 # Gestoría OS
 
-SaaS pro španělské gestoría. Flutter web je tenký klient. Žádný offline, žádný Drift.
+SaaS pro španělské kanceláře (gestoría / asesoría). Flutter web je tenký klient. Žádný offline, žádný Drift. Jarka je první tenant, ne strop.
 
-Pilíře: papírová složka; tužka = blok; AI jen search/open/prefill; soft-delete; append-only audit; i18n JSON od dne 1; moduly + sloty, ne JSON layout engine.
+Pilíře: složka klienta je pravda; zapnutá služba = blok; AI jen search/open/prefill; soft-delete; append-only audit; i18n JSON od dne 1; moduly + sloty, ne JSON layout engine. Podání AEAT, fakturace a banka až jako moduly.
 
 Stack: Flutter web, Riverpod, go_router, easy_localization, Supabase (Postgres, RLS, Edge Functions). Peníze = integer cents. ID = UUID. Čas v DB = timestamptz UTC, termíny `date` v Europe/Madrid.
 
 Kancelář (staff) UI: cs / en / es / de / fr. Klient má `locale`. Úřední názvy (NIE, escritura) se nepřekládají pryč.
 
-NIKDY: hard delete, AI save/delete/send, VeriFactu vlastní SIF, IndexedDB, nativní app, volný page-builder, hardcoded UI text.
+NIKDY v jádru: hard delete, AI save/delete/send, vlastní VeriFactu SIF, IndexedDB, nativní app, volný page-builder, hardcoded UI text.

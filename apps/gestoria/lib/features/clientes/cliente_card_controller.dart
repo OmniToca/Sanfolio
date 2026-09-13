@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gestoria_auth/gestoria_auth.dart';
 
 import '../../core/documents/documento_storage.dart';
+import '../../core/identity/nie_persist.dart';
 import '../ai/ai_providers.dart';
 import '../ai/escritura_parties.dart';
 import '../ai/extract_text.dart';
@@ -187,18 +188,7 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
       '${row['apellidos'] ?? ''}'.trim(),
     ].where((s) => s.isNotEmpty).join(' ');
 
-    String? nie;
-    final ids = row['client_identifiers'];
-    if (ids is List) {
-      for (final item in ids) {
-        if (item is! Map || item['deleted_at'] != null) continue;
-        final v = '${item['value_raw'] ?? ''}'.trim();
-        if (v.isNotEmpty) {
-          nie = v;
-          break;
-        }
-      }
-    }
+    final nie = preferredFiscalRawFromRows(row['client_identifiers']);
 
     final docsRaw = await client
         .from('documentos')
@@ -372,9 +362,8 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
   }) async {
     final current = state.valueOrNull;
     if (current == null || current.deleted) return;
-    final client = trySupabaseClient();
     final auth = ref.read(authControllerProvider).valueOrNull;
-    if (client == null) throw StateError('not configured');
+    if (trySupabaseClient() == null) throw StateError('not configured');
     final path = documentoStoragePath(
       tenantId: current.tenantId,
       clienteId: current.id,
@@ -385,19 +374,14 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
       bytes: bytes,
       originalName: originalName,
     );
-    try {
-      await client.from('documentos').insert({
-        'tenant_id': current.tenantId,
-        'cliente_id': current.id,
-        'tipo': tipo,
-        'storage_path': path,
-        'original_name': originalName,
-        if (auth?.profile?.id != null) 'created_by': auth!.profile!.id,
-      });
-    } on Object {
-      await rollbackDocumentoUpload(path);
-      throw OfficeUploadException('db');
-    }
+    await insertDocumentoRow(
+      tenantId: current.tenantId,
+      clienteId: current.id,
+      tipo: tipo,
+      storagePath: path,
+      originalName: originalName,
+      createdBy: auth?.profile?.id,
+    );
     startExtractInBackground(
       tenantId: current.tenantId,
       clienteId: current.id,
@@ -419,8 +403,6 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
     if (current == null || current.deleted || fields.isEmpty) return;
     final client = trySupabaseClient();
     if (client == null) throw StateError('not configured');
-    final t = splitDocumentoTranscript(fields);
-    if (t.fields.isEmpty && t.bodyText == null) return;
     ClienteDocumento? doc;
     for (final d in current.documents) {
       if (d.id == documentId) {
@@ -428,23 +410,19 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
         break;
       }
     }
-    final body = t.bodyText ?? doc?.bodyText ?? '';
-    final aligned = looksLikeEscrituraText(body)
-        ? alignDeedFieldsToCliente(
-            fields: t.fields,
-            bodyText: body,
-            clienteNombre: current.nombre,
-            clienteNie: current.nie,
-          )
-        : t.fields;
-    final nextTipo = (doc?.tipo == 'other' || (doc?.tipo ?? '').isEmpty) &&
-            looksLikeEscrituraText(body)
-        ? 'copia_escritura'
-        : null;
+    final prepared = prepareDocumentoExtract(
+      fields: fields,
+      existingBody: doc?.bodyText ?? '',
+      currentTipo: doc?.tipo,
+      cardName: current.nombre,
+      cardNie: current.nie,
+    );
+    if (prepared.isEmpty) return;
     await client.from('documentos').update({
-      'extracted': aligned,
-      if (t.bodyText != null) 'body_text': t.bodyText,
-      if (nextTipo != null) 'tipo': nextTipo,
+      'extracted': prepared.fields,
+      if (prepared.bodyText != null) 'body_text': prepared.bodyText,
+      if (prepared.nextTipo != null && prepared.nextTipo != doc?.tipo)
+        'tipo': prepared.nextTipo,
     }).eq('id', documentId).eq('tenant_id', current.tenantId);
     _refresh();
   }

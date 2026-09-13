@@ -206,12 +206,13 @@ String paperSortStamp(Map<String, String> extracted) {
   return '';
 }
 
-/// Hrubá shoda jména na dokladu vs. karta. Bez „opravy“ NIE.
+/// Hrubá shoda jména na dokladu vs. karta. Jedno slovo (Petr) nestačí k přepisu NIE.
 bool namesLikelyMatch(String cardName, String documentName) {
   final a = _nameTokens(cardName);
   final b = _nameTokens(documentName);
-  if (a.isEmpty || b.isEmpty) return true;
+  if (a.isEmpty || b.isEmpty) return false;
   final overlap = a.where(b.contains).length;
+  if (a.length >= 2) return overlap >= 2;
   return overlap >= 1;
 }
 

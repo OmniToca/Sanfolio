@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gestoria_auth/gestoria_auth.dart';
 
 import '../../core/documents/documento_storage.dart';
+import '../../core/identity/nie_persist.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/money/cents.dart';
 import '../../core/money/provision.dart';
@@ -314,14 +315,12 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
 
     final ids = await client
         .from('client_identifiers')
-        .select('value_raw')
+        .select('kind, value_raw')
         .eq('cliente_id', clienteId)
-        .isFilter('deleted_at', null)
-        .limit(1)
-        .maybeSingle();
+        .isFilter('deleted_at', null);
 
     final snapshotValues = <String, String>{
-      'fields.nie': '${ids?['value_raw'] ?? ''}'.trim(),
+      'fields.nie': preferredFiscalRawFromRows(ids) ?? '',
       'fields.email': '${persona['email'] ?? ''}'.trim(),
       'fields.tel': '${persona['tel'] ?? ''}'.trim(),
       'fields.address': '${persona['direccion'] ?? ''}'.trim(),
@@ -536,7 +535,13 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
           _draft.remove(key);
         }
         if (key == 'cliente_snapshot') {
-          await _persistCliente(_bloqueLive(key).values);
+          final nieSave = await _persistCliente(_bloqueLive(key).values);
+          if (nieSave.conflict) {
+            _restoreSnapshotNie(nieSave.keepNie);
+            _persistAgain.add(key);
+            ref.read(carpetaNoticeProvider(arg).notifier).state =
+                'folder.nieTaken'.tr(namedArgs: {'nie': nieSave.typedNie});
+          }
         }
         if (key == 'escritura') {
           await _persistEscrituraFecha(
@@ -546,7 +551,8 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
         }
       } while (_persistAgain.contains(key));
     } on Object {
-      // Tužka musí zůstat použitelná i když jeden zápis spadne.
+      ref.read(carpetaNoticeProvider(arg).notifier).state =
+          'folder.persistError'.tr();
     } finally {
       _persisting.remove(key);
     }
@@ -585,11 +591,10 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
     required String originalName,
   }) async {
     final view = state.valueOrNull;
-    final client = trySupabaseClient();
     final auth = ref.read(authControllerProvider).valueOrNull;
     final bloque = view == null ? null : _bloqueLive(templateKey);
     final bloqueId = bloque?.id;
-    if (view == null || client == null) {
+    if (view == null || trySupabaseClient() == null) {
       throw OfficeUploadException('not_configured');
     }
     if (bloque == null || bloqueId == null) {
@@ -612,28 +617,17 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
       bytes: bytes,
       originalName: originalName,
     );
-    Map inserted;
-    try {
-      inserted = await client
-          .from('documentos')
-          .insert({
-            'tenant_id': view.tenantId,
-            'cliente_id': view.clienteId,
-            'bloque_id': bloqueId,
-            'tipo': tipo,
-            'storage_path': path,
-            'original_name': originalName,
-            if (auth?.profile?.id != null) 'created_by': auth!.profile!.id,
-          })
-          .select('id')
-          .single();
-    } on Object catch (e) {
-      debugPrint('documentos insert $e');
-      await rollbackDocumentoUpload(path);
-      throw OfficeUploadException('db');
-    }
+    final id = await insertDocumentoRow(
+      tenantId: view.tenantId,
+      clienteId: view.clienteId,
+      tipo: tipo,
+      storagePath: path,
+      originalName: originalName,
+      bloqueId: bloqueId,
+      createdBy: auth?.profile?.id,
+    );
     final doc = CarpetaDocumento(
-      id: '${inserted['id']}',
+      id: id,
       tipo: tipo,
       storagePath: path,
       originalName: originalName,
@@ -648,7 +642,8 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
   }
 
   /// Gestor ukládá návrh z dokladu. AI sem nesmí.
-  Future<void> saveDocumentoExtracted({
+  /// Vrací true, když listina nesedí ke kartě — OCR je u souboru, titulares ne.
+  Future<bool> saveDocumentoExtracted({
     required String templateKey,
     required String documentId,
     required Map<String, String> fields,
@@ -657,10 +652,8 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
     final client = trySupabaseClient();
     final bloque = view == null ? null : _bloqueLive(templateKey);
     if (view == null || client == null || bloque == null || bloque.id == null || fields.isEmpty) {
-      return;
+      return false;
     }
-    final t = splitDocumentoTranscript(fields);
-    if (t.fields.isEmpty && t.bodyText == null) return;
     CarpetaDocumento? currentDoc;
     for (final d in bloque.documents) {
       if (d.id == documentId) {
@@ -668,25 +661,29 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
         break;
       }
     }
-    final body = t.bodyText ?? currentDoc?.bodyText ?? '';
-    final deed = looksLikeEscrituraText(body) ||
-        currentDoc?.tipo == 'copia_escritura';
-    final aligned = deed
-        ? alignDeedFieldsToCliente(
-            fields: t.fields,
-            bodyText: body,
-            clienteNombre: view.nombre,
-            clienteNie: view.bloques['cliente_snapshot']?.values['fields.nie'],
-          )
-        : t.fields;
-    final nextTipo = (currentDoc?.tipo == 'other' ||
-                (currentDoc?.tipo ?? '').isEmpty) &&
-            looksLikeEscrituraText(body)
-        ? 'copia_escritura'
-        : currentDoc?.tipo;
+    final cardNie = view.bloques['cliente_snapshot']?.values['fields.nie'];
+    final prepared = prepareDocumentoExtract(
+      fields: fields,
+      existingBody: currentDoc?.bodyText ?? '',
+      currentTipo: currentDoc?.tipo,
+      cardName: view.nombre,
+      cardNie: cardNie,
+    );
+    if (prepared.isEmpty) return false;
+    final aligned = prepared.fields;
+    final body = prepared.body;
+    final deed = prepared.deed;
+    final nextTipo = prepared.nextTipo;
+    final belongs = !deed ||
+        deedBelongsToCliente(
+          cardName: view.nombre,
+          cardNie: cardNie,
+          bodyText: body,
+          paper: aligned,
+        );
     await client.from('documentos').update({
       'extracted': aligned,
-      if (t.bodyText != null) 'body_text': t.bodyText,
+      if (prepared.bodyText != null) 'body_text': prepared.bodyText,
       if (nextTipo != null && nextTipo != currentDoc?.tipo) 'tipo': nextTipo,
     }).eq('id', documentId);
     final docs = [
@@ -694,33 +691,31 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
         d.id == documentId
             ? d.copyWith(
                 extracted: aligned,
-                bodyText: t.bodyText ?? d.bodyText,
+                bodyText: prepared.bodyText ?? d.bodyText,
                 tipo: nextTipo ?? d.tipo,
               )
             : d,
     ];
     var paper = aligned;
-    if (templateKey == 'cliente_snapshot' && deed) {
-      final nie = (aligned['fields.nie'] ?? '').trim();
-      final fits = documentFitsCliente(
+    if (templateKey == 'cliente_snapshot') {
+      paper = lockIdentityPaper(
+        paper: aligned,
         cardName: view.nombre,
-        cardNie: view.bloques['cliente_snapshot']?.values['fields.nie'],
-        fields: aligned,
+        cardNie: cardNie,
       );
-      paper = {
-        if (fits && nie.isNotEmpty) 'fields.nie': nie,
-      };
     }
-    final merged = promotePaperToDesk(
-      deskFieldKeys: _templateByKey(templateKey).fieldKeys,
-      desk: bloque.values,
-      paper: paper,
-    );
+    final merged = (deed && !belongs)
+        ? bloque.values
+        : promotePaperToDesk(
+            deskFieldKeys: _templateByKey(templateKey).fieldKeys,
+            desk: bloque.values,
+            paper: paper,
+          );
     _draft[templateKey] = merged;
     final next = bloque.copyWith(values: merged, documents: docs);
     state = AsyncData(view.withBloque(templateKey, next));
     await _persistBloque(templateKey);
-    if (deed && bloque.id != null) {
+    if (deed && belongs && bloque.id != null) {
       await _persistInmuebleFromDeed(
         bloque.id!,
         paper: aligned,
@@ -732,9 +727,11 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
         tenantId: view.tenantId,
         folderClienteId: view.clienteId,
         folderNombre: view.nombre,
+        folderNie: cardNie,
         deskDate: merged['fields.date'] ?? aligned['fields.date'],
       );
     }
+    return deed && !belongs;
   }
 
   Future<void> removeDocument(String templateKey, String documentId) async {
@@ -861,10 +858,18 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
     required String tenantId,
     required String folderClienteId,
     required String folderNombre,
+    String? folderNie,
     String? deskDate,
   }) async {
     final client = trySupabaseClient();
     if (client == null || !looksLikeEscrituraText(bodyText)) return;
+    if (!deedBelongsToCliente(
+      cardName: folderNombre,
+      cardNie: folderNie,
+      bodyText: bodyText,
+    )) {
+      return;
+    }
     final proposed = proposeTitularesFromDeed(extractDeedFacts(bodyText));
     if (proposed.isEmpty) return;
     final inmuebleId = await _inmuebleIdForBloque(bloqueId);
@@ -877,6 +882,10 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
           .isFilter('deleted_at', null)
           .limit(1);
       if (existing is List && existing.isNotEmpty) {
+        await _fillEmptyTitularesFromDeed(
+          inmuebleId: inmuebleId,
+          proposed: proposed,
+        );
         await _ensureCompradorClientes(
           inmuebleId: inmuebleId,
           tenantId: tenantId,
@@ -945,6 +954,42 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
     }
   }
 
+  /// Druhý Guardar: jen díry OCR, ne cuota ani ruční NIE.
+  Future<void> _fillEmptyTitularesFromDeed({
+    required String inmuebleId,
+    required List<ProposedTitular> proposed,
+  }) async {
+    final client = trySupabaseClient();
+    if (client == null) return;
+    final rows = await client
+        .from('inmueble_titulares')
+        .select('id, lado, nombre, nie_raw, nie_normalized')
+        .eq('inmueble_id', inmuebleId)
+        .isFilter('deleted_at', null);
+    if (rows is! List) return;
+    final live = <LiveTitularRow>[
+      for (final raw in rows)
+        if (raw is Map)
+          LiveTitularRow(
+            id: '${raw['id']}',
+            lado: '${raw['lado']}',
+            nombre: '${raw['nombre'] ?? ''}'.trim(),
+            nieNormalized: '${raw['nie_normalized'] ?? ''}'.trim(),
+          ),
+    ];
+    final patches = planFillEmptyTitulares(
+      existing: live,
+      proposed: proposed,
+    );
+    for (final p in patches) {
+      await client.from('inmueble_titulares').update({
+        if (p.nieRaw != null) 'nie_raw': p.nieRaw,
+        if (p.nieNormalized != null) 'nie_normalized': p.nieNormalized,
+        if (p.nombre != null) 'nombre': p.nombre,
+      }).eq('id', p.id);
+    }
+  }
+
   Future<List<InmuebleTitular>> _fetchTitulares(String? inmuebleId) async {
     final client = trySupabaseClient();
     if (client == null || inmuebleId == null || inmuebleId.isEmpty) {
@@ -1006,6 +1051,7 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
           tenantId: tenantId,
           nieNormalized: nie,
         );
+        final linkedExisting = clienteId != null;
         clienteId ??= await _insertCoOwnerCliente(
           tenantId: tenantId,
           nombre: t.nombre,
@@ -1018,6 +1064,10 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
           'cliente_id': clienteId,
         }).eq('id', t.id).eq('tenant_id', tenantId);
         changed = true;
+        if (linkedExisting) {
+          ref.read(carpetaNoticeProvider(arg).notifier).state =
+              'folder.coOwnerLinked'.tr();
+        }
       }
       if (changed) ref.invalidate(clientesListProvider);
     } on Object {
@@ -1080,6 +1130,8 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
         await client.from('clientes').update({
           'deleted_at': DateTime.now().toUtc().toIso8601String(),
         }).eq('id', id).eq('tenant_id', tenantId);
+        ref.read(carpetaNoticeProvider(arg).notifier).state =
+            'folder.coOwnerLinked'.tr();
         return existing;
       }
       return id;
@@ -1210,12 +1262,15 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
     }
   }
 
-  Future<void> _persistCliente(Map<String, String> values) async {
+  Future<({bool conflict, String keepNie, String typedNie})> _persistCliente(
+    Map<String, String> values,
+  ) async {
+    const ok = (conflict: false, keepNie: '', typedNie: '');
     final client = trySupabaseClient();
     final view = state.valueOrNull;
     final auth = ref.read(authControllerProvider).valueOrNull;
     final tenantId = auth?.currentTenantId;
-    if (client == null || view == null || tenantId == null) return;
+    if (client == null || view == null || tenantId == null) return ok;
     await client.from('clientes').update({
       'email': _nullIfEmpty(values['fields.email']),
       'tel': _nullIfEmpty(values['fields.tel']),
@@ -1226,44 +1281,127 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
     }).eq('id', view.clienteId);
 
     final nie = (values['fields.nie'] ?? '').trim();
-    final existing = await client
+    final rawIds = await client
         .from('client_identifiers')
-        .select('id')
+        .select('id, kind, value_normalized, value_raw')
         .eq('cliente_id', view.clienteId)
-        .isFilter('deleted_at', null)
-        .maybeSingle();
-    if (nie.isEmpty) {
-      if (existing != null) {
-        await client.from('client_identifiers').update({
-          'deleted_at': DateTime.now().toUtc().toIso8601String(),
-        }).eq('id', existing['id']);
+        .isFilter('deleted_at', null);
+    final live = [
+      for (final row in rawIds as List)
+        LiveIdentifier(
+          id: '${row['id']}',
+          kind: '${row['kind']}',
+          valueNormalized: '${row['value_normalized']}',
+          valueRaw: '${row['value_raw'] ?? ''}',
+          clienteId: view.clienteId,
+        ),
+    ];
+    var normalized = '';
+    if (nie.isNotEmpty) {
+      try {
+        final n = await client.rpc('normalize_id', params: {'raw': nie});
+        if (n != null) normalized = '$n';
+      } on Object {
+        normalized = nie.toUpperCase().replaceAll(RegExp(r'[\s\-\./]'), '');
       }
-      return;
     }
-    var normalized = nie.toUpperCase();
+    if (normalized.isNotEmpty) {
+      final others = await client
+          .from('client_identifiers')
+          .select('id, kind, value_normalized, cliente_id')
+          .eq('tenant_id', tenantId)
+          .eq('value_normalized', normalized)
+          .isFilter('deleted_at', null);
+      final tenantLive = [
+        for (final row in others as List)
+          LiveIdentifier(
+            id: '${row['id']}',
+            kind: '${row['kind']}',
+            valueNormalized: '${row['value_normalized']}',
+            clienteId: '${row['cliente_id']}',
+          ),
+      ];
+      if (fiscalIdConflicts(
+        normalized: normalized,
+        clienteId: view.clienteId,
+        liveInTenant: tenantLive,
+      )) {
+        return (
+          conflict: true,
+          keepNie: nieFieldAfterConflict(
+            conflict: true,
+            typedRaw: nie,
+            liveOnCliente: live,
+          ),
+          typedNie: nie,
+        );
+      }
+    }
+    final plan = planNiePersist(
+      nieNormalized: normalized,
+      liveOnCliente: live,
+    );
     try {
-      final n = await client.rpc('normalize_id', params: {'raw': nie});
-      if (n != null) normalized = '$n';
-    } on Object {
-      normalized = nie.toUpperCase().replaceAll(RegExp(r'[\s\-\./]'), '');
-    }
-    if (existing != null) {
-      await client.from('client_identifiers').update({
-        'value_raw': nie,
-        'value_normalized': normalized,
-      }).eq('id', existing['id']);
-    } else {
-      await client.from('client_identifiers').insert({
-        'tenant_id': tenantId,
-        'cliente_id': view.clienteId,
-        'kind': 'nie',
-        'value_raw': nie,
-        'value_normalized': normalized,
-        'checksum': 'unknown',
-      });
+      switch (plan.op) {
+        case NiePersistOp.none:
+          return ok;
+        case NiePersistOp.softDeleteNie:
+          await client.from('client_identifiers').update({
+            'deleted_at': DateTime.now().toUtc().toIso8601String(),
+          }).eq('id', plan.targetId!);
+          return ok;
+        case NiePersistOp.update:
+          await client.from('client_identifiers').update({
+            'value_raw': nie,
+            'value_normalized': plan.normalized,
+            'kind': plan.kind,
+          }).eq('id', plan.targetId!);
+          return ok;
+        case NiePersistOp.insert:
+          await client.from('client_identifiers').insert({
+            'tenant_id': tenantId,
+            'cliente_id': view.clienteId,
+            'kind': plan.kind,
+            'value_raw': nie,
+            'value_normalized': plan.normalized,
+            'checksum': 'unknown',
+          });
+          return ok;
+      }
+    } on Object catch (e) {
+      if (looksLikeUniqueConstraint(e)) {
+        return (
+          conflict: true,
+          keepNie: nieFieldAfterConflict(
+            conflict: true,
+            typedRaw: nie,
+            liveOnCliente: live,
+          ),
+          typedNie: nie,
+        );
+      }
+      rethrow;
     }
   }
+
+  void _restoreSnapshotNie(String keepNie) {
+    final bloque = _bloqueLive('cliente_snapshot');
+    final next = {...bloque.values, 'fields.nie': keepNie};
+    _draft['cliente_snapshot'] = next;
+    final view = state.valueOrNull;
+    if (view == null) return;
+    state = AsyncData(
+      view.withBloque(
+        'cliente_snapshot',
+        bloque.copyWith(values: next),
+      ),
+    );
+  }
 }
+
+/// Snackbar z persist desky (konflikt NIE). Klíč i18n už přeložený.
+final carpetaNoticeProvider =
+    StateProvider.family<String?, CarpetaTarget>((ref, _) => null);
 
 final carpetaControllerProvider =
     AsyncNotifierProvider.family<CarpetaController, CarpetaView, CarpetaTarget>(

@@ -136,12 +136,12 @@ Kancelář = správce. My = zpracovatel. DPA před ostrým provozem.
 | Hosting EU | Supabase region EU |
 | Soft-delete jako undo | `deleted_at`, UI „Eliminar“ |
 | Právo na výmaz | není okamžité fyzické smazání |
-| Legal hold | daň/obchod 4–6 let: `legal_holds` na klienta/dokument |
+| Legal hold | daň/obchod 4–6 let: tabulka `legal_holds`; `purge_documento_storage` hodí `legal_hold` |
 | Po hold + žádost o výmaz | `anonymize_cliente`: jméno → `ANON`, identifikátory pryč, soubory overwrite/delete v Storage, expedientes zůstanou jako kostra bez PII, audit redacted |
 | Přístup k PII | audit `*.open` |
 | Portabilita | později export JSON/PDF složky; neblokuje MVP |
 
-Anonymizace je jediný povolený „tvrdý“ úklid PII a spouští ji owner + potvrzení, nebo cron po `legal_hold.until` AND `erasure_requested_at`.
+Anonymizace je jediný povolený „tvrdý“ úklid PII: RPC `anonymize_cliente` (owner). Padne na `legal_hold`, když `until` ještě platí. Cron po hold + `erasure_requested_at` přijde později.
 
 ## 9. RLS náčrt
 

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gestoria_auth/gestoria_auth.dart';
 
 import '../../core/documents/documento_storage.dart';
+import '../../core/identity/nie_persist.dart';
 import '../ai/ai_providers.dart';
 import '../ai/documento_fields.dart';
 import '../carpeta/carpeta_controller.dart';
@@ -162,7 +163,7 @@ class ThinExpedienteController
         .eq('cliente_id', clienteId)
         .eq('tenant_id', tenantId)
         .isFilter('deleted_at', null);
-    final clienteNie = _nieFromIdentifiers(idsRaw);
+    final clienteNie = preferredFiscalRawFromRows(idsRaw);
     final inmRaw = await client
         .from('inmuebles')
         .select('id, direccion, referencia_catastral')
@@ -401,30 +402,20 @@ class ThinExpedienteController
       bytes: bytes,
       originalName: originalName,
     );
-    Map inserted;
-    try {
-      inserted = await client
-          .from('documentos')
-          .insert({
-            'tenant_id': current.tenantId,
-            'cliente_id': current.clienteId,
-            'bloque_id': bloqueId,
-            'tipo': resolved,
-            'storage_path': path,
-            'original_name': originalName,
-            if (auth?.profile?.id != null) 'created_by': auth!.profile!.id,
-          })
-          .select('id')
-          .single();
-    } on Object {
-      await rollbackDocumentoUpload(path);
-      throw OfficeUploadException('db');
-    }
+    final insertedId = await insertDocumentoRow(
+      tenantId: current.tenantId,
+      clienteId: current.clienteId,
+      tipo: resolved,
+      storagePath: path,
+      originalName: originalName,
+      bloqueId: bloqueId,
+      createdBy: auth?.profile?.id,
+    );
     final next = current.bloque.copyWith(
       documents: [
         ...current.bloque.documents,
         CarpetaDocumento(
-          id: '${inserted['id']}',
+          id: insertedId,
           tipo: resolved,
           storagePath: path,
           originalName: originalName,
@@ -662,24 +653,6 @@ Future<void> _mergeTitularInmuebles({
   } on Object {
     return;
   }
-}
-
-String? _nieFromIdentifiers(Object? raw) {
-  if (raw is! List) return null;
-  String? first;
-  String? preferred;
-  for (final item in raw) {
-    if (item is! Map) continue;
-    final v = '${item['value_raw'] ?? ''}'.trim();
-    if (v.isEmpty) continue;
-    first ??= v;
-    final kind = '${item['kind'] ?? ''}';
-    if (kind == 'nie' || kind == 'dni' || kind == 'nif') {
-      preferred ??= v;
-      if (kind == 'nie') return v;
-    }
-  }
-  return preferred ?? first;
 }
 
 String _dbStatus(BloqueUiStatus s) {

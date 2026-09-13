@@ -1,6 +1,6 @@
-# Gestoría OS
+# Sanfolio (Gestoría OS)
 
-Digitální složka pro španělskou gestoría. Zdroj pravdy je papírová deska z design-partner kanceláře (Costa Blanca / Alicante): tužkou se zapíná, co kancelář za klienta opravdu dělá. Po naplnění systém hlídá termíny a chybějící dokumenty.
+Provozní systém španělské kanceláře. Evidence klienta a služeb, doklady, termíny, výzvy; další moduly (podání, faktury, banka) až jádro drží. První kancelář je Gestorie Jarka — odrazový můstek, ne strop.
 
 **Teď:** Auth + Support + převtělení. Napoj hosted Supabase (EU) a `config.json`.
 

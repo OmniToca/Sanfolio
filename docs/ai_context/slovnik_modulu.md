@@ -16,7 +16,9 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `extract-document` | Edge Function | fotka/PDF → text LLM nebo vision → `ai_drafts`; compraventa: všichni kupující/prodávající, cena, finca, právník; Guardar je gestor |
 | `documentos.extracted` | JSONB na dokladu | uložená pole po Guardar; AI sem nezapisuje |
 | `documentos.body_text` | TEXT na dokladu | přepis PDF po Guardar |
-| `purge_documento_storage` | SQL RPC | owner vysype blob schovaného dokumentu |
+| `purge_documento_storage` | SQL RPC | owner vysype blob schovaného dokumentu; `legal_hold` když drží hold |
+| `legal_holds` | SQL | zákaz purge/anonymizace do `until` (date Madrid) |
+| `anonymize_cliente` | SQL RPC | owner; PII → ANON; blob pryč; hold blokuje |
 | `trashVisibleOnCard` | karta klienta | koš schovaných s originálem z karty i ze složky; vysypané zmizí |
 | `pickOfficeFile` | `office_file_pick.dart` | web: `<input>` overlay na tlačítku (Safari); raw POST do Storage, ne multipart |
 | `paper_glance` | `features/ai/paper_glance.dart` | součet faktur a krátký řádek na šanonu |
@@ -32,6 +34,7 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `start_impersonation` | SQL RPC | auditní session 8 h |
 | `apps/support` | Flutter web | HQ kanceláře, Impersonar |
 | `CarpetaController` | `carpeta_controller.dart` | tužka, `bloques`, `clientes`, `documentos` |
+| `TitularesPanel` | `carpeta_titulares.dart` | spoluvlastníci na desce; mimo obří `carpeta_screen` |
 | `bloqueStatusFill` | `carpeta_controller.dart` | sémantika chipu; zelená jen `done` |
 | `bloqueDocsHint` | kryt bloku | any = text bez 2/3; all + 2 typy = lišta chybějících |
 | `expiryTone` | `core/time/office_date.dart` | DNI/pas badge; dny z `poder_warn_days` |

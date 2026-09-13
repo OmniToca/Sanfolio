@@ -77,7 +77,8 @@ To zůstane. Titulares jsou **pátý** zápis, oddělený:
 - Prodávající → `lado=vendedor` (pro pozdější 211). Do 210 se nepletou.
 - `cliente_id` vyplň **jen** match NIE na existující `client_identifiers` téhož tenantu (Petr). Moniku nelinkuj, dokud nemá kartu.
 - Zápis řádků **jen** když na inmueble ještě není živý titular (idempotentní Guardar nesmí duplikovat ani přepsat ruční opravu).
-- Když už řádky jsou, Guardar listiny je nechá. Gestor edituje tužkou na šanonu.
+- **A** jen když `deedBelongsToCliente` (karta je strana listiny). Cizí PDF u Petra nesmí založit titulares ani kartu Moniky. Align vepíše jméno karty — to nestačí.
+- Když už řádky jsou, druhý Guardar **doplní jen prázdné** NIE/jméno (`planFillEmptyTitulares`). Cuota a ruční NIE nepřepíše. Gestor dál edituje tužkou na šanonu.
 
 AI `extract-document` dál jen `ai_drafts`. Edge **neinsertuje** titulares.
 

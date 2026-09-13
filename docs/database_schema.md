@@ -40,7 +40,9 @@ Pořadí souborů je čtyřmístné (`0001`, `0002`, …), ne timestamp.
 | `0035_thin_tramite_templates.sql` | `bloque_templates` pro tenké spisy; FK `bloques.template_key` |
 | `0036_query_escritura_facts.sql` | `query_escritura` i podle právníka, catastral, stran z `extracted` |
 | `0037_inmueble_titulares.sql` | spoluvlastníci finca (`cuota_bps`); audit na kartě složky; [roadmap_titulares.md](roadmap_titulares.md) |
-| `0038_ai_titulares_copilot.sql` | `search_clients` jméno bez `normalize_id`; `ai_get_cliente.titular_inmuebles`; `query_escritura` podle strany |
+| `0039_unique_nie_across_kinds.sql` | živý NIE/DNI/NIF unique v tenantu bez ohledu na `kind` |
+| `0040_legal_holds.sql` | `legal_holds`; `purge_documento_storage` padne na `legal_hold` |
+| `0041_anonymize_cliente.sql` | `erasure_requested_at`; RPC `anonymize_cliente` (owner, ne při hold) |
 
 Edge: [`create-office`](../supabase/functions/create-office/index.ts) — založení kanceláře. [`translate-message`](../supabase/functions/translate-message/index.ts) — překlad výzvy (klíč `OPENAI_API_KEY`, jinak originál). [`plazo-reminders`](../supabase/functions/plazo-reminders/index.ts) — ranní drafty, nikdy `sent` (tajný `CRON_SECRET` nebo service_role). [`invite-staff`](../supabase/functions/invite-staff/index.ts) — owner zve gestor/asistente (max 3). [`ai-assistant`](../supabase/functions/ai-assistant/index.ts) — chat tools (search, get_cliente, query_suministro / plazos / escritura, search_document_text), žádný zápis. [`extract-document`](../supabase/functions/extract-document/index.ts) — fotka/PDF → pending `ai_drafts`, LLM na pozadí; Guardar zapíše `extracted` + `body_text`.
 

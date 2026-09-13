@@ -4,11 +4,11 @@ OmniToca měla vizi JSON layout engine a **úmyslně ji nestavěla**. FalcoNest 
 
 ## 1. Co chceme za deset let
 
-- Kancelář v CS, klienti CS / EN / DE / FR (i ES).
-- Každý klient má jazyk komunikace.
-- Zpráva v e-mailu/WhatsApp má kopii v klientské zóně: **originál + překlad**.
-- Každá kancelář má jiné lhůty a zapnuté služby.
-- Obrazovky jdou „skládat“, ale ne jako Figma v runtime.
+- Sanfolio používá **libovolná** španělská kancelář, ne jen první partner.
+- Kancelář v CS / ES / EN…, klienti CS / EN / DE / FR / ES.
+- Každý klient má jazyk komunikace. Zpráva má originál + překlad (e-mail, WhatsApp, později zóna).
+- Každá kancelář má jiné lhůty a zapnuté **moduly** (evidence → trámites/podání → faktury/banka → účetnictví).
+- Obrazovky jdou skládat sloty, ne jako Figma v runtime.
 
 ## 2. Tři vrstvy (jen postupně)
 

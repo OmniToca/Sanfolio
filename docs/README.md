@@ -4,18 +4,18 @@ Pořadí čtení pro další vývoj. Tyto soubory jsou smlouva produktu. Kód se
 
 ## Závazná pravidla (přečíst vždy)
 
-1. Základ je **papírová složka**, ne obecný CRM a ne a3.
-2. Tužka = zapnutý **blok**. Vypnutý blok se nehlídá a nechybí.
-3. AI **hledá, otevírá, předvyplňuje**. Ukládá / maže / odesílá jen člověk.
+1. Základ je **složka klienta** (evidence + zapnuté služby), ne obecný CRM a ne a3 jako start.
+2. Zapnutá služba = **blok**. Vypnutá se nehlídá a nechybí.
+3. AI **hledá, otevírá, předvyplňuje**. Ukládá / maže / odesílá / podává jen člověk.
 4. Mazání je **100 % soft-delete**. Audit je **append-only**, včetně otevření karty.
-5. MVP = složka koupě v prohlížeči. WhatsApp API a portál klienta **nejsou** první verze. Modelo 210 počítá IRNR na desce; podání AEAT ne. Policie / magistrát / závěť: moduly u Jarky zapnuté, desky až po papíru.
+5. První deska = složka koupě v prohlížeči. Jarka je první kancelář, ne strop. WhatsApp API, portál, podání AEAT a fakturace jsou **další moduly**. Modelo 210 se teď počítá. Policie / magistrát / závěť: tenký spis, dokud kancelář nechce plnou desku.
 
 ## Soubory
 
 | # | Soubor | Hotovo když |
 | --- | --- | --- |
 | 1 | [product_bible.md](product_bible.md) | Entity a hranice rozsahu jsou jednoznačné |
-| 2 | [folder_template.md](folder_template.md) | Každý titulek z tisku má stav, pole a dokumenty |
+| 2 | [folder_template.md](folder_template.md) | Každá služba na desce má stav, pole a dokumenty |
 | 3 | [search_spec.md](search_spec.md) | `Y123**6E` najde `Y123456E` |
 | 4 | [deadline_engine.md](deadline_engine.md) | Inbox a šablony výzev mají pravidla |
 | 5 | [ai_contract.md](ai_contract.md) | Seznam tools a zákaz zápisu je vymahatelný v kódu |

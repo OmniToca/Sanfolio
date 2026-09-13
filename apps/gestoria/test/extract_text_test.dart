@@ -56,6 +56,52 @@ void main() {
   test('jméno na pase pozná stejného člověka', () {
     expect(namesLikelyMatch('Petr Sokol', 'SOKOL, PETR'), isTrue);
     expect(namesLikelyMatch('Petr Sokol', 'Ana García'), isFalse);
+    expect(namesLikelyMatch('Petr Sokol', 'Petr Novak'), isFalse);
+    expect(namesLikelyMatch('Petr Sokol', ''), isFalse);
+  });
+
+  test('NIE na kartě se nepřepíše cizím číslem ani stejným křestním', () {
+    expect(
+      nieMayReplaceCard(cardNie: 'Y9736943E', paperNie: 'Y9737090P'),
+      isFalse,
+    );
+    expect(
+      nieMayReplaceCard(cardNie: 'Y9736943E', paperNie: 'Y-9736943-E'),
+      isTrue,
+    );
+    expect(nieMayReplaceCard(cardNie: '', paperNie: 'Y9737090P'), isTrue);
+    expect(nieMayReplaceCard(cardNie: 'Y9736943E', paperNie: ''), isTrue);
+    expect(
+      documentFitsCliente(
+        cardName: 'Petr Sokol',
+        cardNie: 'Y9736943E',
+        fields: {
+          'fields.nombre': 'Petr Sokol',
+          'fields.nie': 'Y9737090P',
+        },
+      ),
+      isFalse,
+    );
+    final locked = lockIdentityPaper(
+      paper: const {
+        'fields.nie': 'Y9737090P',
+        'fields.email': 'monika@test.com',
+        'fields.notary': 'López',
+      },
+      cardName: 'Petr Sokol',
+      cardNie: 'Y9736943E',
+    );
+    expect(locked.containsKey('fields.nie'), isFalse);
+    expect(locked.containsKey('fields.email'), isFalse);
+    expect(locked['fields.notary'], 'López');
+    expect(
+      applyExtractNotice(mismatch: true, skippedDeedParties: false),
+      'folder.applyMismatch',
+    );
+    expect(
+      applyExtractNotice(mismatch: true, skippedDeedParties: true),
+      'folder.deedPartiesSkipped',
+    );
   });
 
   test('facturas-5.pdf je factura_agua, ne první díra contrato', () {
@@ -324,6 +370,15 @@ TITULO.- herencia de su esposo, el día 12 de Abril de 2016, número 527 de prot
     final padded = '${'x' * 5000}\n$deed';
     expect(escrituraLlmFocus(padded), contains('PETR SOKOL'));
     expect(spanishDeedNumber(deed), 2116);
+    expect(
+      deedBelongsToCliente(
+        cardName: 'Petr Sokol',
+        cardNie: 'Y9736943E',
+        bodyText: deed,
+        paper: aligned,
+      ),
+      isTrue,
+    );
     final proposed = proposeTitularesFromDeed(facts);
     expect(
       proposed.where((t) => t.lado == 'comprador').map((t) => t.nieNormalized),
@@ -401,6 +456,56 @@ URBANA.- Vivienda en término de Algorfa.
     expect(shown['fields.sellers'], contains('PATRICIA'));
   });
 
+  test('cizí listina nezapíše titulares ani po vepsání jména karty', () {
+    const deed = '''
+COMPRAVENTA
+COMPARECEN:
+DE UNA PARTE Y PARA VENDER:
+Dª PATRICIA FRANCIS DAVIDSON, nacida el día 16 de Marzo de 1955,
+con N.I.E. número X-7183596-Y.
+Y DE OTRA, PARA COMPRAR:
+Dª MONIKA SOKOLOVA, nacida el día 16 de Abril de 1985, con N.I.E. número Y-9737090-P.
+''';
+    expect(looksLikeEscrituraText(deed), isTrue);
+    expect(extractDeedFacts(deed).buyers.map((p) => p.nie), ['Y9737090P']);
+    final aligned = alignDeedFieldsToCliente(
+      fields: {
+        'fields.nombre': 'MONIKA SOKOLOVA',
+        'fields.nie': 'Y9737090P',
+      },
+      bodyText: deed,
+      clienteNombre: 'Petr Sokol',
+      clienteNie: 'Y9736943E',
+    );
+    expect(aligned['fields.nombre'], 'Petr Sokol');
+    expect(
+      deedBelongsToCliente(
+        cardName: 'Petr Sokol',
+        cardNie: 'Y9736943E',
+        bodyText: deed,
+        paper: aligned,
+      ),
+      isFalse,
+    );
+    expect(
+      deedBelongsToCliente(
+        cardName: 'Petr Sokol',
+        cardNie: null,
+        bodyText: deed,
+        paper: aligned,
+      ),
+      isFalse,
+    );
+    expect(
+      documentFitsCliente(
+        cardName: 'Petr Sokol',
+        cardNie: 'Y9736943E',
+        fields: aligned,
+      ),
+      isFalse,
+    );
+  });
+
   test('compraventa se dvěma prodávajícími bez zmocněnce', () {
     const deed = '''
 ESCRITURA DE COMPRAVENTA
@@ -467,5 +572,71 @@ REFERENCIA CATASTRAL. - 1234567XH1234S0001AB
       isFalse,
     );
     expect(identifierKindFromNormalized('Y9737090P'), 'nie');
+    final prepared = prepareDocumentoExtract(
+      fields: {
+        'fields.nombre': 'PATRICIA',
+        'body_text': '''
+COMPRAVENTA
+COMPARECEN:
+DE UNA PARTE Y PARA VENDER:
+Dª PATRICIA FRANCIS DAVIDSON, nacida el día 16 de Marzo de 1955,
+con N.I.E. número X-7183596-Y.
+Y DE OTRA, PARA COMPRAR:
+D. PETR SOKOL, nacido el día 5 de Junio de 1987, con N.I.E. número Y-9736943-E.
+''',
+      },
+      existingBody: '',
+      currentTipo: 'other',
+      cardName: 'Petr Sokol',
+      cardNie: 'Y9736943E',
+    );
+    expect(prepared.deed, isTrue);
+    expect(prepared.nextTipo, 'copia_escritura');
+    expect(prepared.fields['fields.buyers'], contains('PETR SOKOL'));
+  });
+
+  test('druhý Guardar doplní prázdné NIE, cuota a ruční NIE nechá', () {
+    final proposed = proposeTitularesFromDeed(
+      const DeedFacts(
+        buyers: [
+          DeedPerson(nie: 'Y9736943E', name: 'PETR SOKOL', index: 1),
+          DeedPerson(nie: 'Y9737090P', name: 'MONIKA SOKOLOVA', index: 2),
+        ],
+      ),
+    );
+    final patches = planFillEmptyTitulares(
+      existing: const [
+        LiveTitularRow(
+          id: 'petr',
+          lado: 'comprador',
+          nombre: 'Petr Sokol',
+          nieNormalized: '',
+        ),
+        LiveTitularRow(
+          id: 'monika',
+          lado: 'comprador',
+          nombre: 'Monika Sokolova',
+          nieNormalized: 'Y9737090P',
+        ),
+      ],
+      proposed: proposed,
+    );
+    expect(patches, hasLength(1));
+    expect(patches.single.id, 'petr');
+    expect(patches.single.nieNormalized, 'Y9736943E');
+    expect(
+      planFillEmptyTitulares(
+        existing: const [
+          LiveTitularRow(
+            id: 'petr',
+            lado: 'comprador',
+            nombre: 'Petr Sokol',
+            nieNormalized: 'Y9736943E',
+          ),
+        ],
+        proposed: proposed,
+      ),
+      isEmpty,
+    );
   });
 }

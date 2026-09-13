@@ -10,6 +10,7 @@ import '../../core/documents/bloque_field_keys.dart';
 import '../../core/documents/office_attach_button.dart';
 import '../../core/documents/office_file_pick.dart';
 import '../../core/i18n/app_locales.dart';
+import '../../core/identity/legal_hold.dart';
 import '../../core/modules/feature_gate.dart';
 import '../../core/modules/module_catalog.dart';
 import '../../core/presentation/widgets/app_widgets.dart';
@@ -1076,6 +1077,13 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
                               ref.invalidate(
                                 liveAiDraftsProvider(widget.clienteId),
                               );
+                              final notice = applyExtractNotice(
+                                mismatch: mismatch,
+                                skippedDeedParties: false,
+                              );
+                              if (notice != null && mounted) {
+                                _toast(notice.tr());
+                              }
                             } on Object {
                               if (mounted) _toast('clients.saveError'.tr());
                             } finally {
@@ -1312,8 +1320,14 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
       await ref
           .read(clienteCardProvider(widget.clienteId).notifier)
           .purgeDocumentStorage(doc.id);
-    } on Object {
-      if (mounted) _toast('folder.purgeError'.tr());
+    } on Object catch (e) {
+      if (mounted) {
+        _toast(
+          looksLikeLegalHoldError(e)
+              ? 'folder.legalHold'.tr()
+              : 'folder.purgeError'.tr(),
+        );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
