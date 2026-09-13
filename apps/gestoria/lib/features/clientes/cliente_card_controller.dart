@@ -10,6 +10,7 @@ import '../ai/ai_providers.dart';
 import '../ai/escritura_parties.dart';
 import '../ai/extract_text.dart';
 import '../carpeta/carpeta_controller.dart';
+import '../facturacion/facturacion_providers.dart';
 import 'cliente_audit.dart';
 import 'clientes_providers.dart';
 
@@ -506,6 +507,12 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
       if (prepared.nextTipo != null && prepared.nextTipo != doc?.tipo)
         'tipo': prepared.nextTipo,
     }).eq('id', documentId).eq('tenant_id', current.tenantId);
+    await guardarFacturaRecibida(
+      documentoId: documentId,
+      fields: prepared.fields,
+      docTipo: prepared.nextTipo ?? doc?.tipo,
+    );
+    ref.invalidate(facturasClienteProvider(current.id));
     _refresh();
   }
 

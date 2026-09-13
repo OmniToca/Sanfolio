@@ -18,6 +18,9 @@ class OfficeSettings {
     this.staleExpedienteDays = 14,
     this.sendTranslatedOutbound = true,
     this.slotOrder = const {},
+    this.emisorNif = '',
+    this.emisorNombre = '',
+    this.facturaSerie = 'A',
   });
 
   final String displayName;
@@ -33,6 +36,9 @@ class OfficeSettings {
   final int staleExpedienteDays;
   final bool sendTranslatedOutbound;
   final Map<String, dynamic> slotOrder;
+  final String emisorNif;
+  final String emisorNombre;
+  final String facturaSerie;
 
   bool get ibiDueConfigured =>
       ibiDueMonth >= 1 && ibiDueMonth <= 12 && ibiDueDay >= 1 && ibiDueDay <= 31;
@@ -50,6 +56,9 @@ class OfficeSettings {
     int? staleExpedienteDays,
     bool? sendTranslatedOutbound,
     Map<String, dynamic>? slotOrder,
+    String? emisorNif,
+    String? emisorNombre,
+    String? facturaSerie,
   }) {
     return OfficeSettings(
       displayName: displayName ?? this.displayName,
@@ -65,6 +74,9 @@ class OfficeSettings {
       sendTranslatedOutbound:
           sendTranslatedOutbound ?? this.sendTranslatedOutbound,
       slotOrder: slotOrder ?? this.slotOrder,
+      emisorNif: emisorNif ?? this.emisorNif,
+      emisorNombre: emisorNombre ?? this.emisorNombre,
+      facturaSerie: facturaSerie ?? this.facturaSerie,
     );
   }
 
@@ -82,6 +94,9 @@ class OfficeSettings {
       staleExpedienteDays: _int(row['stale_expediente_days'], 14),
       sendTranslatedOutbound: row['send_translated_outbound'] != false,
       slotOrder: _map(row['slot_order']),
+      emisorNif: '${row['emisor_nif'] ?? ''}'.trim(),
+      emisorNombre: '${row['emisor_nombre'] ?? ''}'.trim(),
+      facturaSerie: _serie(row['factura_serie']),
     );
   }
 
@@ -93,6 +108,11 @@ class OfficeSettings {
       return '${tenants['name'] ?? ''}'.trim();
     }
     return '';
+  }
+
+  static String _serie(Object? value) {
+    final s = '${value ?? ''}'.trim();
+    return s.isEmpty ? 'A' : s;
   }
 
   static int _int(Object? value, int fallback) {
@@ -132,7 +152,8 @@ class OfficeSettingsController extends AsyncNotifier<OfficeSettings> {
           'display_name, plusvalia_days, ibi_warn_days, ibi_due_month, '
           'ibi_due_day, seguro_warn_days, '
           'alarma_warn_days, poder_warn_days, send_translated_outbound, '
-          'nudge_interval_days, stale_expediente_days, slot_order',
+          'nudge_interval_days, stale_expediente_days, slot_order, '
+          'emisor_nif, emisor_nombre, factura_serie',
         )
         .eq('tenant_id', tenantId)
         .maybeSingle();
@@ -196,6 +217,19 @@ class OfficeSettingsController extends AsyncNotifier<OfficeSettings> {
     final next = Map<String, dynamic>.from(state.valueOrNull?.slotOrder ?? {});
     next[carpetaBlocksSlot] = keys;
     return _patch({'slot_order': next}, (s) => s.copyWith(slotOrder: next));
+  }
+
+  Future<void> setEmisorNif(String v) =>
+      _patch({'emisor_nif': v.trim()}, (s) => s.copyWith(emisorNif: v.trim()));
+
+  Future<void> setEmisorNombre(String v) => _patch(
+        {'emisor_nombre': v.trim()},
+        (s) => s.copyWith(emisorNombre: v.trim()),
+      );
+
+  Future<void> setFacturaSerie(String v) {
+    final serie = v.trim().isEmpty ? 'A' : v.trim();
+    return _patch({'factura_serie': serie}, (s) => s.copyWith(facturaSerie: serie));
   }
 
   Future<void> _patch(

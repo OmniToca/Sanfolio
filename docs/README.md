@@ -26,5 +26,6 @@ Pořadí čtení pro další vývoj. Tyto soubory jsou smlouva produktu. Kód se
 | 10 | [database_schema.md](database_schema.md) | Odkaz na SQL migraci |
 | 11 | [modules_settings_i18n.md](modules_settings_i18n.md) | Moduly, sloty, jazyky — jak se nezamotat |
 | 12 | [roadmap_dokumenty_ai.md](roadmap_dokumenty_ai.md) | Fáze A–G: přepis, PDF, koš, asistent, otevřený blok |
+| 13 | [facturacion_verifactu.md](facturacion_verifactu.md) | Modul knihy vs. SIF adapter; due diligence API |
 
 Impuestos v katalogu: **IBI/SUMA**, **modelo 210** (výpočet IRNR, ne podání AEAT), **renta/IRPF** (zatím plazo + checklist).

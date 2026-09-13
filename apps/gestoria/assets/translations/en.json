@@ -7,6 +7,7 @@
   "nav": {
     "inbox": "Today",
     "clients": "Clients",
+    "invoices": "Invoices",
     "settings": "Settings"
   },
   "common": {
@@ -384,6 +385,7 @@
     "justificante_cita": "Appointment receipt",
     "dni_nie": "DNI / NIE",
     "pasaporte": "Pasaporte",
+    "factura_recibida": "Factura recibida",
     "other": "Document"
   },
   "blockStatus": {
@@ -449,6 +451,12 @@
     "consumption": "Consumption",
     "amount": "Amount",
     "invoiceNo": "Invoice no.",
+    "supplierNif": "Supplier NIF",
+    "base": "Taxable base",
+    "iva": "VAT",
+    "ivaRate": "VAT rate",
+    "due": "Due date",
+    "concept": "Concepto",
     "periodFrom": "Period from",
     "periodTo": "Period to",
     "received": "Received",
@@ -642,5 +650,41 @@
     "gainRateHint": "Property sale gain: 19% for everyone. The buyer’s 3% withholding is modelo 211.",
     "bought2012Hint": "Acquired 12 May 2012–31 Dec 2012: 50% of the gain is exempt.",
     "withholdingHint": "Modelo 211 withholding is empty — using 3% of the sale price × share."
+  },
+  "facturacion": {
+    "title": "Invoices",
+    "received": "Received",
+    "issued": "Issued",
+    "receivedHint": "Office book. AI only prefills; Guardar is the gestor. No SIF / AEAT.",
+    "issuedHint": "Draft. Emitir calls the SIF from Edge, not the browser.",
+    "addReceived": "Add received",
+    "addIssued": "New draft",
+    "attachReceived": "Attach invoice",
+    "attachReceivedHint": "PDF or photo for {name}. Save the proposal on the card.",
+    "pickPdf": "Choose file",
+    "pickCliente": "Client",
+    "exportCsv": "Export CSV",
+    "empty": "No rows yet.",
+    "emptyCliente": "This card has no received invoice in the book yet.",
+    "cardHint": "Save the paper with Guardar. The book fills from there.",
+    "extractPending": "Proposal is running. Open the document and tap Guardar.",
+    "emitir": "Emitir",
+    "emitOk": "Sent to the SIF.",
+    "emitError": "The SIF rejected the draft. See the row status.",
+    "sifNotConfigured": "SIF API is not set in Edge yet. The draft stays in the book.",
+    "emisorNifRequired": "Add the issuer NIF in Settings.",
+    "moduleOff": "The invoicing module is off.",
+    "settingsTitle": "Issued-invoice issuer",
+    "settingsHint": "Office NIF for later Emitir. VeriFactu lives in Edge, not in Sanfolio core.",
+    "emisorNif": "Issuer NIF",
+    "emisorNombre": "Razón social",
+    "serie": "Invoice series",
+    "estado": {
+      "borrador": "Draft",
+      "guardada": "Saved",
+      "emitida": "Emitida",
+      "anulada": "Anulada",
+      "error": "SIF error"
+    }
   }
 }

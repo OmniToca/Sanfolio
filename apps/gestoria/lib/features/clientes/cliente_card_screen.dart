@@ -27,6 +27,7 @@ import 'cliente_card_widgets.dart';
 import 'clientes_providers.dart';
 import '../expedientes/expediente_catalog.dart';
 import '../expedientes/expediente_controller.dart';
+import '../facturacion/cliente_facturas_section.dart';
 import '../inbox/inbox_providers.dart';
 import '../mensajes/mensaje_history.dart';
 import '../settings/office_settings_controller.dart';
@@ -179,6 +180,10 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
                                       children: [
                                         _documentsCard(card),
                                         const SizedBox(height: 16),
+                                        ClienteFacturasSection(
+                                          clienteId: widget.clienteId,
+                                        ),
+                                        const SizedBox(height: 16),
                                         ClienteMensajeHistory(
                                           clienteId: widget.clienteId,
                                           clientLocale: card.locale,
@@ -192,6 +197,10 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
                               _identityCard(card),
                               const SizedBox(height: 16),
                               _documentsCard(card),
+                              const SizedBox(height: 16),
+                              ClienteFacturasSection(
+                                clienteId: widget.clienteId,
+                              ),
                               const SizedBox(height: 16),
                               ClienteMensajeHistory(
                                 clienteId: widget.clienteId,

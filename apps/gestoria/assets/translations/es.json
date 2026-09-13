@@ -7,6 +7,7 @@
   "nav": {
     "inbox": "Hoy",
     "clients": "Clientes",
+    "invoices": "Facturas",
     "settings": "Ajustes"
   },
   "common": {
@@ -384,6 +385,7 @@
     "justificante_cita": "Justificante de cita",
     "dni_nie": "DNI / NIE",
     "pasaporte": "Pasaporte",
+    "factura_recibida": "Factura recibida",
     "other": "Documento"
   },
   "blockStatus": {
@@ -449,6 +451,12 @@
     "consumption": "Consumo",
     "amount": "Importe",
     "invoiceNo": "Nº factura",
+    "supplierNif": "NIF emisor",
+    "base": "Base imponible",
+    "iva": "IVA",
+    "ivaRate": "Tipo IVA",
+    "due": "Vencimiento",
+    "concept": "Concepto",
     "periodFrom": "Periodo desde",
     "periodTo": "Periodo hasta",
     "received": "Recibido",
@@ -642,5 +650,41 @@
     "gainRateHint": "Ganancia por transmisión de inmueble: 19 % para todos. La retención del comprador es el modelo 211 (3 %).",
     "bought2012Hint": "Adquirido entre el 12/5/2012 y el 31/12/2012: queda exento el 50 % de la ganancia.",
     "withholdingHint": "Retención 211 vacía — se calcula el 3 % del precio × cuota."
+  },
+  "facturacion": {
+    "title": "Facturas",
+    "received": "Recibidas",
+    "issued": "Emitidas",
+    "receivedHint": "Libro de la oficina. La IA solo propone; Guardar es el gestor. Sin SIF / AEAT.",
+    "issuedHint": "Borrador. Emitir llama al SIF desde Edge, no desde el navegador.",
+    "addReceived": "Añadir recibida",
+    "addIssued": "Nuevo borrador",
+    "attachReceived": "Adjuntar factura",
+    "attachReceivedHint": "PDF o foto para {name}. Guarde la propuesta en la ficha.",
+    "pickPdf": "Elegir archivo",
+    "pickCliente": "Cliente",
+    "exportCsv": "Exportar CSV",
+    "empty": "Todavía no hay filas.",
+    "emptyCliente": "Esta ficha aún no tiene factura recibida en el libro.",
+    "cardHint": "Guarde el papel con Guardar. El libro se rellena desde ahí.",
+    "extractPending": "La propuesta está en curso. Abra el documento y pulse Guardar.",
+    "emitir": "Emitir",
+    "emitOk": "Enviado al SIF.",
+    "emitError": "El SIF rechazó el borrador. El estado está en la fila.",
+    "sifNotConfigured": "La API SIF aún no está en Edge. El borrador permanece en el libro.",
+    "emisorNifRequired": "Añada el NIF emisor en Ajustes.",
+    "moduleOff": "El módulo de facturación está apagado.",
+    "settingsTitle": "Emisor de emitidas",
+    "settingsHint": "NIF de la oficina para Emitir más adelante. VeriFactu vive en Edge, no en el núcleo.",
+    "emisorNif": "NIF emisor",
+    "emisorNombre": "Razón social",
+    "serie": "Serie de facturas",
+    "estado": {
+      "borrador": "Borrador",
+      "guardada": "Guardada",
+      "emitida": "Emitida",
+      "anulada": "Anulada",
+      "error": "Error SIF"
+    }
   }
 }

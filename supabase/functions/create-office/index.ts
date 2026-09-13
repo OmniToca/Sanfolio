@@ -19,6 +19,7 @@ const DEFAULT_MODULES = [
   "nie_poder",
   "messaging",
   "ai_copilot",
+  "facturacion",
   "policia",
   "ayuntamiento",
   "testament",

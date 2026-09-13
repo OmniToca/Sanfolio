@@ -16,30 +16,35 @@ class AppShell extends ConsumerWidget {
 
   final Widget child;
 
-  static const _paths = ['/inbox', '/clientes', '/settings'];
-
-  int _indexFor(String location) {
-    if (location.startsWith('/settings')) return 2;
-    if (location.startsWith('/clientes')) return 1;
-    return 0;
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final location = GoRouterState.of(context).uri.path;
-    final selected = _indexFor(location);
     final size = MediaQuery.sizeOf(context);
     final wide = size.width >= 720;
     final impersonation = ref
         .watch(authControllerProvider)
         .valueOrNull
         ?.impersonation;
-    final aiOn = ref
-        .watch(tenantConfigProvider)
-        .maybeWhen(
-          data: (c) => c.isOn(GestoriaModule.aiCopilot),
-          orElse: () => false,
-        );
+    final cfg = ref.watch(tenantConfigProvider).valueOrNull;
+    final aiOn = cfg?.isOn(GestoriaModule.aiCopilot) ?? false;
+    final facturacionOn = cfg?.isOn(GestoriaModule.facturacion) ?? false;
+    final paths = [
+      '/inbox',
+      '/clientes',
+      if (facturacionOn) '/facturacion',
+      '/settings',
+    ];
+    int indexFor(String loc) {
+      if (loc.startsWith('/settings')) return paths.indexOf('/settings');
+      if (loc.startsWith('/facturacion')) {
+        final i = paths.indexOf('/facturacion');
+        return i < 0 ? 0 : i;
+      }
+      if (loc.startsWith('/clientes')) return 1;
+      return 0;
+    }
+
+    final selected = indexFor(location);
     final panelOpen =
         aiOn &&
         aiPanelVisible(
@@ -48,7 +53,7 @@ class AppShell extends ConsumerWidget {
         );
     final docked = panelOpen && aiPanelDocked(size.width);
 
-    void goIndex(int i) => context.go(_paths[i]);
+    void goIndex(int i) => context.go(paths[i]);
 
     void toggleAi() {
       ref.read(aiPanelOpenProvider.notifier).state = !panelOpen;
@@ -65,6 +70,12 @@ class AppShell extends ConsumerWidget {
         selectedIcon: const Icon(Icons.folder),
         label: 'nav.clients'.tr(),
       ),
+      if (facturacionOn)
+        NavigationDestination(
+          icon: const Icon(Icons.receipt_long_outlined),
+          selectedIcon: const Icon(Icons.receipt_long),
+          label: 'nav.invoices'.tr(),
+        ),
       NavigationDestination(
         icon: const Icon(Icons.tune_outlined),
         selectedIcon: const Icon(Icons.tune),
@@ -153,7 +164,7 @@ class AppShell extends ConsumerWidget {
         bottomNavigationBar: NavigationBar(
           selectedIndex: panelOpen ? destinations.length - 1 : selected,
           onDestinationSelected: (i) {
-            if (aiOn && i == 3) {
+            if (aiOn && i == destinations.length - 1) {
               toggleAi();
               return;
             }
@@ -172,6 +183,7 @@ class AppShell extends ConsumerWidget {
               selected: selected,
               aiSelected: panelOpen,
               showAi: aiOn,
+              showFacturacion: facturacionOn,
               onSelect: goIndex,
               onAi: toggleAi,
               signOutLabel: impersonation == null
@@ -201,6 +213,7 @@ class _OfficeRail extends StatelessWidget {
     required this.selected,
     required this.aiSelected,
     required this.showAi,
+    required this.showFacturacion,
     required this.onSelect,
     required this.onAi,
     required this.signOutLabel,
@@ -210,6 +223,7 @@ class _OfficeRail extends StatelessWidget {
   final int selected;
   final bool aiSelected;
   final bool showAi;
+  final bool showFacturacion;
   final ValueChanged<int> onSelect;
   final VoidCallback onAi;
   final String signOutLabel;
@@ -220,6 +234,12 @@ class _OfficeRail extends StatelessWidget {
     final items = [
       (Icons.inbox_outlined, Icons.inbox, 'nav.inbox'.tr()),
       (Icons.folder_outlined, Icons.folder, 'nav.clients'.tr()),
+      if (showFacturacion)
+        (
+          Icons.receipt_long_outlined,
+          Icons.receipt_long,
+          'nav.invoices'.tr(),
+        ),
       (Icons.tune_outlined, Icons.tune, 'nav.settings'.tr()),
     ];
     return ColoredBox(

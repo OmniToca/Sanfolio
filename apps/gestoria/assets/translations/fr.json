@@ -7,6 +7,7 @@
   "nav": {
     "inbox": "Aujourd’hui",
     "clients": "Clients",
+    "invoices": "Factures",
     "settings": "Paramètres"
   },
   "common": {
@@ -384,6 +385,7 @@
     "justificante_cita": "Justificatif de rendez-vous",
     "dni_nie": "DNI / NIE",
     "pasaporte": "Pasaporte",
+    "factura_recibida": "Factura recibida",
     "other": "Document"
   },
   "blockStatus": {
@@ -449,6 +451,12 @@
     "consumption": "Consommation",
     "amount": "Montant",
     "invoiceNo": "N° facture",
+    "supplierNif": "NIF fournisseur",
+    "base": "Base HT",
+    "iva": "TVA",
+    "ivaRate": "Taux TVA",
+    "due": "Échéance",
+    "concept": "Concepto",
     "periodFrom": "Période du",
     "periodTo": "Période au",
     "received": "Reçu",
@@ -642,5 +650,41 @@
     "gainRateHint": "Plus-value immobilière : 19 % pour tous. La retenue de 3 % de l’acheteur est le modelo 211.",
     "bought2012Hint": "Acquis du 12/5/2012 au 31/12/2012 : 50 % de la plus-value est exonérée.",
     "withholdingHint": "Retenue 211 vide — 3 % du prix × quote-part."
+  },
+  "facturacion": {
+    "title": "Factures",
+    "received": "Reçues",
+    "issued": "Émises",
+    "receivedHint": "Livre du cabinet. L’IA ne propose ; Guardar est le gestor. Pas de SIF / AEAT.",
+    "issuedHint": "Brouillon. Emitir appelle le SIF depuis Edge, pas le navigateur.",
+    "addReceived": "Ajouter une reçue",
+    "addIssued": "Nouveau brouillon",
+    "attachReceived": "Joindre la facture",
+    "attachReceivedHint": "PDF ou photo pour {name}. Enregistrez la proposition sur la fiche.",
+    "pickPdf": "Choisir le fichier",
+    "pickCliente": "Client",
+    "exportCsv": "Exporter CSV",
+    "empty": "Aucune ligne pour l’instant.",
+    "emptyCliente": "Cette fiche n’a pas encore de facture reçue dans le livre.",
+    "cardHint": "Enregistrez le papier avec Guardar. Le livre se remplit ensuite.",
+    "extractPending": "Proposition en cours. Ouvrez le document et Guardar.",
+    "emitir": "Emitir",
+    "emitOk": "Envoyé au SIF.",
+    "emitError": "Le SIF a refusé le brouillon. Voir l’état de la ligne.",
+    "sifNotConfigured": "L’API SIF n’est pas encore dans Edge. Le brouillon reste dans le livre.",
+    "emisorNifRequired": "Ajoutez le NIF émetteur dans Paramètres.",
+    "moduleOff": "Le module facturation est désactivé.",
+    "settingsTitle": "Émetteur des émises",
+    "settingsHint": "NIF du cabinet pour Emitir plus tard. VeriFactu vit dans Edge, pas dans le cœur.",
+    "emisorNif": "NIF émetteur",
+    "emisorNombre": "Razón social",
+    "serie": "Série de factures",
+    "estado": {
+      "borrador": "Brouillon",
+      "guardada": "Enregistrée",
+      "emitida": "Emitida",
+      "anulada": "Anulada",
+      "error": "Erreur SIF"
+    }
   }
 }

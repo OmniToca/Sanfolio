@@ -25,6 +25,20 @@ List<String> fieldsForDocTipo(String tipo) {
         'fields.consumption',
         'fields.amount',
       ];
+    case 'factura_recibida':
+      return const [
+        'fields.company',
+        'fields.supplierNif',
+        'fields.holder',
+        'fields.invoiceNo',
+        'fields.issued',
+        'fields.due',
+        'fields.concept',
+        'fields.base',
+        'fields.iva',
+        'fields.ivaRate',
+        'fields.amount',
+      ];
     case 'factura_luz':
     case 'factura_gaz':
       return const [

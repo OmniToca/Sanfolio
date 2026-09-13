@@ -17,6 +17,7 @@ import '../ai/escritura_parties.dart';
 import '../ai/extract_text.dart';
 import '../clientes/cliente_audit.dart';
 import '../clientes/clientes_providers.dart';
+import '../facturacion/facturacion_providers.dart';
 import 'bloque_template.dart';
 
 enum BloqueUiStatus { off, missingData, missingDocument, watching, done }
@@ -688,6 +689,11 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
       if (prepared.bodyText != null) 'body_text': prepared.bodyText,
       if (nextTipo != null && nextTipo != currentDoc?.tipo) 'tipo': nextTipo,
     }).eq('id', documentId);
+    await guardarFacturaRecibida(
+      documentoId: documentId,
+      fields: aligned,
+      docTipo: nextTipo ?? currentDoc?.tipo,
+    );
     final docs = [
       for (final d in bloque.documents)
         d.id == documentId

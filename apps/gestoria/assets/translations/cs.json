@@ -7,6 +7,7 @@
   "nav": {
     "inbox": "Dnes",
     "clients": "Klienti",
+    "invoices": "Faktury",
     "settings": "Nastavení"
   },
   "common": {
@@ -384,6 +385,7 @@
     "justificante_cita": "Justificante de cita",
     "dni_nie": "DNI / NIE",
     "pasaporte": "Pasaporte",
+    "factura_recibida": "Factura recibida",
     "other": "Dokument"
   },
   "blockStatus": {
@@ -449,6 +451,12 @@
     "consumption": "Spotřeba",
     "amount": "Částka",
     "invoiceNo": "Č. faktury",
+    "supplierNif": "NIF dodavatele",
+    "base": "Základ",
+    "iva": "IVA",
+    "ivaRate": "Sazba IVA",
+    "due": "Splatnost",
+    "concept": "Concepto",
     "periodFrom": "Období od",
     "periodTo": "Období do",
     "received": "Přijato",
@@ -642,5 +650,41 @@
     "gainRateHint": "Zisk z prodeje nemovitosti: 19 % pro všechny. Srážka kupujícího je modelo 211 (3 %).",
     "bought2012Hint": "Nabytí 12. 5. 2012 – 31. 12. 2012: 50 % zisku je osvobozeno.",
     "withholdingHint": "Srážka 211 není vyplněná — počítám 3 % z ceny prodeje × podíl."
+  },
+  "facturacion": {
+    "title": "Faktury",
+    "received": "Přijaté",
+    "issued": "Vystavené",
+    "receivedHint": "Kniha kanceláře. AI jen navrhne pole, Guardar je gestor. Žádný SIF / AEAT.",
+    "issuedHint": "Koncept. Emitir volá SIF přes Edge, ne z prohlížeče.",
+    "addReceived": "Přidat přijatou",
+    "addIssued": "Nový koncept",
+    "attachReceived": "Přiložit fakturu",
+    "attachReceivedHint": "PDF nebo fotka pro {name}. Návrh polí uložíte na kartě.",
+    "pickPdf": "Vybrat soubor",
+    "pickCliente": "Klient",
+    "exportCsv": "Export CSV",
+    "empty": "Zatím žádný řádek.",
+    "emptyCliente": "U této karty zatím není přijatá faktura v knize.",
+    "cardHint": "Papír uložíte Guardar na dokladu. Sem se propsuje kniha.",
+    "extractPending": "Návrh běží. Otevřete doklad a uložte Guardar.",
+    "emitir": "Emitir",
+    "emitOk": "Odesláno na SIF.",
+    "emitError": "SIF koncept nepřijal. Stav je u řádku.",
+    "sifNotConfigured": "SIF API ještě není v Edge nastavené. Koncept zůstává v knize.",
+    "emisorNifRequired": "Doplňte NIF emisoru v Nastavení.",
+    "moduleOff": "Modul fakturace není zapnutý.",
+    "settingsTitle": "Emisor vydaných",
+    "settingsHint": "NIF kanceláře pro pozdější Emitir. VeriFactu žije v Edge, ne v jádru Sanfolia.",
+    "emisorNif": "NIF emisoru",
+    "emisorNombre": "Razón social",
+    "serie": "Série faktur",
+    "estado": {
+      "borrador": "Koncept",
+      "guardada": "Uloženo",
+      "emitida": "Emitida",
+      "anulada": "Anulada",
+      "error": "SIF chyba"
+    }
   }
 }

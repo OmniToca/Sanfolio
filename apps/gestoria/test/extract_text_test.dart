@@ -198,6 +198,7 @@ void main() {
 
   test('stoh faktur řadí od nejnovějšího období', () {
     expect(isInvoiceDocTipo('factura_agua'), isTrue);
+    expect(isInvoiceDocTipo('factura_recibida'), isTrue);
     expect(isInvoiceDocTipo('contrato_agua'), isFalse);
     expect(
       paperSortStamp({'fields.periodTo': '2024-09-30', 'fields.issued': '2024-09-23'}),

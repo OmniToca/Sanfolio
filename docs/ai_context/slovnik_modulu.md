@@ -12,6 +12,11 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `translate-message` | Edge Function | překlad výzvy při kliknutí gestora |
 | `nie_poder` | bloky na desce | extras NIE = samostatný úkol |
 | `ai_copilot` | `features/ai` | search / open / prefill; uživatel ukládá |
+| `facturacion` | `features/facturacion` | kniha přijatých + koncepty vydaných; Guardar/Emitir je člověk |
+| `guardar_factura_recibida` | SQL RPC | extract → cents do `facturas`; AI nevolá |
+| `sif-emit` | Edge Function | JSON konceptu → Verifacti / verifactuapi.es; klíč mimo Flutter |
+| `facturas` | SQL | `recibida` bez AEAT; `emitida` až po SIF |
+| `AiPanel` / `aiChatProvider` | `features/ai/ai_panel.dart` | trvalý chat; zápis `ai_conversations` + `ai_messages` |
 | `AiPanel` / `aiChatProvider` | `features/ai/ai_panel.dart` | trvalý chat; zápis `ai_conversations` + `ai_messages` |
 | `extract-document` | Edge Function | fotka/PDF → text LLM nebo vision → `ai_drafts`; compraventa: všichni kupující/prodávající, cena, finca, právník; Guardar je gestor |
 | `documentos.extracted` | JSONB na dokladu | uložená pole po Guardar; AI sem nezapisuje |

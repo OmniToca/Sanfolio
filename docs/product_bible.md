@@ -31,7 +31,7 @@ První vrstva v kódu je 1–5 (evidence + deska + inbox + výzvy). 6 je zatím 
 
 ### První deska (teď)
 
-Na kartě a ve složce koupě kancelář vidí pole, zapnuté služby, chybějící papíry, termíny a výzvu klientovi. Modelo 210 se **počítá**. Podání AEAT, faktury s VeriFactu a banka jsou další moduly, až tahle deska žije v každé kanceláři, ne jen u Jarky.
+Na kartě a ve složce koupě kancelář vidí pole, zapnuté služby, chybějící papíry, termíny a výzvu klientovi. Modelo 210 se **počítá**. Podání AEAT, VeriFactu SIF a banka jsou další vrstvy. Kniha přijatých faktur je **modul** `facturacion`, ne jádro desky.
 
 ## 2. Slovník
 
@@ -183,7 +183,7 @@ Tři čísla na expediente, ne kniha:
 
 Pohyby (`provision_movements`): `ingreso` | `factura` | `ajuste`. Inbox upozorní, když `saldo <= 0` a existuje otevřená práce, nebo když práce `hecho` a `facturado = 0`.
 
-Tohle je **základní** evidence peněz kanceláře. Modul fakturace (vydané / přijaté, DPH, VeriFactu přes certifikovaného poskytovatele, párování plateb) přijde později a napojí se na stejného klienta a spis. Není to účetní deník PGC.
+Tohle je **základní** evidence peněz kanceláře. Modul `facturacion` (licence v `organization_modules`) přidává **knihu přijatých** (extract + Guardar, žádná AEAT) a **koncepty vydaných**. Tlačítko Emitir volá Edge `sif-emit` (cizí VeriFactu API nebo později vlastní SIF-app). Hash, QR a XML v jádru Sanfolia nestavíme. Účetní deník PGC pořád není.
 
 ## 12. Role
 
@@ -220,7 +220,7 @@ Portál klienta (`cliente_final`) v první desce není; model zpráv už počít
 
 - Telematické podání AEAT (210, 211, 303, renta) — výpočet 210 na desce ano
 - Výpočet renta / IRPF a modelo 303
-- Vydané a přijaté faktury, DPH, párování banky
+- Párování banky a DPH 303
 - Účetní deník PGC / asientos
 - 21 EX formulářů (extranjería jako **modul**, ne jádro)
 - WhatsApp Business API (copy-to-WhatsApp ano)

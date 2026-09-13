@@ -259,6 +259,12 @@ const FIELD_MAP: Record<string, string> = {
   periodTo: "fields.periodTo",
   consumption: "fields.consumption",
   amount: "fields.amount",
+  base: "fields.base",
+  iva: "fields.iva",
+  ivaRate: "fields.ivaRate",
+  due: "fields.due",
+  concept: "fields.concept",
+  supplierNif: "fields.supplierNif",
   notary: "fields.notary",
   protocol: "fields.protocol",
   date: "fields.date",
@@ -289,6 +295,10 @@ function extractSystemPrompt(docTipo: string, includeBody: boolean): string {
     "Nº de contrato / póliza → contractNo. Nº de cliente → clientNo. Nº factura → invoiceNo. " +
     "Periodo de facturación → periodFrom and periodTo (YYYY-MM-DD), not period (period is IBI year only). " +
     "Fecha de emisión → issued. Importe total → amount as 188.85 (dot, no currency). " +
+    "factura_recibida / supplier invoice: emisor → company + supplierNif (CIF/NIF). " +
+    "Do not put the supplier tax id into nie. Titular/cliente → holder/nombre. " +
+    "Base imponible → base, IVA cuota → iva, IVA % → ivaRate (21), vencimiento → due, " +
+    "concepto → concept. " +
     "Consumo kWh or m³ → consumption. Compañía / comercializadora → company. Titular → holder. " +
     "Dates YYYY-MM-DD. Omit unknown. Do not invent. " +
     "Escritura de compraventa: list ALL sellers in sellers and ALL real buyers in buyers as 'NAME (NIE); NAME (NIE)'. " +
@@ -369,6 +379,11 @@ function sanitizeFields(raw: Record<string, string>): Record<string, string> {
     if (!v) continue;
     if (key === "fields.nie" || key === "fields.sellerNie") {
       if (looksLikeNie(v)) out[key] = v.toUpperCase().replace(/\s/g, "");
+      continue;
+    }
+    if (key === "fields.supplierNif") {
+      const compact = v.toUpperCase().replace(/[\s\-\./]/g, "");
+      if (compact.length >= 8 && compact.length <= 12) out[key] = compact;
       continue;
     }
     if (key === "fields.tel") {

@@ -8,6 +8,7 @@ import '../../core/modules/slot_order.dart';
 import '../../core/presentation/widgets/app_widgets.dart';
 import '../../core/theme/app_theme.dart';
 import '../carpeta/bloque_template.dart';
+import '../facturacion/facturacion_settings.dart';
 import 'office_account_section.dart';
 import 'office_settings_controller.dart';
 import 'office_team_section.dart';
@@ -181,6 +182,8 @@ class _OfficeTab extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
               const OfficeAccountSection(),
+              const SizedBox(height: 16),
+              FacturacionSettingsSection(settings: settings),
               const SizedBox(height: 16),
               Text(
                 'settings.cronHint'.tr(),
