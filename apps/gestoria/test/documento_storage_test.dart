@@ -19,6 +19,16 @@ void main() {
     expect(path.contains('/card/'), isFalse);
     expect(path.contains('/ai/'), isFalse);
     expect(path.endsWith('_nie_petr.pdf'), isTrue);
+    expect(path.split('/').length, 3);
+    const bloque = '33333333-3333-3333-3333-333333333333';
+    final onBloque = documentoStoragePath(
+      tenantId: tenant,
+      clienteId: cliente,
+      originalName: 'facturas-5.pdf',
+      bloqueId: bloque,
+    );
+    expect(onBloque.startsWith('$tenant/$cliente/$bloque/'), isTrue);
+    expect(onBloque.split('/').length, 4);
     final hashed = documentoStoragePath(
       tenantId: tenant,
       clienteId: cliente,

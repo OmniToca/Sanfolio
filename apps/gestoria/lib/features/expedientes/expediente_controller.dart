@@ -213,6 +213,7 @@ class ThinExpedienteController
       tenantId: current.tenantId,
       clienteId: current.clienteId,
       originalName: originalName,
+      bloqueId: bloqueId,
     );
     await uploadDocumentoBytes(
       path: path,

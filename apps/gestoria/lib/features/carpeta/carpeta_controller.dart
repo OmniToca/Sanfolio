@@ -454,6 +454,25 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
     required Uint8List bytes,
     required String originalName,
   }) async {
+    try {
+      return await _attachDocument(
+        templateKey: templateKey,
+        bytes: bytes,
+        originalName: originalName,
+      );
+    } on OfficeUploadException {
+      rethrow;
+    } on Object catch (e) {
+      debugPrint('attachDocument $e');
+      throw OfficeUploadException(_shortAttachCode(e));
+    }
+  }
+
+  Future<CarpetaDocumento?> _attachDocument({
+    required String templateKey,
+    required Uint8List bytes,
+    required String originalName,
+  }) async {
     final view = state.valueOrNull;
     final client = trySupabaseClient();
     final auth = ref.read(authControllerProvider).valueOrNull;
@@ -475,6 +494,7 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
       tenantId: view.tenantId,
       clienteId: view.clienteId,
       originalName: originalName,
+      bloqueId: bloqueId,
     );
     await uploadDocumentoBytes(
       path: path,
@@ -808,4 +828,10 @@ BloqueTemplate _templateByKey(String key) {
     if (b.key == key) return b;
   }
   return BloqueTemplate(key: key, fieldKeys: const []);
+}
+
+String _shortAttachCode(Object error) {
+  final raw = error.toString().replaceAll('\n', ' ');
+  if (raw.length <= 40) return raw;
+  return raw.substring(0, 40);
 }

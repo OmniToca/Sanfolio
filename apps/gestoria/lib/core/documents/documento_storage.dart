@@ -6,19 +6,24 @@ import 'package:http/http.dart' as http;
 
 import 'office_file_pick.dart';
 
-/// Jedna cesta originálu: `{tenant}/{cliente}/{id}_{název}`.
+/// Jedna cesta originálu: `{tenant}/{cliente}/{bloque}/{soubor}`.
+/// Bez bloque (karta) zůstane `{tenant}/{cliente}/{soubor}`.
 /// PROČ ne `card/` vs `ai/`: stejný sken se jinak uložil dvakrát.
 String documentoStoragePath({
   required String tenantId,
   required String clienteId,
   required String originalName,
+  String? bloqueId,
 }) {
   // `#` `?` `%` v URL rozbijí Storage. Mezery Safari taky občas spolkne.
   final safe = originalName.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
   final name = safe.isEmpty ? 'file' : safe;
   final ts = DateTime.now().toUtc().microsecondsSinceEpoch.toRadixString(16);
   final rand = Random.secure().nextInt(1 << 32).toRadixString(16).padLeft(8, '0');
-  return '$tenantId/$clienteId/${ts}_${rand}_$name';
+  final folder = (bloqueId == null || bloqueId.isEmpty)
+      ? '$tenantId/$clienteId'
+      : '$tenantId/$clienteId/$bloqueId';
+  return '$folder/${ts}_${rand}_$name';
 }
 
 /// Cesta patří tenantovi (a klientovi, když je znám).

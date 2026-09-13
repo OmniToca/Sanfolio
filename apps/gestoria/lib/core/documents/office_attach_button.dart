@@ -90,6 +90,13 @@ void showOfficeUploadFailure(BuildContext context, Object error) {
   showOfficeFileError(
     context,
     'folder.uploadError',
-    code: error.runtimeType.toString(),
+    code: _shortUploadCode(error),
   );
+}
+
+String _shortUploadCode(Object error) {
+  final raw = error.toString().replaceAll('\n', ' ');
+  if (raw.startsWith('minified:')) return raw;
+  if (raw.length <= 40) return raw;
+  return raw.substring(0, 40);
 }

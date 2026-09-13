@@ -7,9 +7,9 @@ import 'package:web/web.dart' as web;
 
 import 'office_file_pick.dart';
 
-/// Skutečný `<input type=file>` přes tlačítko. Safari ignoruje `click()` na
-/// `display:none` a event `cancel` často spolkne i vybraný soubor.
-class OfficeFileHitLayer extends StatelessWidget {
+/// Skutečný `<input type=file>` přes tlačítko.
+/// `change` z DOM je mimo Flutter zónu — bez [Zone] Riverpod hodí minified:zt.
+class OfficeFileHitLayer extends StatefulWidget {
   const OfficeFileHitLayer({
     super.key,
     required this.onPicked,
@@ -18,6 +18,20 @@ class OfficeFileHitLayer extends StatelessWidget {
 
   final void Function(PickedOfficeFile file) onPicked;
   final void Function(String i18nKey, String code) onError;
+
+  @override
+  State<OfficeFileHitLayer> createState() => _OfficeFileHitLayerState();
+}
+
+class _OfficeFileHitLayerState extends State<OfficeFileHitLayer> {
+  /// Zóna z [initState], ne z JS callbacku.
+  late final Zone _zone;
+
+  @override
+  void initState() {
+    super.initState();
+    _zone = Zone.current;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -54,7 +68,7 @@ class OfficeFileHitLayer extends StatelessWidget {
             files != null && files.length > 0 ? files.item(0) : null;
         input.value = '';
         if (file == null) return;
-        unawaited(_read(file));
+        unawaited(_zone.run(() => _read(file)));
       }.toJS,
     );
   }
@@ -63,11 +77,28 @@ class OfficeFileHitLayer extends StatelessWidget {
     try {
       final buffer = await file.arrayBuffer().toDart;
       final bytes = Uint8List.fromList(buffer.toDart.asUint8List());
-      onPicked(officeFileFromBytes(bytes, file.name));
+      final picked = officeFileFromBytes(bytes, file.name);
+      // `await` JS Promise skončí mimo zónu — Riverpod musí běžet uvnitř.
+      _zone.run(() {
+        if (!mounted) return;
+        widget.onPicked(picked);
+      });
     } on OfficeFilePickException catch (e) {
-      onError(officePickErrorI18n(e.code), e.code.name);
-    } on Object {
-      onError('folder.fileEmpty', 'empty');
+      _zone.run(() {
+        if (!mounted) return;
+        widget.onError(officePickErrorI18n(e.code), e.code.name);
+      });
+    } on Object catch (e) {
+      _zone.run(() {
+        if (!mounted) return;
+        widget.onError('folder.fileEmpty', _shortError(e));
+      });
     }
   }
+}
+
+String _shortError(Object error) {
+  final raw = error.toString();
+  if (raw.length <= 48) return raw;
+  return raw.substring(0, 48);
 }
