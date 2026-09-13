@@ -1406,6 +1406,10 @@ final carpetaControllerProvider =
   CarpetaController.new,
 );
 
+/// Vypnutý šanon bez papírů. Chat sem nesmí posadit gestora — dům je na desce.
+bool emptyOffBloque(BloqueState bloque) =>
+    !bloque.enabled && bloque.documents.isEmpty;
+
 BloqueUiStatus statusOf(BloqueTemplate template, BloqueState bloque) {
   if (!bloque.enabled) return BloqueUiStatus.off;
   final missing = template.requiredKeys.where((f) {

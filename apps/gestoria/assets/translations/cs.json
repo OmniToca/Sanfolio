@@ -595,7 +595,8 @@
     "emptyThread": "Zeptejte se na klienta, NIE nebo doklad. Uložíte vy — nic se samo nezapíše ani neodešle.",
     "send": "Odeslat",
     "savedHint": "Rozhovor se ukládá u vás v kanceláři.",
-    "writeError": "Rozhovor se nepodařilo uložit."
+    "writeError": "Rozhovor se nepodařilo uložit.",
+    "openFolder": "Složka · {name}"
   },
   "tax": {
     "title": "Výpočet IRNR (modelo 210)",

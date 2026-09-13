@@ -209,7 +209,7 @@ Hotovo když: Guardar u Petra založí Moniku; hledání `Y9737090P` ji najde; s
 **Proč:** „máme klienta monika sokolova kolik stál její dům“ padalo: `search_clients` jméno přes `normalize_id` (bez mezer) a `ai_get_cliente` četl jen desku karty.
 
 - `search_clients`: `normalize_id` jen NIE; jméno token AND + fold diakritiky.
-- `ai_get_cliente.titular_inmuebles`: složka, `sale_price` listiny, cuota. Open na `folder_cliente_id` + escritura.
+- `ai_get_cliente.titular_inmuebles`: složka, `sale_price` listiny, cuota. Open na desku složky (`/carpeta`), ne šanon escritura (může být Nesledujeme).
 - `query_escritura`: `q` / strana přes `inmueble_titulares`; `notary` volitelné. Řádek = složka.
 - AI neukládá.
 

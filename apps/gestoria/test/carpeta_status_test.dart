@@ -70,6 +70,27 @@ void main() {
     expect(statusOf(template, state), BloqueUiStatus.off);
   });
 
+  test('vypnuté escritura bez papírů není složka', () {
+    const empty = BloqueState(enabled: false);
+    expect(emptyOffBloque(empty), isTrue);
+    expect(
+      emptyOffBloque(
+        const BloqueState(
+          enabled: false,
+          documents: [
+            CarpetaDocumento(
+              id: 'd1',
+              tipo: 'copia_escritura',
+              storagePath: 't/c/e.pdf',
+              originalName: 'escritura.pdf',
+            ),
+          ],
+        ),
+      ),
+      isFalse,
+    );
+  });
+
   test('modelo 210 bez papírů je missing_document, ne daňový výpočet', () {
     const template = BloqueTemplate(
       key: 'modelo_210',

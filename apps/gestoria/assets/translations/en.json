@@ -595,7 +595,8 @@
     "emptyThread": "Ask about a client, NIE, or a document. You save — nothing is written or sent on its own.",
     "send": "Send",
     "savedHint": "This conversation is saved in your office.",
-    "writeError": "The conversation could not be saved."
+    "writeError": "The conversation could not be saved.",
+    "openFolder": "Folder · {name}"
   },
   "tax": {
     "title": "IRNR calculation (modelo 210)",

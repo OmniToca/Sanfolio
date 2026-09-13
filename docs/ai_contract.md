@@ -62,7 +62,7 @@ Povolené routy: `/inbox`, `/clientes/:id`, `/clientes/:id/carpeta`, `/clientes/
 
 ### 2.3 `get_cliente`
 
-Read-only snapshot karty + bloky + díry + `titular_inmuebles` (finca, kde je klient titular: složka, `sale_price` listiny, cuota). Prázdná vlastní deska ≠ „dům nemáme“. Open na `folder_cliente_id` (složka), ne na prázdnou kartu spoluvlastníka. PII jde do modelu — audit `ai.read.cliente`. AI neukládá.
+Read-only snapshot karty + bloky + díry + `titular_inmuebles` (finca, kde je klient titular: složka, `sale_price` listiny, cuota). Prázdná vlastní deska ≠ „dům nemáme“. Open na desku složky (`/clientes/{folder_cliente_id}/carpeta`), ne na šanon `escritura` (kancelář ho často nesleduje) ani na prázdnou kartu spoluvlastníka. PII jde do modelu — audit `ai.read.cliente`. AI neukládá.
 
 ### 2.4 `prefill_form`
 

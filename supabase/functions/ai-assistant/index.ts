@@ -175,7 +175,7 @@ Deno.serve(async (req) => {
         "Když body_text chybí, neříkej že ve smlouvě věta není — přepis ještě není uložený. " +
         "get_cliente.titular_inmuebles: spoluvlastník na finca složky folder_cliente_id. " +
         "Cena domu = sale_price celé listiny; podíl = share_percent. Prázdné documentos[] na kartě titulare ≠ dům nemáme. " +
-        "Open = folder_cliente_id + blok escritura, ne prázdná karta spoluvlastníka. " +
+        "Open = deska složky folder_cliente_id (/carpeta), ne šanon escritura (může být vypnutý) a ne prázdná karta spoluvlastníka. " +
         (clienteId ? `Otevřená karta: ${clienteId}. ` : ""),
     },
     { role: "user", content: message },
@@ -355,6 +355,7 @@ function collectClienteOpens(
       folder_cliente_id?: string;
       folder_nombre?: string;
       folder_has_carpeta?: boolean;
+      direccion?: string;
     }>;
   };
   const titulares = Array.isArray(snap.titular_inmuebles)
@@ -364,19 +365,16 @@ function collectClienteOpens(
   for (const t of titulares) {
     const folderId = `${t.folder_cliente_id ?? ""}`;
     if (!folderId) continue;
-    if (
-      opens.some((o) =>
-        o.cliente_id === folderId && o.bloque_key === "escritura"
-      )
-    ) {
+    if (opens.some((o) => o.cliente_id === folderId && !o.bloque_key)) {
       openedFolder = true;
       continue;
     }
+    const name = `${t.folder_nombre ?? folderId}`.trim();
+    const address = `${t.direccion ?? ""}`.trim();
     opens.push({
       cliente_id: folderId,
-      label: `${t.folder_nombre ?? folderId}`,
+      label: address ? `${name} · ${address}` : name,
       carpeta: true,
-      bloque_key: "escritura",
     });
     openedFolder = true;
   }
@@ -410,16 +408,19 @@ function collectOpens(
       bloque_key?: string;
     };
     const id = `${row.folder_cliente_id ?? row.cliente_id ?? row.id ?? ""}`;
-    const bloque = row.bloque_key ?? "";
-    if (!id || opens.some((o) => o.cliente_id === id && o.bloque_key === bloque)) {
+    const fileName = `${row.original_name ?? ""}`.trim();
+    // Escritura bez souboru = deska. Šanon může být Nesledujeme (dům je na titularech).
+    let bloque = `${row.bloque_key ?? ""}`.trim();
+    if (bloque === "escritura" && !fileName) bloque = "";
+    if (!id || opens.some((o) => o.cliente_id === id && (o.bloque_key ?? "") === bloque)) {
       continue;
     }
-    const label = `${row.original_name ?? row.nombre ?? id}`;
+    const label = fileName || `${row.nombre ?? id}`;
     opens.push({
       cliente_id: id,
       label,
       carpeta: true,
-      bloque_key: bloque,
+      ...(bloque ? { bloque_key: bloque } : {}),
     });
   }
 }

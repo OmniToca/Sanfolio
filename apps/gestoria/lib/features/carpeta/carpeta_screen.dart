@@ -579,6 +579,20 @@ class BloqueScreen extends ConsumerWidget {
         final bloque = template;
         final state =
             view.bloques[bloqueKey] ?? const BloqueState(enabled: false);
+        // Chat dřív otevíral /carpeta/escritura i když blok je Nesledujeme.
+        if (emptyOffBloque(state)) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (context.mounted) {
+              context.go(
+                carpetaRoute(clienteId, expedienteId: expedienteId),
+              );
+            }
+          });
+          return Scaffold(
+            appBar: AppBar(title: Text(bloque.labelI18n.tr())),
+            body: const Center(child: CircularProgressIndicator()),
+          );
+        }
         return Scaffold(
           appBar: AppBar(
             title: Text(bloque.labelI18n.tr()),

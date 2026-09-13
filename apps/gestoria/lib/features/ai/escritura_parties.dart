@@ -557,8 +557,9 @@ bool _hasDeedParties(Map<String, String> fields) {
   ].any((s) => (s ?? '').trim().isNotEmpty);
 }
 
-/// Červená / zákaz přepisu identity: karta s NIE musí to číslo na dokladu mít.
-/// Jméno z [alignDeedFieldsToCliente] není důkaz — vepíše se jméno karty.
+/// Červená / zákaz přepisu identity.
+/// Listina: karta s NIE musí být stranou. Pas/faktura NIE nemají — stačí jméno.
+/// Cizí fiskální číslo na papíře kartu neomlouvá.
 bool documentFitsCliente({
   required String cardName,
   String? cardNie,
@@ -576,10 +577,18 @@ bool documentFitsCliente({
   final want = (cardNie ?? '').trim().isEmpty ? null : normalizeNie(cardNie!);
   if (want != null && want.isNotEmpty) {
     final compact = blob.toUpperCase().replaceAll(RegExp(r'[\s\-\./]'), '');
-    return compact.contains(want);
+    if (compact.contains(want)) return true;
+    if (_hasDeedParties(fields)) return false;
+    final paperNie = normalizeNie(fields['fields.nie'] ?? '');
+    if (paperNie.isNotEmpty && looksLikeNie(paperNie) && paperNie != want) {
+      return false;
+    }
   }
   if (cardName.trim().isEmpty) return false;
-  return namesLikelyMatch(cardName, blob);
+  final nameOnPaper = (fields['fields.nombre'] ?? '').trim().isNotEmpty
+      ? fields['fields.nombre']!
+      : blob;
+  return namesLikelyMatch(cardName, nameOnPaper);
 }
 
 /// Snackbar po Guardar: přepis ano, identita / strany ne.

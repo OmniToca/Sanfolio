@@ -42,6 +42,18 @@ void main() {
     expect(open.route.endsWith('/carpeta/escritura'), isTrue);
   });
 
+  test('jméno u titulare otevře desku, ne vypnuté escritura', () {
+    const open = AiChatOpen(
+      clienteId: '11111111-1111-1111-1111-111111111111',
+      label: 'Petr Sokol',
+      carpeta: true,
+      bloqueKey: 'escritura',
+    );
+    expect(open.opensFolderDesk, isTrue);
+    expect(open.route.endsWith('/carpeta'), isTrue);
+    expect(open.route.endsWith('/carpeta/escritura'), isFalse);
+  });
+
   test('id klienta z cesty kanceláře, ne z /carpeta', () {
     expect(
       clienteIdFromOfficePath(
@@ -72,6 +84,11 @@ void main() {
     expect(messages, hasLength(2));
     expect(messages.first.fromUser, isTrue);
     expect(parseAiChatMessage({'role': 'system'}), isNull);
+  });
+
+  test('nejnovější zpráva je u vstupu, historie nahoru', () {
+    expect(aiChatLatestFirstIndex(3, 0), 2);
+    expect(aiChatLatestFirstIndex(3, 2), 0);
   });
 
   test('MIME z přípony rozliší PDF od fotky', () {

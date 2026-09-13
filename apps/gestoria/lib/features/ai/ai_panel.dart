@@ -42,6 +42,13 @@ class _AiPanelState extends ConsumerState<AiPanel> {
   Widget build(BuildContext context) {
     final chat = ref.watch(aiChatProvider);
     final busy = _working || (chat.valueOrNull?.busy ?? false);
+    ref.listen<AsyncValue<AiChatState>>(aiChatProvider, (prev, next) {
+      final was = prev?.valueOrNull?.messages.length ?? 0;
+      final now = next.valueOrNull?.messages.length ?? 0;
+      if (now > was && (_working || _nearLatest())) {
+        _pinToLatest();
+      }
+    });
     return ColoredBox(
       color: AppTheme.surface,
       child: Column(
@@ -94,11 +101,16 @@ class _AiPanelState extends ConsumerState<AiPanel> {
                 }
                 return ListView.builder(
                   controller: _scroll,
-                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
+                  reverse: true,
+                  padding: const EdgeInsets.fromLTRB(12, 16, 12, 12),
                   itemCount: state.messages.length,
                   itemBuilder: (context, i) {
+                    final message = state.messages[aiChatLatestFirstIndex(
+                      state.messages.length,
+                      i,
+                    )];
                     return _Bubble(
-                      message: state.messages[i],
+                      message: message,
                       onOpen: (route) => context.go(route),
                       onPrefill: busy
                           ? null
@@ -206,7 +218,7 @@ class _AiPanelState extends ConsumerState<AiPanel> {
               ),
             );
       }
-      _jumpToEnd();
+      _pinToLatest();
     } on Object {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -418,7 +430,7 @@ class _AiPanelState extends ConsumerState<AiPanel> {
               ),
             ),
           );
-      _jumpToEnd();
+      _pinToLatest();
     } on Object {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -569,10 +581,16 @@ class _AiPanelState extends ConsumerState<AiPanel> {
     }
   }
 
-  void _jumpToEnd() {
+  bool _nearLatest() {
+    if (!_scroll.hasClients) return true;
+    return _scroll.offset <= 72;
+  }
+
+  /// Reverse seznam: 0 = nejnovější u pole. maxScrollExtent by hodil historii dolů.
+  void _pinToLatest() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scroll.hasClients) return;
-      _scroll.jumpTo(_scroll.position.maxScrollExtent);
+      _scroll.jumpTo(0);
     });
   }
 }
@@ -613,9 +631,7 @@ class _Bubble extends StatelessWidget {
                   for (final open in payload.opens)
                     TextButton(
                       onPressed: () => onOpen(open.route),
-                      child: Text(
-                        open.label.isEmpty ? 'inbox.unnamed'.tr() : open.label,
-                      ),
+                      child: Text(_openLabel(open)),
                     ),
                 ],
                 if (!mine &&
@@ -638,4 +654,12 @@ class _Bubble extends StatelessWidget {
       ),
     );
   }
+}
+
+String _openLabel(AiChatOpen open) {
+  final name = open.label.isEmpty ? 'inbox.unnamed'.tr() : open.label;
+  if (open.opensFolderDesk) {
+    return 'ai.openFolder'.tr(namedArgs: {'name': name});
+  }
+  return name;
 }

@@ -82,6 +82,17 @@ void main() {
       ),
       isFalse,
     );
+    expect(
+      documentFitsCliente(
+        cardName: 'Petr Sokol',
+        cardNie: 'Y9736943E',
+        fields: {
+          'fields.nombre': 'Petr Sokol',
+          'fields.docNumber': '43927578',
+        },
+      ),
+      isTrue,
+    );
     final locked = lockIdentityPaper(
       paper: const {
         'fields.nie': 'Y9737090P',

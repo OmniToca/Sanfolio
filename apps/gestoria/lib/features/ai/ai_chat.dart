@@ -34,9 +34,17 @@ class AiChatOpen {
   final bool carpeta;
   final String? bloqueKey;
 
+  /// Jméno bez přípony souboru + escritura = deska. Šanon bývá Nesledujeme.
+  bool get opensFolderDesk {
+    final bloque = bloqueKey?.trim() ?? '';
+    if (!carpeta) return false;
+    if (bloque.isEmpty) return true;
+    return bloque == 'escritura' && !label.contains('.');
+  }
+
   String get route {
     final bloque = bloqueKey?.trim() ?? '';
-    if (bloque.isNotEmpty) {
+    if (bloque.isNotEmpty && !opensFolderDesk) {
       return '/clientes/$clienteId/carpeta/$bloque';
     }
     return carpeta ? '/clientes/$clienteId/carpeta' : '/clientes/$clienteId';
@@ -90,6 +98,9 @@ bool aiPanelVisible({required double width, required bool? preference}) {
 
 /// Dock vedle desky; na úzkém okně překryv, ať se netlačí obsah.
 bool aiPanelDocked(double width) => width >= 1100;
+
+/// Reverse ListView: index 0 u vstupu = nejnovější. Bez toho skrol skáče nahoru/dolů.
+int aiChatLatestFirstIndex(int length, int i) => length - 1 - i;
 
 String? clienteIdFromOfficePath(String path) {
   final parts = path.split('/');

@@ -595,7 +595,8 @@
     "emptyThread": "Demandez un client, un NIE ou un document. Vous enregistrez — rien ne s’écrit ni ne s’envoie tout seul.",
     "send": "Envoyer",
     "savedHint": "Cette conversation est enregistrée dans votre cabinet.",
-    "writeError": "Impossible d’enregistrer la conversation."
+    "writeError": "Impossible d’enregistrer la conversation.",
+    "openFolder": "Dossier · {name}"
   },
   "tax": {
     "title": "Calcul IRNR (modelo 210)",
