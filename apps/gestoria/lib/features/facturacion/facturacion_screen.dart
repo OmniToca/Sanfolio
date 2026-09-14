@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gestoria_auth/gestoria_auth.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/documents/office_attach_button.dart';
 import '../../core/identity/nie_persist.dart';
@@ -18,6 +19,7 @@ import 'csv_save.dart';
 import 'factura.dart';
 import 'facturacion_providers.dart';
 import 'sif_emit.dart';
+import 'sif_qr.dart';
 
 class FacturacionScreen extends ConsumerStatefulWidget {
   const FacturacionScreen({super.key});
@@ -80,6 +82,7 @@ class _FacturacionScreenState extends ConsumerState<FacturacionScreen>
               busy: _busy,
               onAdd: _addIssued,
               onEmit: _emit,
+              onVerify: _verify,
               onHide: _hide,
             ),
           ],
@@ -199,27 +202,46 @@ class _FacturacionScreenState extends ConsumerState<FacturacionScreen>
   }
 
   Future<void> _emit(Factura row) async {
+    if (!row.hasDestinatario) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('facturacion.destinatarioRequired'.tr())),
+      );
+      return;
+    }
+    await _sifCall(row, verify: false);
+  }
+
+  Future<void> _verify(Factura row) async {
+    await _sifCall(row, verify: true);
+  }
+
+  Future<void> _sifCall(Factura row, {required bool verify}) async {
     final tenantId =
         ref.read(authControllerProvider).valueOrNull?.currentTenantId;
     if (tenantId == null) return;
     setState(() => _busy = true);
     try {
-      final result = await emitFacturaViaSif(
-        tenantId: tenantId,
-        facturaId: row.id,
-      );
+      final result = verify
+          ? await verifyFacturaViaSif(
+              tenantId: tenantId,
+              facturaId: row.id,
+            )
+          : await emitFacturaViaSif(
+              tenantId: tenantId,
+              facturaId: row.id,
+            );
       if (!mounted) return;
-      final key = result.ok
-          ? 'facturacion.emitOk'
-          : result.error == 'sif_not_configured'
-              ? 'facturacion.sifNotConfigured'
-              : result.error == 'emisor_nif_required'
-                  ? 'facturacion.emisorNifRequired'
-                  : 'facturacion.emitError';
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(key.tr())),
+        SnackBar(content: Text(sifSnackKey(result, verify: verify).tr())),
       );
       ref.invalidate(facturasOfficeProvider);
+      if (result.ok) {
+        await showSifQrDialog(
+          context,
+          qrStored: result.sifQrUrl ?? row.sifQrUrl,
+          aeatUrl: result.sifAeatUrl ?? row.sifAeatUrl,
+        );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -235,6 +257,7 @@ class _BookTab extends ConsumerWidget {
     required this.onHide,
     this.onCsv,
     this.onEmit,
+    this.onVerify,
   });
 
   final String direccion;
@@ -244,6 +267,7 @@ class _BookTab extends ConsumerWidget {
   final Future<void> Function(String id) onHide;
   final VoidCallback? onCsv;
   final Future<void> Function(Factura row)? onEmit;
+  final Future<void> Function(Factura row)? onVerify;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -301,6 +325,17 @@ class _BookTab extends ConsumerWidget {
                       onEmit: onEmit == null || !row.canEmitir
                           ? null
                           : () => onEmit!(row),
+                      onVerify: onVerify == null || !row.canVerificar
+                          ? null
+                          : () => onVerify!(row),
+                      onQr: (row.sifQrUrl ?? '').isEmpty &&
+                              (row.sifAeatUrl ?? '').isEmpty
+                          ? null
+                          : () => showSifQrDialog(
+                                context,
+                                qrStored: row.sifQrUrl,
+                                aeatUrl: row.sifAeatUrl,
+                              ),
                     ),
                     const SizedBox(height: 8),
                   ],
@@ -319,12 +354,16 @@ class _FacturaTile extends StatelessWidget {
     required this.busy,
     required this.onHide,
     this.onEmit,
+    this.onVerify,
+    this.onQr,
   });
 
   final Factura row;
   final bool busy;
   final VoidCallback onHide;
   final VoidCallback? onEmit;
+  final VoidCallback? onVerify;
+  final VoidCallback? onQr;
 
   @override
   Widget build(BuildContext context) {
@@ -359,6 +398,14 @@ class _FacturaTile extends StatelessWidget {
                           color: AppTheme.pencil,
                         ),
                   ),
+                  if ((row.sifStatus ?? '').isNotEmpty &&
+                      row.sifStatus != row.estado)
+                    Text(
+                      row.sifStatus!,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: AppTheme.pencil,
+                          ),
+                    ),
                 ],
               ),
             ),
@@ -369,10 +416,21 @@ class _FacturaTile extends StatelessWidget {
                     context.go('/clientes/${row.clienteId}'),
                 icon: const Icon(Icons.folder_open_outlined),
               ),
+            if (onQr != null)
+              IconButton(
+                tooltip: 'facturacion.qr'.tr(),
+                onPressed: busy ? null : onQr,
+                icon: const Icon(Icons.qr_code_2_outlined),
+              ),
             if (onEmit != null)
               TextButton(
                 onPressed: busy ? null : onEmit,
                 child: Text('facturacion.emitir'.tr()),
+              ),
+            if (onVerify != null)
+              TextButton(
+                onPressed: busy ? null : onVerify,
+                child: Text('facturacion.verificar'.tr()),
               ),
             IconButton(
               tooltip: 'clients.softDelete'.tr(),
@@ -595,6 +653,13 @@ class _IssuedDraftDialogState extends ConsumerState<_IssuedDraftDialog> {
   Future<void> _save() async {
     final total = parseEurosToCents(_amount.text) ?? 0;
     if (total <= 0) return;
+    final cliente = _cliente;
+    if (cliente == null || (cliente.nie ?? '').trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('facturacion.destinatarioRequired'.tr())),
+      );
+      return;
+    }
     final ivaBps = 2100;
     final base = (total * 10000 / (10000 + ivaBps)).round();
     final iva = total - base;
@@ -603,9 +668,9 @@ class _IssuedDraftDialogState extends ConsumerState<_IssuedDraftDialog> {
     try {
       await createFacturaEmitida(
         tenantId: widget.tenantId,
-        clienteId: _cliente?.id,
-        destinatarioNombre: _cliente?.nombre,
-        destinatarioNif: _cliente?.nie,
+        clienteId: cliente.id,
+        destinatarioNombre: cliente.nombre,
+        destinatarioNif: cliente.nie,
         serie: widget.serie,
         numero: widget.numero,
         fecha: today,
@@ -621,4 +686,53 @@ class _IssuedDraftDialogState extends ConsumerState<_IssuedDraftDialog> {
       if (mounted) setState(() => _busy = false);
     }
   }
+}
+
+Future<void> showSifQrDialog(
+  BuildContext context, {
+  String? qrStored,
+  String? aeatUrl,
+}) async {
+  final png = sifQrPngBytes(qrStored);
+  final url = (aeatUrl ?? '').trim();
+  if (png == null && url.isEmpty) return;
+  if (!context.mounted) return;
+  await showDialog<void>(
+    context: context,
+    builder: (ctx) {
+      return AlertDialog(
+        title: Text('facturacion.qr'.tr()),
+        content: SizedBox(
+          width: 360,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (png != null)
+                Image.memory(png, width: 220, height: 220, fit: BoxFit.contain),
+              if (url.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text('facturacion.aeatHint'.tr()),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('clients.cancel'.tr()),
+          ),
+          if (url.isNotEmpty)
+            FilledButton(
+              onPressed: () async {
+                await launchUrl(
+                  Uri.parse(url),
+                  mode: LaunchMode.externalApplication,
+                );
+              },
+              child: Text('facturacion.openAeat'.tr()),
+            ),
+        ],
+      );
+    },
+  );
 }

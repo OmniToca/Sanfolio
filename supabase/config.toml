@@ -40,3 +40,6 @@ verify_jwt = true
 
 [functions.sif-emit]
 verify_jwt = true
+
+[functions.sif-status]
+verify_jwt = true

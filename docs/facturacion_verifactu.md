@@ -6,25 +6,29 @@ Přijaté faktury do SIF **nepatří**. To je kniha, OCR, DPH na vstupu.
 
 Když Sanfolio čísluje, kreslí PDF a kliká Emitir, AEAT FAQ může brát Sanfolio jako **CPF** a API jako **CF třetí strany**. V DR musí být: voláme tento SIF, tato verze. Marketing „integruj a jsi v klidu“ nestačí — právník u konkrétního API.
 
-## Sandbox Emitir
+## Rozhodnutí 13. 9. 2026: Verifacti
+
+Napojíme [Verifacti API](https://www.verifacti.com/precios), včetně `GET /verifactu/declaracion` (DR ke stažení z programu). Pořadí a zákaz SIF v jádru: [roadmap_facturacion.md](roadmap_facturacion.md). Audit mapperu vs. docs (datum `DD-MM-YYYY`, Pendiente, klíč firmy): [audit_verifacti.md](audit_verifacti.md).
+
+## Sandbox Emitir a Ověřit
 
 Env na Edge (ne ve Flutteru):
 
 | Proměnná | Význam |
 | --- | --- |
-| `SIF_VENDOR` | `verifacti` (default) nebo `verifactuapi` |
-| `SIF_API_URL` | base URL bez lomítka na konci |
-| `SIF_API_KEY` | Bearer token / API key emisoru |
+| `SIF_VENDOR` | `verifacti` (jiné = `unsupported_vendor`) |
+| `SIF_API_URL` | `https://api.verifacti.com` (bez lomítka na konci) |
+| `SIF_API_KEY` | Bearer token / API key **firmy** (emisor) |
 
-Bez URL a klíče funkce vrátí `sif_not_configured`. Koncept zůstane v `facturas`. Testovací NIF u AEAT sandboxu (verifactuapi.es): emisor `A39200019`.
+Bez URL a klíče `sif-emit` i `sif-status` vrátí `sif_not_configured`. Koncept zůstane v `facturas`.
 
-Flutter posílá jen `tenant_id` + `factura_id`. Payload skládá Edge z `facturas` + `tenant_settings.emisor_nif`.
+Flutter posílá jen `tenant_id` + `factura_id`. Create: `fecha_expedicion` = dnešek Madrid, `fecha_operacion` = `facturas.fecha`, `Idempotency-Key` = id řádku. Po 200 je `pendiente`. Tlačítko **Ověřit** volá `sif-status` → `GET /verifactu/status`. `emitida` až AEAT přijme.
 
-## Due diligence (ne nákup)
+## Due diligence (stav k rozhodnutí)
 
-Ověřeno 13. 9. 2026 z veřejných stránek. Ceny a DR se mění — před produkcí znovu.
+Ověřeno 13. 9. 2026 z veřejných stránek. **Vybráno Verifacti** — viz roadmap. Ceny a DR se mění — před produkcí znovu.
 
-### Verifacti ([verifacti.com](https://www.verifacti.com/))
+### Verifacti ([verifacti.com](https://www.verifacti.com/)) — zvolené API
 
 - REST `POST /verifactu/create`, stav `GET /verifactu/status`, DR `GET /verifactu/declaracion`.
 - **Colaborador social** AEAT (Bilbabit SL, convenio 017). Certifikát FNMT kanceláře do appky nestrkáte; v produkci **modelo de representación**.

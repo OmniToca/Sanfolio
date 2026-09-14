@@ -2,11 +2,61 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:gestoria_os/core/modules/module_catalog.dart';
 import 'package:gestoria_os/features/ai/documento_fields.dart';
 import 'package:gestoria_os/features/facturacion/factura.dart';
+import 'package:gestoria_os/features/facturacion/sif_emit.dart';
+import 'package:gestoria_os/features/facturacion/sif_qr.dart';
 
 void main() {
   test('modul facturacion má klíč do organization_modules', () {
     expect(GestoriaModule.facturacion.key, 'facturacion');
     expect(GestoriaModuleKey.fromKey('facturacion'), GestoriaModule.facturacion);
+  });
+
+  test('vydaná bez uuid jde Emitir, s uuid jen Ověřit', () {
+    const draft = Factura(
+      id: '1',
+      direccion: 'emitida',
+      estado: 'borrador',
+    );
+    expect(draft.canEmitir, isTrue);
+    expect(draft.canVerificar, isFalse);
+    expect(draft.hasDestinatario, isFalse);
+
+    const queued = Factura(
+      id: '2',
+      direccion: 'emitida',
+      estado: 'pendiente',
+      destinatarioNombre: 'Petr Sokol',
+      destinatarioNif: 'Y9736943E',
+      sifExternalId: 'uuid-1',
+      sifStatus: 'Pendiente',
+    );
+    expect(queued.canEmitir, isFalse);
+    expect(queued.canVerificar, isTrue);
+    expect(queued.hasDestinatario, isTrue);
+  });
+
+  test('sif snackbar rozliší frontu a chybějící NIF', () {
+    expect(
+      sifSnackKey(
+        const SifCallResult(ok: true, bookEstado: 'pendiente'),
+        verify: false,
+      ),
+      'facturacion.emitPending',
+    );
+    expect(
+      sifSnackKey(
+        const SifCallResult(ok: false, error: 'destinatario_required'),
+        verify: false,
+      ),
+      'facturacion.destinatarioRequired',
+    );
+    expect(
+      sifSnackKey(
+        const SifCallResult(ok: true, bookEstado: 'emitida'),
+        verify: true,
+      ),
+      'facturacion.verifyOk',
+    );
   });
 
   test('přijatá z extractu počítá cents a NIF dodavatele, ne klienta', () {
@@ -33,6 +83,14 @@ void main() {
       containsAll(['fields.supplierNif', 'fields.base', 'fields.amount']),
     );
     expect(isInvoiceDocTipo('factura_recibida'), isTrue);
+  });
+
+  test('QR data-URI se dekóduje na PNG bajty', () {
+    const payload = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+X2ZkAAAAASUVORK5CYII=';
+    final bytes = sifQrPngBytes('data:image/png;base64,$payload');
+    expect(bytes, isNotNull);
+    expect(bytes!.first, 0x89);
+    expect(sifQrPngBytes('https://prewww2.aeat.es/x'), isNull);
   });
 
   test('CSV knihy přijatých je středník a eura s čárkou', () {

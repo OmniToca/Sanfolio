@@ -12,7 +12,8 @@ const _facturaSelect =
     'id, cliente_id, documento_id, direccion, estado, proveedor_nombre, '
     'proveedor_nif, destinatario_nombre, destinatario_nif, serie, numero, '
     'fecha, vencimiento, concepto, base_cents, iva_cents, iva_bps, total_cents, '
-    'sif_provider, sif_external_id, sif_status, sif_qr_url, sif_error, '
+    'sif_provider, sif_external_id, sif_status, sif_qr_url, sif_aeat_url, sif_error, '
+    'sif_fecha_expedicion, '
     'clientes ( nombre )';
 
 /// Kniha kanceláře. Filtr směru na obrazovce.

@@ -26,6 +26,7 @@ class Factura {
     this.sifExternalId,
     this.sifStatus,
     this.sifQrUrl,
+    this.sifAeatUrl,
     this.sifError,
   });
 
@@ -52,12 +53,27 @@ class Factura {
   final String? sifExternalId;
   final String? sifStatus;
   final String? sifQrUrl;
+  final String? sifAeatUrl;
   final String? sifError;
 
   bool get isRecibida => direccion == 'recibida';
   bool get isEmitida => direccion == 'emitida';
+  bool get hasDestinatario =>
+      (destinatarioNif ?? '').trim().isNotEmpty &&
+      (destinatarioNombre ?? '').trim().isNotEmpty;
+
+  /// Ještě u Verifacti není uuid — smí znovu Emitir (včetně error bez odeslání).
   bool get canEmitir =>
-      isEmitida && (estado == 'borrador' || estado == 'guardada' || estado == 'error');
+      isEmitida &&
+      (sifExternalId ?? '').isEmpty &&
+      (estado == 'borrador' || estado == 'guardada' || estado == 'error');
+
+  /// U SIF je uuid, nebo už čekáme na AEAT (ověření přes sérii/číslo).
+  bool get canVerificar =>
+      isEmitida &&
+      estado != 'anulada' &&
+      ((sifExternalId ?? '').isNotEmpty || estado == 'pendiente');
+
   bool get alreadyEmitted => isEmitida && estado == 'emitida';
 
   String get counterparty {
@@ -100,6 +116,7 @@ class Factura {
       sifExternalId: _opt(raw['sif_external_id']),
       sifStatus: _opt(raw['sif_status']),
       sifQrUrl: _opt(raw['sif_qr_url']),
+      sifAeatUrl: _opt(raw['sif_aeat_url']),
       sifError: _opt(raw['sif_error']),
     );
   }

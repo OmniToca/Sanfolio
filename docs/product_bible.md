@@ -183,7 +183,7 @@ Tři čísla na expediente, ne kniha:
 
 Pohyby (`provision_movements`): `ingreso` | `factura` | `ajuste`. Inbox upozorní, když `saldo <= 0` a existuje otevřená práce, nebo když práce `hecho` a `facturado = 0`.
 
-Tohle je **základní** evidence peněz kanceláře. Modul `facturacion` (licence v `organization_modules`) přidává **knihu přijatých** (extract + Guardar, žádná AEAT) a **koncepty vydaných**. Tlačítko Emitir volá Edge `sif-emit` (cizí VeriFactu API nebo později vlastní SIF-app). Hash, QR a XML v jádru Sanfolia nestavíme. Účetní deník PGC pořád není.
+Tohle je **základní** evidence peněz kanceláře. Modul `facturacion` (licence v `organization_modules`) přidává **knihu přijatých** (extract + Guardar, žádná AEAT) a **koncepty vydaných**. Emitir volá Edge `sif-emit`; **Ověřit** volá `sif-status` (`GET /verifactu/status`). Hash, QR a XML v jádru Sanfolia nestavíme. Účetní deník PGC pořád není.
 
 ## 12. Role
 

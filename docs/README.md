@@ -27,5 +27,7 @@ Pořadí čtení pro další vývoj. Tyto soubory jsou smlouva produktu. Kód se
 | 11 | [modules_settings_i18n.md](modules_settings_i18n.md) | Moduly, sloty, jazyky — jak se nezamotat |
 | 12 | [roadmap_dokumenty_ai.md](roadmap_dokumenty_ai.md) | Fáze A–G: přepis, PDF, koš, asistent, otevřený blok |
 | 13 | [facturacion_verifactu.md](facturacion_verifactu.md) | Modul knihy vs. SIF adapter; due diligence API |
+| 14 | [roadmap_facturacion.md](roadmap_facturacion.md) | Napojení Verifacti (`GET /verifactu/declaracion`, Emitir, Ověřit) |
+| 15 | [audit_verifacti.md](audit_verifacti.md) | Mezery `sif-emit` vs. Verifacti docs; pořadí sandbox → produkce |
 
 Impuestos v katalogu: **IBI/SUMA**, **modelo 210** (výpočet IRNR, ne podání AEAT), **renta/IRPF** (zatím plazo + checklist).
