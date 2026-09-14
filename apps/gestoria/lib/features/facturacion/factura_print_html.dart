@@ -45,33 +45,48 @@ String facturaEmitidaPrintHtml({
       '<tr>'
           '<td>${_esc(line.descripcion)}</td>'
           '<td class="num">${_esc(cantidadString(line.cantidad))}</td>'
-          '<td class="num">${_esc(formatCents(line.precioUnitarioCents))} €</td>'
+          '<td class="num">${_esc(formatCents(line.precioUnitarioCents))}</td>'
           '<td class="num">${_esc(ivaRateLabel(line.ivaBps))}</td>'
-          '<td class="num">${_esc(formatCents(line.totalCents))} €</td>'
+          '<td class="num">${_esc(formatCents(line.baseCents))}</td>'
+          '<td class="num">${_esc(formatCents(line.totalCents))}</td>'
           '</tr>',
   ].join();
   final taxRows = [
     for (final row in byRate)
-      '<tr>'
-          '<td>Base ${_esc(ivaRateLabel(row.ivaBps))}</td>'
-          '<td class="num">${_esc(formatCents(row.baseCents))} €</td>'
-          '</tr>'
-          '<tr>'
-          '<td>IVA ${_esc(ivaRateLabel(row.ivaBps))}</td>'
-          '<td class="num">${_esc(formatCents(row.ivaCents))} €</td>'
-          '</tr>',
+      '<div class="sum-row">'
+          '<span>Base ${_esc(ivaRateLabel(row.ivaBps))}</span>'
+          '<span>${_esc(formatCents(row.baseCents))} €</span>'
+          '</div>'
+          '<div class="sum-row">'
+          '<span>IVA ${_esc(ivaRateLabel(row.ivaBps))}</span>'
+          '<span>${_esc(formatCents(row.ivaCents))} €</span>'
+          '</div>',
   ].join();
-  final destBlock = factura.hasDestinatario ||
-          (factura.destinatarioNombre ?? '').isNotEmpty
+  final destName = (factura.destinatarioNombre ?? '').trim();
+  final dest = destName.isNotEmpty || factura.hasDestinatario
       ? '''
-<div class="box">
-  <div class="k">Destinatario</div>
-  <div class="name">${_esc(factura.destinatarioNombre ?? '')}</div>
-  ${factura.destinatarioNif == null ? '' : '<div>NIF ${_esc(factura.destinatarioNif!)}</div>'}
+<div class="party dest">
+  <h2>Destinatario</h2>
+  <div class="name">${_esc(destName)}</div>
   ${factura.destinatarioDireccion == null ? '' : '<div>${_esc(factura.destinatarioDireccion!)}</div>'}
-  ${factura.destinatarioEmail == null ? '' : '<div>${_esc(factura.destinatarioEmail!)}</div>'}
+  ${factura.destinatarioNif == null ? '' : '<div class="ids">NIF ${_esc(factura.destinatarioNif!)}</div>'}
+  ${factura.destinatarioEmail == null ? '' : '<div class="ids">${_esc(factura.destinatarioEmail!)}</div>'}
 </div>'''
-      : '<div class="box"><div class="k">Destinatario</div><div>—</div></div>';
+      : '''
+<div class="party dest">
+  <h2>Destinatario</h2>
+  <div>—</div>
+</div>''';
+  final fecha = toDmyDate(factura.fecha) ?? factura.fecha ?? '—';
+  final venc = factura.vencimiento == null
+      ? '—'
+      : (toDmyDate(factura.vencimiento) ?? factura.vencimiento!);
+  final tipo = factura.isSimplificada ? 'F2 Simplificada' : 'F1 Completa';
+  final pago = factura.formaPago == null ? '—' : _pagoEs(factura.formaPago!);
+  final concepto = (factura.concepto ?? '').trim();
+  final notas = (factura.notas ?? '').trim();
+  final firstLine = lines.isNotEmpty ? lines.first.descripcion.trim() : '';
+  final showConcepto = concepto.isNotEmpty && concepto != firstLine;
   return '''
 <!DOCTYPE html>
 <html lang="es">
@@ -79,90 +94,140 @@ String facturaEmitidaPrintHtml({
 <meta charset="utf-8"/>
 <title>${_esc(title)} ${_esc(factura.refLabel)}</title>
 <style>
-  @page { size: A4; margin: 12mm; }
+  @page { size: A4; margin: 14mm; }
   * { box-sizing: border-box; }
-  body { font-family: "Plus Jakarta Sans", "Segoe UI", Helvetica, Arial, sans-serif; color: #161412; margin: 0; background: #fff; }
-  .sheet { max-width: 210mm; margin: 0 auto; padding: 8mm 10mm 12mm; }
-  .bar { height: 6px; background: #1B5F59; margin: 0 -10mm 16px; }
-  .head { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; margin-bottom: 18px; }
-  h1 { font-family: Georgia, "Times New Roman", serif; font-size: 22px; letter-spacing: 0.06em; margin: 0 0 6px; }
-  .meta { text-align: right; font-size: 13px; line-height: 1.45; }
-  .meta strong { font-size: 16px; }
-  .grid { display: flex; gap: 16px; margin-bottom: 18px; }
-  .box { flex: 1; border: 1px solid #DFD8CC; border-radius: 10px; padding: 12px 14px; background: #FFFCF8; }
-  .k { color: #6B645C; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 6px; }
-  .name { font-weight: 600; font-size: 15px; margin-bottom: 2px; }
-  table { width: 100%; border-collapse: collapse; margin: 8px 0 16px; }
-  th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid #DFD8CC; font-size: 13px; }
-  thead th { background: #EDE8DF; font-size: 11px; letter-spacing: 0.04em; color: #6B645C; text-transform: uppercase; }
-  .num { text-align: right; white-space: nowrap; }
-  .tot { width: 280px; margin-left: auto; }
-  .tot td { border-bottom: 0; padding: 5px 8px; }
-  .tot tr:last-child td { border-top: 1px solid #161412; font-size: 15px; }
-  .qr { width: 120px; height: 120px; }
-  .foot { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 24px; gap: 24px; }
-  .muted { color: #6B645C; font-size: 12px; line-height: 1.4; }
-  .toolbar { display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 12px; }
-  .toolbar button { font: inherit; background: #1B5F59; color: #F7FFFE; border: 0; border-radius: 8px; padding: 8px 14px; cursor: pointer; }
+  body {
+    font-family: "Plus Jakarta Sans", "Segoe UI", Helvetica, Arial, sans-serif;
+    color: #161412;
+    margin: 0;
+    background: #fff;
+  }
+  .sheet { max-width: 182mm; margin: 0 auto; }
+  .toolbar { display: flex; justify-content: flex-end; margin-bottom: 12px; }
+  .toolbar button {
+    font: inherit; background: #1B5F59; color: #F7FFFE; border: 0;
+    border-radius: 8px; padding: 8px 14px; cursor: pointer;
+  }
+  .mast {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    gap: 24px; padding-bottom: 10px; border-bottom: 2px solid #1B5F59;
+  }
+  .brand { font-size: 24px; font-weight: 700; color: #1B5F59; letter-spacing: -0.02em; }
+  .doc { text-align: right; }
+  .kind { font-size: 14px; font-weight: 600; color: #1B5F59; margin: 0 0 4px; }
+  .no { font-size: 36px; font-weight: 700; letter-spacing: -0.03em; line-height: 1; }
+  .parties { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 18px 0 8px; }
+  .party { padding: 18px 20px; min-height: 124px; font-size: 13px; line-height: 1.45; }
+  .party.emisor { background: #F3EEE6; }
+  .party.dest { background: #D7EBE8; }
+  .party h2 {
+    font-size: 15px; font-weight: 700; margin: 0 0 10px;
+  }
+  .name { font-weight: 700; font-size: 15px; margin-bottom: 4px; }
+  .ids { margin-top: 8px; color: #3F4A48; font-size: 12px; }
+  .meta {
+    display: grid; grid-template-columns: 1fr 1fr; column-gap: 36px;
+    margin: 8px 0 20px;
+  }
+  .meta-row {
+    display: grid; grid-template-columns: 128px 1fr; gap: 8px;
+    padding: 8px 0; border-bottom: 1px solid #DFD8CC; font-size: 13px;
+  }
+  .meta-row .lab { color: #1B5F59; font-weight: 600; }
+  table.lines { width: 100%; border-collapse: collapse; }
+  table.lines th {
+    background: #1B5F59; color: #F7FFFE; font-size: 11px; font-weight: 600;
+    letter-spacing: 0.06em; text-transform: uppercase; padding: 10px 8px;
+    text-align: left;
+  }
+  table.lines td { padding: 10px 8px; border-bottom: 1px solid #EDE8DF; font-size: 13px; }
+  table.lines th.num, table.lines td.num { text-align: right; white-space: nowrap; }
+  .note {
+    background: #FFF4C2; border-left: 3px solid #B45309;
+    padding: 10px 12px; margin: 14px 0 0; font-size: 12.5px; line-height: 1.4;
+  }
+  .sum { width: 300px; margin: 18px 0 0 auto; }
+  .sum-row {
+    display: flex; justify-content: space-between; gap: 16px;
+    padding: 6px 14px; font-size: 13px;
+  }
+  .sum-total {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 16px; margin-top: 4px; background: #1B5F59; color: #F7FFFE;
+    padding: 12px 14px; font-weight: 700; font-size: 16px;
+  }
+  .foot {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    gap: 24px; margin-top: 28px;
+  }
+  .muted { color: #6B645C; font-size: 11.5px; line-height: 1.45; max-width: 360px; }
+  .qr { width: 112px; height: 112px; }
+  .fine {
+    text-align: center; color: #6B645C; font-size: 11px; margin-top: 28px;
+  }
   @media print {
     .toolbar { display: none !important; }
-    body { background: #fff; }
-    .sheet { padding: 0; max-width: none; }
-    .bar { margin: 0 0 12px; }
+    .sheet { max-width: none; }
   }
 </style>
 </head>
 <body>
 <div class="sheet">
   <div class="toolbar"><button type="button" onclick="window.print()">Imprimir</button></div>
-  <div class="bar"></div>
-  <div class="head">
-    <div>
-      <h1>$title</h1>
-      <div class="muted">${_esc(factura.tipoFactura)}</div>
-    </div>
-    <div class="meta">
-      <div><strong>Nº ${_esc(factura.refLabel)}</strong></div>
-      <div>Fecha ${_esc(toDmyDate(factura.fecha) ?? factura.fecha ?? '')}</div>
-      ${factura.vencimiento == null ? '' : '<div>Vencimiento ${_esc(toDmyDate(factura.vencimiento) ?? factura.vencimiento!)}</div>'}
+  <div class="mast">
+    <div class="brand">${_esc(emisorNombre.isEmpty ? 'Emisor' : emisorNombre)}</div>
+    <div class="doc">
+      <div class="kind">$title</div>
+      <div class="no">${_esc(factura.refLabel)}</div>
     </div>
   </div>
-  <div class="grid">
-    <div class="box">
-      <div class="k">Emisor</div>
+  <div class="parties">
+    <div class="party emisor">
+      <h2>Emisor</h2>
       <div class="name">${_esc(emisorNombre)}</div>
-      <div>NIF ${_esc(emisorNif)}</div>
+      ${emisorNif.isEmpty ? '' : '<div class="ids">NIF ${_esc(emisorNif)}</div>'}
     </div>
-    $destBlock
+    $dest
   </div>
-  <table>
+  <div class="meta">
+    <div>
+      ${_meta('Fecha', fecha)}
+      ${_meta('Vencimiento', venc)}
+      ${_meta('Forma de pago', pago)}
+    </div>
+    <div>
+      ${_meta('Nº', factura.refLabel)}
+      ${_meta('Tipo', tipo)}
+      ${_meta('Moneda', 'EUR')}
+    </div>
+  </div>
+  <table class="lines">
     <thead>
       <tr>
         <th>Descripción</th>
         <th class="num">Cant.</th>
         <th class="num">Precio</th>
         <th class="num">IVA</th>
+        <th class="num">Base</th>
         <th class="num">Importe</th>
       </tr>
     </thead>
     <tbody>$lineRows</tbody>
   </table>
-  <table class="tot">
-    <tbody>
-      $taxRows
-      <tr>
-        <td><strong>Total</strong></td>
-        <td class="num"><strong>${_esc(formatCents(total))} €</strong></td>
-      </tr>
-    </tbody>
-  </table>
-  ${(factura.concepto ?? '').trim().isEmpty ? '' : '<p>${_esc(factura.concepto!)}</p>'}
-  ${(factura.notas ?? '').trim().isEmpty ? '' : '<p class="muted">${_esc(factura.notas!)}</p>'}
-  ${factura.formaPago == null ? '' : '<p>Forma de pago: ${_esc(_pagoEs(factura.formaPago!))}</p>'}
+  ${showConcepto ? '<div class="note">${_esc(concepto)}</div>' : ''}
+  ${notas.isEmpty ? '' : '<div class="note">${_esc(notas)}</div>'}
+  <div class="sum">
+    $taxRows
+    <div class="sum-total">
+      <span>Total</span>
+      <span>${_esc(formatCents(total))} €</span>
+    </div>
+  </div>
   <div class="foot">
     <div class="muted">Factura verificable en la sede electrónica de la AEAT.</div>
     $qrImg
   </div>
+  <div class="fine">${_esc(emisorNombre)}${emisorNif.isEmpty ? '' : ' · NIF ${_esc(emisorNif)}'}</div>
 </div>
 <script>
 window.addEventListener('load', function () {
@@ -172,6 +237,10 @@ window.addEventListener('load', function () {
 </body>
 </html>
 ''';
+}
+
+String _meta(String label, String value) {
+  return '<div class="meta-row"><span class="lab">${_esc(label)}</span><span>${_esc(value)}</span></div>';
 }
 
 String _pagoEs(String key) {

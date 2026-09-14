@@ -169,6 +169,8 @@ void main() {
     expect(html, contains('@page'));
     expect(html, contains('Emisor'));
     expect(html, contains('Destinatario'));
+    expect(html, contains('class="sum-total"'));
+    expect(html, contains('class="no"'));
   });
 
   test('hledání a vencida podle kalendáře', () {
