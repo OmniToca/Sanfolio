@@ -39,6 +39,8 @@ Odvození běží v Postgres funkci `recompute_bloque_status(bloque_id)` po UPDA
 Tištěné dva listy = výchozí šablona `compraventa` (koupě/prodej + napojení nemovitosti).  
 Stejné bloky energií lze zapnout i u `suministros_seguros`, pokud kancelář řeší jen přepis.
 
+Compraventa se **čte v čase**, i když je seznam bloků rovný. Před notářem: identita (`cliente_snapshot`, `nie_tramite`, `poder`), IBI (`suma`), dodávky, komunita, případně cédula / residencia až budou v katalogu. U notáře: `escritura`. Po: `plusvalia` (a 210 na tenkém spisu), přepis energií. Kontrola chybějícího papíru je stav bloku, ne druhá evidence. Proč: [product_bible.md](product_bible.md) (poučení z velkých despachos).
+
 | Šablona | Bloky v pořadí papíru |
 | --- | --- |
 | `compraventa` | `cliente_snapshot`, `escritura`, `agua`, `luz`, `gaz`, `comunidad`, `suma`, `plusvalia`, `seguro`, `provision_factura`, `alarma`, `nie_tramite`, `poder` |

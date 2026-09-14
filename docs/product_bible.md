@@ -33,6 +33,17 @@ První vrstva v kódu je 1–5 (evidence + deska + inbox + výzvy). 6 je zatím 
 
 Na kartě a ve složce koupě kancelář vidí pole, zapnuté služby, chybějící papíry, termíny a výzvu klientovi. Modelo 210 se **počítá**. Podání AEAT, VeriFactu SIF a banka jsou další vrstvy. Kniha přijatých faktur je **modul** `facturacion`, ne jádro desky.
 
+### Poučení z velkých despachos (ne kopie)
+
+Velké kanceláře (např. Ábaco Advisers: kontrola papírů klienta, HomeSuite s Conveyancing / CRM / mailem / TPV / DMS) ukazují, čím kancelář žije: **honí pojmenované papíry**, ne jednu kupní smlouvu. Sanfolio si bere princip. Jejich plochu, fialovou tabulku ani šestnáct ikon nekopírujeme.
+
+- Úkon se jmenuje podle papírů, které kancelář sbírá (NIE, poder, IBI, dodávky, escritura, případně cédula / residencia), ne podle produktu „Conveyancing“.
+- `compraventa` má **tři časy na stejné desce**: před notářem (identita, poder, cédula, IBI, dodávky, komunita) → notář (`escritura`) → po (plusvalía, 210, přepis). Escritura je jeden blok, ne celý úkon. Šablona: [folder_template.md](folder_template.md).
+- Kontrola papírů = stav zapnutého bloku (`missing_document` / inbox / Pedir). Není druhá tabulka „Documentos de control“ a není druhá pravda vedle složky.
+- Dědictví (defunción, declaratorio de herederos, testamento) je **jiný spis**, i když sdílí NIE a pas s koupí.
+- Do katalogu papírů patří jen to, co kancelář fakt sbírá. Cédula nebo residencia až jako zapnutý blok, ne proto, že je má cizí suite.
+- Zákaz: plocha s desítkami programů (CRM, mail, TPV, DMS, účetnictví) jako sourozenci railu. Nová agenda jde do složky / slotu.
+
 ## 2. Slovník
 
 | Entita | Španělsky v UI | Význam |
@@ -119,7 +130,7 @@ Katalog úkonů z náčrtu:
 
 | Kód | MVP | Papír |
 | --- | --- | --- |
-| `compraventa` | ano | Deska koupě (zapnuté bloky) |
+| `compraventa` | ano | Deska koupě: balík papírů v čase, ne jen escritura |
 | `suministros_seguros` | ano jako součást desky, ne nutně samostatný spis | Agua…Alarma |
 | `impuestos_ibi` | ano (plazo + checklist) | SUMA / IBI |
 | `impuestos_210` | ano (plazo + checklist + výpočet IRNR) | modelo 210 |
@@ -132,6 +143,8 @@ Katalog úkonů z náčrtu:
 | `otros` | ne | náčrt |
 
 Stavy expedientes: `abierto` → `en_curso` → `espera_cliente` → `espera_admin` → `hecho` → `archivado`. Soft-delete je mimo tyto stavy (`deleted_at`).
+
+Koupě/prodej **není** soubor `copia_escritura`. Je to expediente s bloky, které kancelář zapne. Velká kancelář často nejdřív sežene NIE, pas, poder, IBI a dodávky, a teprve pak jde k notáři. Dědická sada (testamento, herederos) sem nepatří — je to jiný úkon z katalogu.
 
 ## 7. Bloque (zapnutá služba)
 
@@ -213,6 +226,7 @@ Portál klienta (`cliente_final`) v první desce není; model zpráv už počít
 - AI s tools `save_*` / `delete_*` / `send_*` / podání na úřad bez kliknutí člověka
 - Vlastní VeriFactu SIF (až faktury: certifikovaný poskytovatel, ne stavět SIF v jádru)
 - Volný JSON page-builder / drag-drop layout
+- Plocha s desítkami programů (CRM, mail, TPV, DMS) vedle railu; agenda patří do složky
 - Nativní aplikace, offline, Drift, IndexedDB backlog
 - Hardcoded UI text
 

@@ -4,7 +4,7 @@ Pořadí čtení pro další vývoj. Tyto soubory jsou smlouva produktu. Kód se
 
 ## Závazná pravidla (přečíst vždy)
 
-1. Základ je **složka klienta** (evidence + zapnuté služby), ne obecný CRM a ne a3 jako start.
+1. Základ je **složka klienta** (evidence + zapnuté služby), ne obecný CRM a ne a3 jako start. Koupě je balík papírů v čase, ne jen escritura.
 2. Zapnutá služba = **blok**. Vypnutá se nehlídá a nechybí.
 3. AI **hledá, otevírá, předvyplňuje**. Ukládá / maže / odesílá / podává jen člověk.
 4. Mazání je **100 % soft-delete**. Audit je **append-only**, včetně otevření karty.
