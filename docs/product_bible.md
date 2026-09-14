@@ -196,6 +196,8 @@ Tři čísla na expediente, ne kniha:
 
 Pohyby (`provision_movements`): `ingreso` | `factura` | `ajuste`. Inbox upozorní, když `saldo <= 0` a existuje otevřená práce, nebo když práce `hecho` a `facturado = 0`.
 
+Vydaná z knihy (`facturas.direccion = emitida`) s `cliente_id` se **propsuje** na otevřenou zálohu složky (`provision_movements.factura_id`). Tři čísla na desce se zvednou sama. DPH, QR a AEAT zůstávají v knize. Bez karty (F2 ručně) se na složku neváže. Přijatá (`recibida`) je dodavatel na kartě, ne záloha kanceláře.
+
 Tohle je **základní** evidence peněz kanceláře. Modul `facturacion` (licence v `organization_modules`) přidává **knihu přijatých** (extract + Guardar, žádná AEAT) a **koncepty vydaných**. Emitir volá Edge `sif-emit`; **Ověřit** volá `sif-status` (`GET /verifactu/status`). Hash, QR a XML v jádru Sanfolia nestavíme. Účetní deník PGC pořád není.
 
 ## 12. Role

@@ -19,7 +19,7 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `sif_aeat_url` | `facturas.sif_aeat_url` | HTTPS ValidarQR z create; Flutter jen otevře |
 | `roadmap_facturacion` | `docs/roadmap_facturacion.md` | napojení Verifacti API (DR + Emitir); přijaté bez SIF |
 | `audit_verifacti` | `docs/audit_verifacti.md` | Verifacti docs vs. `sif-emit`; datum, Pendiente, klíč per NIF |
-| `facturas` | SQL | `recibida` bez AEAT; `pendiente` u Verifacti; `emitida` až po Ověřit |
+| `facturas` | SQL | `recibida` bez AEAT; `pendiente` u Verifacti; `emitida` až po Ověřit; s `cliente_id` i záloha složky |
 | `factura_emit_screen` | `features/facturacion` | plný koncept vydané: klient ze seznamu nebo ručně, řádky, F1/F2 |
 | `facturacion_nav` | `features/facturacion` | vnitřní knihy Ventas/Compras; nová agenda sem, ne do railu |
 | `factura_detail_screen` | `features/facturacion` | náhled (karty + tabulka řádků) + Imprimir A4 (španělský papír, QR, blob URL) |

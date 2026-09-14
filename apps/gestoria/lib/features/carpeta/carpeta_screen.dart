@@ -1050,15 +1050,25 @@ class _BloqueCardState extends ConsumerState<_BloqueCard> {
             title: Text('provision.kind.${row.kind}'.tr()),
             subtitle: Text(
               [
-                formatCents(row.amountCents),
+                '${formatCents(row.amountCents)} €',
                 if (row.note != null && row.note!.isNotEmpty) row.note!,
               ].join(' · '),
             ),
-            trailing: IconButton(
-              tooltip: 'folder.remove'.tr(),
-              icon: const Icon(Icons.delete_outline, size: 18),
-              onPressed: () => ctrl.removeProvisionMovement(row.id),
-            ),
+            onTap: row.facturaId == null
+                ? null
+                : () => context.go('/facturacion/f/${row.facturaId}'),
+            trailing: row.facturaId != null
+                ? IconButton(
+                    tooltip: 'facturacion.issued'.tr(),
+                    icon: const Icon(Icons.open_in_new, size: 18),
+                    onPressed: () =>
+                        context.go('/facturacion/f/${row.facturaId}'),
+                  )
+                : IconButton(
+                    tooltip: 'folder.remove'.tr(),
+                    icon: const Icon(Icons.delete_outline, size: 18),
+                    onPressed: () => ctrl.removeProvisionMovement(row.id),
+                  ),
           ),
         Align(
           alignment: Alignment.centerLeft,

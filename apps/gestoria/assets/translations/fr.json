@@ -565,7 +565,7 @@
     }
   },
   "provision": {
-    "hint": "Trois chiffres issus des mouvements. Pas de TVA ni VeriFactu.",
+    "hint": "Trois chiffres issus des mouvements. L’émise liée à la fiche arrive ici. TVA et Verifactu restent dans le livre.",
     "add": "Ajouter un mouvement",
     "amount": "Montant",
     "note": "Note",
@@ -666,7 +666,9 @@
     "exportCsv": "Exporter CSV",
     "empty": "Aucune ligne pour l’instant.",
     "emptyCliente": "Cette fiche n’a pas encore de facture reçue dans le livre.",
-    "cardHint": "Enregistrez le papier avec Guardar. Le livre se remplit ensuite.",
+    "emptyIssuedCliente": "Pas encore d’émise sur cette fiche. Choisissez le client sur Nouvelle facture.",
+    "issuedOnCard": "Émises",
+    "cardHint": "L’émise liée à la fiche arrive ici et sur la provision du dossier. La reçue après Guardar sur le papier.",
     "extractPending": "Proposition en cours. Ouvrez le document et Guardar.",
     "emitir": "Emitir",
     "verificar": "Vérifier",

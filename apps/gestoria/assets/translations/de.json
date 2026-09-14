@@ -565,7 +565,7 @@
     }
   },
   "provision": {
-    "hint": "Drei Zahlen aus Bewegungen. Keine MwSt., kein VeriFactu.",
+    "hint": "Drei Zahlen aus Bewegungen. Eine Ausgangsrechnung mit Karte landet hier. MwSt. und Verifactu bleiben im Buch.",
     "add": "Bewegung hinzufügen",
     "amount": "Betrag",
     "note": "Notiz",
@@ -666,7 +666,9 @@
     "exportCsv": "CSV exportieren",
     "empty": "Noch keine Zeilen.",
     "emptyCliente": "Diese Karte hat noch keine Eingangsrechnung im Buch.",
-    "cardHint": "Papier mit Guardar speichern. Das Buch füllt sich danach.",
+    "emptyIssuedCliente": "Noch keine Ausgangsrechnung auf dieser Karte. Mandant bei Neue Rechnung wählen.",
+    "issuedOnCard": "Ausgang",
+    "cardHint": "Eine Ausgangsrechnung mit Karte landet hier und auf der Ordner-Provision. Eingang nach Guardar am Papier.",
     "extractPending": "Vorschlag läuft. Dokument öffnen und Guardar.",
     "emitir": "Emitir",
     "verificar": "Prüfen",

@@ -13,6 +13,7 @@ import '../../core/modules/module_catalog.dart';
 import '../../core/presentation/widgets/app_widgets.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/time/office_date.dart';
+import '../carpeta/carpeta_controller.dart';
 import '../settings/office_settings_controller.dart';
 import 'csv_save.dart';
 import 'factura.dart';
@@ -82,6 +83,8 @@ class _FacturacionScreenState extends ConsumerState<FacturacionScreen> {
     try {
       await hideFactura(id);
       ref.invalidate(facturasOfficeProvider);
+      ref.invalidate(facturasClienteProvider);
+      ref.invalidate(carpetaControllerProvider);
     } finally {
       if (mounted) setState(() => _busy = false);
     }

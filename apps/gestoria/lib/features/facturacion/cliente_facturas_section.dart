@@ -10,9 +10,10 @@ import '../../core/modules/feature_gate.dart';
 import '../../core/modules/module_catalog.dart';
 import '../../core/theme/app_theme.dart';
 import '../clientes/cliente_card_widgets.dart';
+import 'factura.dart';
 import 'facturacion_providers.dart';
 
-/// Slot `cliente.tabs`: přijaté u karty. Guardar zůstává u papíru.
+/// Slot `cliente.tabs`: vydané i přijaté u karty. Guardar přijaté zůstává u papíru.
 class ClienteFacturasSection extends ConsumerWidget {
   const ClienteFacturasSection({super.key, required this.clienteId});
 
@@ -22,12 +23,14 @@ class ClienteFacturasSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(facturasClienteProvider(clienteId));
     final rows = async.valueOrNull ?? const [];
+    final issued = rows.where((r) => r.isEmitida).toList();
+    final received = rows.where((r) => r.isRecibida).toList();
     final tenantId =
         ref.watch(authControllerProvider).valueOrNull?.currentTenantId;
     return FeatureGate(
       module: GestoriaModule.facturacion,
       child: ClienteCardSection(
-        title: 'facturacion.received'.tr(),
+        title: 'facturacion.title'.tr(),
         hint: 'facturacion.cardHint'.tr(),
         trailing: tenantId == null
             ? null
@@ -62,29 +65,64 @@ class ClienteFacturasSection extends ConsumerWidget {
                 padding: EdgeInsets.symmetric(vertical: 8),
                 child: LinearProgressIndicator(),
               )
-            else if (rows.isEmpty)
+            else ...[
               Text(
-                'facturacion.emptyCliente'.tr(),
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppTheme.pencil,
-                    ),
-              )
-            else
-              for (final row in rows)
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text('${formatCents(row.totalCents)} €'),
-                  subtitle: Text(
-                    [
-                      if ((row.fecha ?? '').isNotEmpty) row.fecha,
-                      if (row.counterparty.isNotEmpty) row.counterparty,
-                      if ((row.numero ?? '').isNotEmpty) row.numero,
-                    ].join(' · '),
+                'facturacion.issuedOnCard'.tr(),
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              if (issued.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4, bottom: 12),
+                  child: Text(
+                    'facturacion.emptyIssuedCliente'.tr(),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppTheme.pencil,
+                        ),
                   ),
-                  onTap: () => context.go('/facturacion/recibidas'),
-                ),
+                )
+              else
+                for (final row in issued) _rowTile(context, row),
+              Text(
+                'facturacion.received'.tr(),
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              if (received.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    'facturacion.emptyCliente'.tr(),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppTheme.pencil,
+                        ),
+                  ),
+                )
+              else
+                for (final row in received) _rowTile(context, row),
+            ],
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _rowTile(BuildContext context, Factura row) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      title: Text(
+        [
+          if (row.refLabel.isNotEmpty) row.refLabel,
+          '${formatCents(row.totalCents)} €',
+        ].join(' · '),
+      ),
+      subtitle: Text(
+        [
+          if ((row.fecha ?? '').isNotEmpty) row.fecha,
+          if (row.counterparty.isNotEmpty) row.counterparty,
+          'facturacion.estado.${row.estado}'.tr(),
+        ].join(' · '),
+      ),
+      onTap: () => context.go(
+        row.isEmitida ? '/facturacion/f/${row.id}' : '/facturacion/recibidas',
       ),
     );
   }

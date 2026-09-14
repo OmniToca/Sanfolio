@@ -47,7 +47,6 @@ final facturasClienteProvider =
       .select(_facturaSelect)
       .eq('tenant_id', tenantId)
       .eq('cliente_id', clienteId)
-      .eq('direccion', 'recibida')
       .isFilter('deleted_at', null)
       .order('fecha', ascending: false);
   return _parse(rows);

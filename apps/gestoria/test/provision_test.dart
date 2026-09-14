@@ -12,4 +12,18 @@ void main() {
     expect(provisionInvoicedCents(rows), 40000);
     expect(provisionRemainingCents(rows), 55000);
   });
+
+  test('pohyb z knihy má facturaId, součet se nemění', () {
+    const rows = [
+      ProvisionMovement(
+        id: '1',
+        kind: 'factura',
+        amountCents: 1089,
+        facturaId: 'f-1',
+        note: 'A-3',
+      ),
+    ];
+    expect(provisionInvoicedCents(rows), 1089);
+    expect(rows.first.facturaId, 'f-1');
+  });
 }

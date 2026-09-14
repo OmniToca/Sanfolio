@@ -5,12 +5,14 @@ class ProvisionMovement {
     required this.kind,
     required this.amountCents,
     this.note,
+    this.facturaId,
   });
 
   final String id;
   final String kind;
   final int amountCents;
   final String? note;
+  final String? facturaId;
 }
 
 const provisionKinds = <String>['ingreso', 'factura', 'ajuste'];

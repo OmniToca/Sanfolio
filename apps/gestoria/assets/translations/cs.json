@@ -565,7 +565,7 @@
     }
   },
   "provision": {
-    "hint": "Tři čísla z pohybů. Žádné DPH ani VeriFactu.",
+    "hint": "Tři čísla z pohybů. Vydaná s kartou sem přijde sama. DPH a Verifactu jsou v knize.",
     "add": "Přidat pohyb",
     "amount": "Částka",
     "note": "Poznámka",
@@ -666,7 +666,9 @@
     "exportCsv": "Export CSV",
     "empty": "Zatím žádný řádek.",
     "emptyCliente": "U této karty zatím není přijatá faktura v knize.",
-    "cardHint": "Papír uložíte Guardar na dokladu. Sem se propsuje kniha.",
+    "emptyIssuedCliente": "Zatím žádná vydaná na tuto kartu. Při Nová faktura vyberte klienta.",
+    "issuedOnCard": "Vydané",
+    "cardHint": "Vydaná s kartou se propsuje sem i na zálohu složky. Přijatá po Guardar na papíru.",
     "extractPending": "Návrh běží. Otevřete doklad a uložte Guardar.",
     "emitir": "Emitir",
     "verificar": "Ověřit",

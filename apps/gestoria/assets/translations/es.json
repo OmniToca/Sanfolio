@@ -565,7 +565,7 @@
     }
   },
   "provision": {
-    "hint": "Tres números desde los movimientos. Sin IVA ni VeriFactu.",
+    "hint": "Tres números desde los movimientos. La emitida con ficha llega aquí. IVA y Verifactu quedan en el libro.",
     "add": "Añadir movimiento",
     "amount": "Importe",
     "note": "Nota",
@@ -666,7 +666,9 @@
     "exportCsv": "Exportar CSV",
     "empty": "Todavía no hay filas.",
     "emptyCliente": "Esta ficha aún no tiene factura recibida en el libro.",
-    "cardHint": "Guarde el papel con Guardar. El libro se rellena desde ahí.",
+    "emptyIssuedCliente": "Aún no hay emitida en esta ficha. Elija el cliente en Nueva factura.",
+    "issuedOnCard": "Emitidas",
+    "cardHint": "La emitida con ficha llega aquí y a la provisión de la carpeta. La recibida tras Guardar el papel.",
     "extractPending": "La propuesta está en curso. Abra el documento y pulse Guardar.",
     "emitir": "Emitir",
     "verificar": "Verificar",

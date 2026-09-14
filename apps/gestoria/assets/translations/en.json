@@ -565,7 +565,7 @@
     }
   },
   "provision": {
-    "hint": "Three numbers from movements. No VAT, no VeriFactu.",
+    "hint": "Three numbers from movements. An issued invoice with a card lands here. VAT and Verifactu stay in the book.",
     "add": "Add movement",
     "amount": "Amount",
     "note": "Note",
@@ -666,7 +666,9 @@
     "exportCsv": "Export CSV",
     "empty": "No rows yet.",
     "emptyCliente": "This card has no received invoice in the book yet.",
-    "cardHint": "Save the paper with Guardar. The book fills from there.",
+    "emptyIssuedCliente": "No issued invoice on this card yet. Pick the client on New invoice.",
+    "issuedOnCard": "Issued",
+    "cardHint": "An issued invoice with a card lands here and on the folder retainer. A received one after Guardar on the paper.",
     "extractPending": "Proposal is running. Open the document and tap Guardar.",
     "emitir": "Emitir",
     "verificar": "Verify",

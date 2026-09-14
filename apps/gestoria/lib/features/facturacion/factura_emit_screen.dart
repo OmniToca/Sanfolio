@@ -10,6 +10,7 @@ import '../../core/modules/module_catalog.dart';
 import '../../core/presentation/widgets/app_widgets.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/time/office_date.dart';
+import '../carpeta/carpeta_controller.dart';
 import '../settings/office_settings_controller.dart';
 import 'factura_cliente_pick.dart';
 import 'factura_lineas.dart';
@@ -538,6 +539,8 @@ class _FacturaEmitScreenState extends ConsumerState<FacturaEmitScreen> {
       );
       if (!mounted) return;
       ref.invalidate(facturasOfficeProvider);
+      ref.invalidate(facturasClienteProvider);
+      ref.invalidate(carpetaControllerProvider);
       if (!emit) {
         context.go('/facturacion/emitidas');
         return;
@@ -551,6 +554,8 @@ class _FacturaEmitScreenState extends ConsumerState<FacturaEmitScreen> {
         SnackBar(content: Text(sifSnackKey(result, verify: false).tr())),
       );
       ref.invalidate(facturasOfficeProvider);
+      ref.invalidate(facturasClienteProvider);
+      ref.invalidate(carpetaControllerProvider);
       if (result.ok) {
         await showSifQrDialog(
           context,

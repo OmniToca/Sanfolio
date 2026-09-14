@@ -394,7 +394,7 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
 
     final movRows = await client
         .from('provision_movements')
-        .select('id, kind, amount_cents, note')
+        .select('id, kind, amount_cents, note, factura_id')
         .eq('expediente_id', '${exp['id']}')
         .isFilter('deleted_at', null)
         .order('created_at');
@@ -407,6 +407,7 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
           kind: '${raw['kind']}',
           amountCents: centsFromStored('${raw['amount_cents']}'),
           note: _nullIfEmpty('${raw['note'] ?? ''}'),
+          facturaId: _nullIfEmpty('${raw['factura_id'] ?? ''}'),
         ),
       );
     }
