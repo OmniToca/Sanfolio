@@ -10,6 +10,13 @@ void main() {
     expect(parseOfficeDate('32/13/2027'), isNull);
   });
 
+  test('ISO datum z pole i z DateTime', () {
+    expect(toIsoDate('14.9.2026'), '2026-09-14');
+    expect(toIsoDate('14/09/2026'), '2026-09-14');
+    expect(formatIsoDate(DateTime(2026, 9, 14)), '2026-09-14');
+    expect(toIsoDate('XU'), isNull);
+  });
+
   test('platnost bere dny z nastavení, ne hardcoded 30', () {
     final today = DateTime(2026, 9, 13);
     expect(

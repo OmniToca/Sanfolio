@@ -51,9 +51,84 @@ export function amountString(cents: number): string {
 }
 
 export function tipoImpositivo(ivaBps: number): string {
-  const bps = ivaBps > 0 ? ivaBps : 2100;
+  const bps = ivaBps > 0 ? ivaBps : 0;
   if (bps % 100 === 0) return String(bps / 100);
   return (bps / 100).toFixed(2);
+}
+
+/** F2 zjednodušená — AEAT 3000 €. */
+export const f2MaxCents = 300000;
+
+export type TaxLine = {
+  base_imponible: string;
+  tipo_impositivo: string;
+  cuota_repercutida: string;
+};
+
+/**
+ * Obchodní `facturas.lineas` → Verifacti sazby (max 12).
+ * Prázdné JSON padá na součty knihy (staré koncepty bez řádků).
+ */
+export function taxLinesFromFactura(factura: Record<string, unknown>): TaxLine[] {
+  const grouped = new Map<number, { base: number; iva: number }>();
+  const raw = factura.lineas;
+  if (Array.isArray(raw) && raw.length > 0) {
+    for (const item of raw) {
+      const rec = asRecord(item);
+      if (!rec) continue;
+      const storedBase = rec.base_cents;
+      const storedIva = rec.iva_cents;
+      const ivaBps = ivaRateBps(rec.iva_bps);
+      const qty = parseQty(rec.cantidad) ?? 1;
+      const precio = num(rec.precio_cents);
+      const descBps = Math.min(10000, Math.max(0, num(rec.descuento_bps)));
+      const gross = Math.round(qty * precio);
+      const base = storedBase === null || storedBase === undefined || str(storedBase) === ""
+        ? Math.round((gross * (10000 - descBps)) / 10000)
+        : num(storedBase);
+      const iva = storedIva === null || storedIva === undefined || str(storedIva) === ""
+        ? Math.round((base * ivaBps) / 10000)
+        : num(storedIva);
+      if (base === 0 && iva === 0) continue;
+      const prev = grouped.get(ivaBps) ?? { base: 0, iva: 0 };
+      grouped.set(ivaBps, { base: prev.base + base, iva: prev.iva + iva });
+    }
+  }
+  if (grouped.size === 0) {
+    const ivaBps = num(factura.iva_bps) || 2100;
+    return [
+      {
+        base_imponible: amountString(num(factura.base_cents)),
+        tipo_impositivo: tipoImpositivo(ivaBps),
+        cuota_repercutida: amountString(num(factura.iva_cents)),
+      },
+    ];
+  }
+  return [...grouped.entries()]
+    .sort((a, b) => b[0] - a[0])
+    .slice(0, 12)
+    .map(([bps, sums]) => ({
+      base_imponible: amountString(sums.base),
+      tipo_impositivo: tipoImpositivo(bps),
+      cuota_repercutida: amountString(sums.iva),
+    }));
+}
+
+function parseQty(v: unknown): number | null {
+  const s = str(v).replace(/\s/g, "").replace(",", ".");
+  if (!s) return null;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}
+
+function ivaRateBps(v: unknown): number {
+  if (v === null || v === undefined || str(v) === "") return 2100;
+  return num(v);
+}
+
+function num(v: unknown): number {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  return parseInt(`${v ?? 0}`, 10) || 0;
 }
 
 export function qrToStored(raw: unknown): string | null {

@@ -24,6 +24,8 @@ Bez URL a klíče `sif-emit` i `sif-status` vrátí `sif_not_configured`. Koncep
 
 Flutter posílá jen `tenant_id` + `factura_id`. Create: `fecha_expedicion` = dnešek Madrid, `fecha_operacion` = `facturas.fecha`, `Idempotency-Key` = id řádku. Po 200 je `pendiente`. Tlačítko **Ověřit** volá `sif-status` → `GET /verifactu/status`. `emitida` až AEAT přijme.
 
+Formulář `/facturacion/nueva` ukládá obchodní řádky do `facturas.lineas`. Edge je sloučí podle sazby IVA (max 12) — to jsou Verifacti `lineas`. F1 potřebuje jméno + NIF; F2 (simplificada) smí bez příjemce, limit 3000 €.
+
 ## Due diligence (stav k rozhodnutí)
 
 Ověřeno 13. 9. 2026 z veřejných stránek. **Vybráno Verifacti** — viz roadmap. Ceny a DR se mění — před produkcí znovu.

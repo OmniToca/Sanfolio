@@ -10,8 +10,9 @@ import 'factura.dart';
 
 const _facturaSelect =
     'id, cliente_id, documento_id, direccion, estado, proveedor_nombre, '
-    'proveedor_nif, destinatario_nombre, destinatario_nif, serie, numero, '
-    'fecha, vencimiento, concepto, base_cents, iva_cents, iva_bps, total_cents, '
+    'proveedor_nif, destinatario_nombre, destinatario_nif, destinatario_direccion, '
+    'destinatario_email, serie, numero, fecha, vencimiento, concepto, notas, '
+    'forma_pago, tipo_factura, lineas, base_cents, iva_cents, iva_bps, total_cents, '
     'sif_provider, sif_external_id, sif_status, sif_qr_url, sif_aeat_url, sif_error, '
     'sif_fecha_expedicion, '
     'clientes ( nombre )';
@@ -111,10 +112,17 @@ Future<String> createFacturaEmitida({
   required String? clienteId,
   required String? destinatarioNombre,
   required String? destinatarioNif,
+  String? destinatarioDireccion,
+  String? destinatarioEmail,
   required String serie,
   required String numero,
   required String fecha,
+  String? vencimiento,
   required String concepto,
+  String? notas,
+  String? formaPago,
+  String tipoFactura = 'F1',
+  List<Map<String, Object?>> lineas = const [],
   required int baseCents,
   required int ivaCents,
   required int totalCents,
@@ -132,10 +140,17 @@ Future<String> createFacturaEmitida({
         'estado': 'borrador',
         'destinatario_nombre': destinatarioNombre,
         'destinatario_nif': destinatarioNif,
+        'destinatario_direccion': destinatarioDireccion,
+        'destinatario_email': destinatarioEmail,
         'serie': serie,
         'numero': numero,
         'fecha': fecha,
+        'vencimiento': vencimiento,
         'concepto': concepto,
+        'notas': notas,
+        'forma_pago': formaPago,
+        'tipo_factura': tipoFactura,
+        'lineas': lineas,
         'base_cents': baseCents,
         'iva_cents': ivaCents,
         'iva_bps': ivaBps ?? 2100,
@@ -191,11 +206,4 @@ Future<void> attachFacturaRecibida({
   );
 }
 
-String? _isoDate(String? raw) {
-  final parsed = parseOfficeDate(raw ?? '');
-  if (parsed == null) return null;
-  final y = parsed.year.toString().padLeft(4, '0');
-  final m = parsed.month.toString().padLeft(2, '0');
-  final d = parsed.day.toString().padLeft(2, '0');
-  return '$y-$m-$d';
-}
+String? _isoDate(String? raw) => toIsoDate(raw);

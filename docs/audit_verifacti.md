@@ -52,7 +52,8 @@ Po create se ukáže QR (data-URI) a odkaz AEAT (`sif_aeat_url`).
 | 4 | `Idempotency-Key` = `facturas.id` | hotovo |
 | 5 | create = `Pendiente` | hotovo; `emitida` až Ověřit |
 | 6 | QR = base64 | ukládáme data-URI |
-| 7 | F1 bez `nif`+`nombre` padá | 400 `destinatario_required` |
+| 7 | F1 bez `nif`+`nombre` padá | 400 `destinatario_required`; F2 smí bez příjemce, nad 3000 € `f2_over_limit` |
+| 7b | `lineas` max 12 sazeb | obchodní položky v JSONB se sloučí podle IVA |
 | 8 | emisor = API key firmy | pořád jeden `SIF_API_KEY` na projekt — OK do druhé kanceláře |
 | 9 | vendor jen Verifacti | jiný vendor = `unsupported_vendor` |
 

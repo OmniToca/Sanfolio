@@ -6,6 +6,7 @@ import {
   extractAeatUrl,
   extractEstadoRaw,
   extractUuid,
+  f2MaxCents,
   isoToDmy,
   json,
   madridTodayDmy,
@@ -13,7 +14,7 @@ import {
   qrToStored,
   sifConfig,
   str,
-  tipoImpositivo,
+  taxLinesFromFactura,
 } from "../_shared/sif_verifacti.ts";
 
 /**
@@ -65,8 +66,9 @@ Deno.serve(async (req) => {
     .from("facturas")
     .select(
       "id, tenant_id, direccion, estado, serie, numero, fecha, concepto, " +
-        "destinatario_nombre, destinatario_nif, base_cents, iva_cents, " +
-        "iva_bps, total_cents, sif_external_id, sif_status, sif_fecha_expedicion",
+        "destinatario_nombre, destinatario_nif, tipo_factura, lineas, " +
+        "base_cents, iva_cents, iva_bps, total_cents, sif_external_id, " +
+        "sif_status, sif_fecha_expedicion",
     )
     .eq("id", facturaId)
     .eq("tenant_id", tenantId)
@@ -113,8 +115,13 @@ Deno.serve(async (req) => {
 
   const destinatarioNif = `${factura.destinatario_nif ?? ""}`.trim().toUpperCase();
   const destinatarioNombre = `${factura.destinatario_nombre ?? ""}`.trim();
-  if (!destinatarioNif || !destinatarioNombre) {
+  const tipoFactura = `${factura.tipo_factura ?? "F1"}`.trim().toUpperCase() || "F1";
+  const isF2 = tipoFactura === "F2";
+  if (!isF2 && (!destinatarioNif || !destinatarioNombre)) {
     return json(400, { ok: false, error: "destinatario_required" });
+  }
+  if (isF2 && num(factura.total_cents) > f2MaxCents) {
+    return json(400, { ok: false, error: "f2_over_limit" });
   }
 
   const { vendor, apiUrl, apiKey } = sifConfig();
@@ -128,25 +135,22 @@ Deno.serve(async (req) => {
   const fechaExpedicionDmy = madridTodayDmy();
   const fechaExpedicionIso = madridTodayIso();
   const fechaOperacionDmy = isoToDmy(fechaOperacionIso);
-  const ivaBps = num(factura.iva_bps) || 2100;
-  const payload = {
+  const lineas = taxLinesFromFactura(factura as Record<string, unknown>);
+  if (lineas.length === 0) {
+    return json(400, { ok: false, error: "lineas_required" });
+  }
+  const payload: Record<string, unknown> = {
     serie,
     numero,
     fecha_expedicion: fechaExpedicionDmy,
     fecha_operacion: fechaOperacionDmy,
-    tipo_factura: "F1",
+    tipo_factura: isF2 ? "F2" : "F1",
     descripcion: `${factura.concepto ?? ""}`.trim() || "Servicios",
-    nif: destinatarioNif,
-    nombre: destinatarioNombre,
-    lineas: [
-      {
-        base_imponible: amountString(num(factura.base_cents)),
-        tipo_impositivo: tipoImpositivo(ivaBps),
-        cuota_repercutida: amountString(num(factura.iva_cents)),
-      },
-    ],
+    lineas,
     importe_total: amountString(num(factura.total_cents)),
   };
+  if (destinatarioNif) payload.nif = destinatarioNif;
+  if (destinatarioNombre) payload.nombre = destinatarioNombre;
 
   const res = await fetch(`${apiUrl}/verifactu/create`, {
     method: "POST",

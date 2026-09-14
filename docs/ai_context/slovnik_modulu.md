@@ -20,6 +20,7 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `roadmap_facturacion` | `docs/roadmap_facturacion.md` | napojení Verifacti API (DR + Emitir); přijaté bez SIF |
 | `audit_verifacti` | `docs/audit_verifacti.md` | Verifacti docs vs. `sif-emit`; datum, Pendiente, klíč per NIF |
 | `facturas` | SQL | `recibida` bez AEAT; `pendiente` u Verifacti; `emitida` až po Ověřit |
+| `factura_emit_screen` | `features/facturacion` | plný koncept vydané: klient ze seznamu nebo ručně, řádky, F1/F2 |
 | `AiPanel` / `aiChatProvider` | `features/ai/ai_panel.dart` | trvalý chat; zápis `ai_conversations` + `ai_messages` |
 | `AiPanel` / `aiChatProvider` | `features/ai/ai_panel.dart` | trvalý chat; zápis `ai_conversations` + `ai_messages` |
 | `extract-document` | Edge Function | fotka/PDF → text LLM nebo vision → `ai_drafts`; compraventa: všichni kupující/prodávající, cena, finca, právník; Guardar je gestor |

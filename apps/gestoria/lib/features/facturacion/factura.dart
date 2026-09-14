@@ -13,11 +13,17 @@ class Factura {
     this.proveedorNif,
     this.destinatarioNombre,
     this.destinatarioNif,
+    this.destinatarioDireccion,
+    this.destinatarioEmail,
     this.serie,
     this.numero,
     this.fecha,
     this.vencimiento,
     this.concepto,
+    this.notas,
+    this.formaPago,
+    this.tipoFactura = 'F1',
+    this.lineas = const [],
     this.baseCents = 0,
     this.ivaCents = 0,
     this.ivaBps,
@@ -40,11 +46,17 @@ class Factura {
   final String? proveedorNif;
   final String? destinatarioNombre;
   final String? destinatarioNif;
+  final String? destinatarioDireccion;
+  final String? destinatarioEmail;
   final String? serie;
   final String? numero;
   final String? fecha;
   final String? vencimiento;
   final String? concepto;
+  final String? notas;
+  final String? formaPago;
+  final String tipoFactura;
+  final List<Map<String, Object?>> lineas;
   final int baseCents;
   final int ivaCents;
   final int? ivaBps;
@@ -61,6 +73,11 @@ class Factura {
   bool get hasDestinatario =>
       (destinatarioNif ?? '').trim().isNotEmpty &&
       (destinatarioNombre ?? '').trim().isNotEmpty;
+
+  /// F2 zjednodušená smí bez příjemce (limit 3000 € hlídá Edge).
+  bool get isSimplificada => tipoFactura.toUpperCase() == 'F2';
+
+  bool get needsDestinatario => !isSimplificada;
 
   /// Ještě u Verifacti není uuid — smí znovu Emitir (včetně error bez odeslání).
   bool get canEmitir =>
@@ -103,11 +120,17 @@ class Factura {
       proveedorNif: _opt(raw['proveedor_nif']),
       destinatarioNombre: _opt(raw['destinatario_nombre']),
       destinatarioNif: _opt(raw['destinatario_nif']),
+      destinatarioDireccion: _opt(raw['destinatario_direccion']),
+      destinatarioEmail: _opt(raw['destinatario_email']),
       serie: _opt(raw['serie']),
       numero: _opt(raw['numero']),
       fecha: _opt(raw['fecha']),
       vencimiento: _opt(raw['vencimiento']),
       concepto: _opt(raw['concepto']),
+      notas: _opt(raw['notas']),
+      formaPago: _opt(raw['forma_pago']),
+      tipoFactura: _opt(raw['tipo_factura']) ?? 'F1',
+      lineas: _lineas(raw['lineas']),
       baseCents: _cents(raw['base_cents']),
       ivaCents: _cents(raw['iva_cents']),
       ivaBps: _intOrNull(raw['iva_bps']),
@@ -238,6 +261,14 @@ String? _first(Map<String, String> fields, List<String> keys) {
     if (v.isNotEmpty) return v;
   }
   return null;
+}
+
+List<Map<String, Object?>> _lineas(Object? raw) {
+  if (raw is! List) return const [];
+  return [
+    for (final item in raw)
+      if (item is Map) Map<String, Object?>.from(item),
+  ];
 }
 
 String _csv(String? raw) {

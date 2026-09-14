@@ -42,6 +42,22 @@ DateTime? _ymd(int y, int m, int d) {
 
 DateTime calendarDay(DateTime t) => DateTime(t.year, t.month, t.day);
 
+/// DATE v Postgres. OCR / pole formuláře → ISO, jinak null.
+String? toIsoDate(String? raw) {
+  final parsed = parseOfficeDate(raw ?? '');
+  if (parsed == null) return null;
+  return formatIsoDate(parsed);
+}
+
+String formatIsoDate(DateTime d) {
+  final y = d.year.toString().padLeft(4, '0');
+  final m = d.month.toString().padLeft(2, '0');
+  final day = d.day.toString().padLeft(2, '0');
+  return '$y-$m-$day';
+}
+
+String todayIsoDate([DateTime? now]) => formatIsoDate(calendarDay(now ?? DateTime.now()));
+
 /// [warnDays] z tenant_settings. 0 = jen prošlé vs. platné, bez „brzy“.
 ExpiryTone? expiryTone({
   required String raw,

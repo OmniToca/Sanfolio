@@ -16,6 +16,7 @@ import '../../features/expedientes/expediente_screen.dart';
 import '../../features/inbox/inbox_screen.dart';
 import '../../features/mensajes/mensaje_compose_screen.dart';
 import '../../features/facturacion/facturacion_screen.dart';
+import '../../features/facturacion/factura_emit_screen.dart';
 import '../../features/settings/settings_screen.dart';
 import '../../features/shell/app_shell.dart';
 
@@ -154,6 +155,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               child: ExpedienteScreen(
                 expedienteId: state.pathParameters['id']!,
               ),
+            ),
+          ),
+          GoRoute(
+            path: '/facturacion/nueva',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: FacturaEmitScreen(),
             ),
           ),
           GoRoute(

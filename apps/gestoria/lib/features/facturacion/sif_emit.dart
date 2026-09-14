@@ -98,6 +98,12 @@ String sifSnackKey(SifCallResult result, {required bool verify}) {
       return 'facturacion.emisorNifRequired';
     case 'destinatario_required':
       return 'facturacion.destinatarioRequired';
+    case 'f2_over_limit':
+      return 'facturacion.f2OverLimit';
+    case 'lineas_required':
+      return 'facturacion.linesRequired';
+    case 'numero_fecha_required':
+      return 'facturacion.numeroFechaRequired';
     case 'not_submitted':
       return 'facturacion.notSubmitted';
     case 'sif_in_flight':

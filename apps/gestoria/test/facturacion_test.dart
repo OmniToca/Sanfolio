@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:gestoria_os/core/modules/module_catalog.dart';
 import 'package:gestoria_os/features/ai/documento_fields.dart';
 import 'package:gestoria_os/features/facturacion/factura.dart';
+import 'package:gestoria_os/features/facturacion/factura_lineas.dart';
 import 'package:gestoria_os/features/facturacion/sif_emit.dart';
 import 'package:gestoria_os/features/facturacion/sif_qr.dart';
 
@@ -110,5 +111,53 @@ void main() {
     final csv = receivedInvoicesCsv([row]);
     expect(csv, contains('fecha;proveedor;nif;numero;base;iva;total'));
     expect(csv, contains('2026-03-01;Agua, Costa;B12345678;12;100,00;21,00;121,00;Petr Sokol'));
+  });
+
+  test('obchodní řádky sčítají sazby a F2 nechce příjemce', () {
+    final totals = totalsFromLineas([
+      const FacturaLinea(
+        descripcion: 'Honorarios',
+        cantidad: 1,
+        precioUnitarioCents: 10000,
+        ivaBps: 2100,
+      ),
+      const FacturaLinea(
+        descripcion: 'Suplido',
+        cantidad: 2,
+        precioUnitarioCents: 500,
+        ivaBps: 0,
+      ),
+      const FacturaLinea(
+        descripcion: 'Papel',
+        cantidad: 1,
+        precioUnitarioCents: 2000,
+        ivaBps: 2100,
+        descuentoBps: 1000,
+      ),
+    ]);
+    // 100 + 10 (0 %) + 18 po 10% slevě z 20
+    expect(totals.baseCents, 12800);
+    expect(totals.ivaCents, 2478);
+    expect(totals.totalCents, 15278);
+    expect(totals.byRate, hasLength(2));
+    expect(totals.exceedsF2Limit, isFalse);
+
+    const f2 = Factura(
+      id: '3',
+      direccion: 'emitida',
+      estado: 'borrador',
+      tipoFactura: 'F2',
+    );
+    expect(f2.needsDestinatario, isFalse);
+    expect(f2.hasDestinatario, isFalse);
+    expect(f2.canEmitir, isTrue);
+
+    expect(
+      sifSnackKey(
+        const SifCallResult(ok: false, error: 'f2_over_limit'),
+        verify: false,
+      ),
+      'facturacion.f2OverLimit',
+    );
   });
 }
