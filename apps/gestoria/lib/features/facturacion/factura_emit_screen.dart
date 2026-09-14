@@ -150,7 +150,7 @@ class _FacturaEmitScreenState extends ConsumerState<FacturaEmitScreen> {
                     subtitle: 'facturacion.composeHint'.tr(),
                     actions: [
                       OutlinedButton(
-                        onPressed: _busy ? null : () => context.go('/facturacion'),
+                        onPressed: _busy ? null : () => context.go('/facturacion/emitidas'),
                         child: Text('clients.cancel'.tr()),
                       ),
                       OutlinedButton(
@@ -553,7 +553,7 @@ class _FacturaEmitScreenState extends ConsumerState<FacturaEmitScreen> {
       if (!mounted) return;
       ref.invalidate(facturasOfficeProvider);
       if (!emit) {
-        context.go('/facturacion');
+        context.go('/facturacion/emitidas');
         return;
       }
       final result = await emitFacturaViaSif(
@@ -572,7 +572,7 @@ class _FacturaEmitScreenState extends ConsumerState<FacturaEmitScreen> {
           aeatUrl: result.sifAeatUrl,
         );
       }
-      if (mounted) context.go('/facturacion');
+      if (mounted) context.go('/facturacion/emitidas');
     } finally {
       if (mounted) setState(() => _busy = false);
     }

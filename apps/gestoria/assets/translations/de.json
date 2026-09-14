@@ -729,6 +729,25 @@
     "linesRequired": "Mindestens eine Position mit Betrag hinzufügen.",
     "f2OverLimit": "F2 darf 3.000 € nicht überschreiten.",
     "numeroFechaRequired": "Rechnungsnummer und Datum ausfüllen.",
+    "group": {
+      "ventas": "Ventas",
+      "compras": "Compras"
+    },
+    "libro": {
+      "emitidas": "Facturas emitidas",
+      "recibidas": "Facturas recibidas"
+    },
+    "libroHint": "Weitere Bücher (presupuestos, recurrentes, proveedores) kommen hierher, nicht in die linke Leiste.",
+    "kpiImporte": "Importe {year}",
+    "kpiIssued": "Emitidas",
+    "kpiReceived": "Recibidas",
+    "kpiOverdue": "Vencidas",
+    "kpiPending": "Pendiente AEAT",
+    "kpiDueSoon": "Por vencer",
+    "print": "Imprimir",
+    "openCarpeta": "Ordner öffnen",
+    "detailIssuedHint": "Büropapier. Imprimir öffnet A4 mit spanischen Feldern und Verifactu-QR.",
+    "detailReceivedHint": "Buchung. Das Original-PDF liegt in der Mandantenmappe — Eingangsrechnungen drucken wir nicht nach.",
     "estado": {
       "borrador": "Entwurf",
       "guardada": "Gespeichert",

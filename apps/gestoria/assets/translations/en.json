@@ -729,6 +729,25 @@
     "linesRequired": "Add at least one line with an amount.",
     "f2OverLimit": "F2 cannot exceed €3,000.",
     "numeroFechaRequired": "Fill in the invoice number and date.",
+    "group": {
+      "ventas": "Ventas",
+      "compras": "Compras"
+    },
+    "libro": {
+      "emitidas": "Facturas emitidas",
+      "recibidas": "Facturas recibidas"
+    },
+    "libroHint": "New books (presupuestos, recurrentes, proveedores) land here, not on the left rail.",
+    "kpiImporte": "Importe {year}",
+    "kpiIssued": "Emitidas",
+    "kpiReceived": "Recibidas",
+    "kpiOverdue": "Vencidas",
+    "kpiPending": "Pendiente AEAT",
+    "kpiDueSoon": "Por vencer",
+    "print": "Imprimir",
+    "openCarpeta": "Open folder",
+    "detailIssuedHint": "Office paper. Imprimir opens an A4 print with Spanish fields and the Verifactu QR.",
+    "detailReceivedHint": "Book entry. The original PDF lives on the client folder — we do not reprint a received invoice.",
     "estado": {
       "borrador": "Draft",
       "guardada": "Saved",

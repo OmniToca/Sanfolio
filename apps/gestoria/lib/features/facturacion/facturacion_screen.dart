@@ -16,33 +16,26 @@ import '../settings/office_settings_controller.dart';
 import 'csv_save.dart';
 import 'factura.dart';
 import 'factura_cliente_pick.dart';
+import 'factura_kpi.dart';
+import 'facturacion_nav.dart';
 import 'facturacion_providers.dart';
 import 'sif_emit.dart';
 import 'sif_qr.dart';
 
 class FacturacionScreen extends ConsumerStatefulWidget {
-  const FacturacionScreen({super.key});
+  const FacturacionScreen({super.key, this.libroKey = 'emitidas'});
+
+  final String libroKey;
 
   @override
   ConsumerState<FacturacionScreen> createState() => _FacturacionScreenState();
 }
 
-class _FacturacionScreenState extends ConsumerState<FacturacionScreen>
-    with SingleTickerProviderStateMixin {
-  late final TabController _tabs;
+class _FacturacionScreenState extends ConsumerState<FacturacionScreen> {
   bool _busy = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _tabs = TabController(length: 2, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _tabs.dispose();
-    super.dispose();
-  }
+  FacturacionLibro get _libro =>
+      facturacionLibroByKey(widget.libroKey) ?? kFacturacionLibros.first;
 
   @override
   Widget build(BuildContext context) {
@@ -54,37 +47,16 @@ class _FacturacionScreenState extends ConsumerState<FacturacionScreen>
         body: Center(child: Text('facturacion.moduleOff'.tr())),
       ),
       child: Scaffold(
-        appBar: AppBar(
-          title: Text('facturacion.title'.tr()),
-          bottom: TabBar(
-            controller: _tabs,
-            tabs: [
-              Tab(text: 'facturacion.received'.tr()),
-              Tab(text: 'facturacion.issued'.tr()),
-            ],
-          ),
-        ),
-        body: TabBarView(
-          controller: _tabs,
-          children: [
-            _BookTab(
-              direccion: 'recibida',
-              office: office,
-              busy: _busy,
-              onAdd: _addReceived,
-              onCsv: _exportCsv,
-              onHide: _hide,
-            ),
-            _BookTab(
-              direccion: 'emitida',
-              office: office,
-              busy: _busy,
-              onAdd: _addIssued,
-              onEmit: _emit,
-              onVerify: _verify,
-              onHide: _hide,
-            ),
-          ],
+        appBar: AppBar(title: Text('facturacion.title'.tr())),
+        body: _BookTab(
+          libro: _libro,
+          office: office,
+          busy: _busy,
+          onAdd: _libro.isCompras ? _addReceived : _addIssued,
+          onCsv: _exportCsv,
+          onHide: _hide,
+          onEmit: _libro.isVentas ? _emit : null,
+          onVerify: _libro.isVentas ? _verify : null,
         ),
       ),
     );
@@ -92,11 +64,13 @@ class _FacturacionScreenState extends ConsumerState<FacturacionScreen>
 
   Future<void> _exportCsv() async {
     final rows =
-        ref.read(facturasOfficeProvider('recibida')).valueOrNull ?? const [];
-    saveCsvFile(
-      'facturas-recibidas.csv',
-      receivedInvoicesCsv(rows),
-    );
+        ref.read(facturasOfficeProvider(_libro.direccion)).valueOrNull ??
+            const [];
+    if (_libro.isCompras) {
+      saveCsvFile('facturas-recibidas.csv', receivedInvoicesCsv(rows));
+    } else {
+      saveCsvFile('facturas-emitidas.csv', issuedInvoicesCsv(rows));
+    }
   }
 
   Future<void> _hide(String id) async {
@@ -230,7 +204,7 @@ class _FacturacionScreenState extends ConsumerState<FacturacionScreen>
 
 class _BookTab extends ConsumerWidget {
   const _BookTab({
-    required this.direccion,
+    required this.libro,
     required this.office,
     required this.busy,
     required this.onAdd,
@@ -240,7 +214,7 @@ class _BookTab extends ConsumerWidget {
     this.onVerify,
   });
 
-  final String direccion;
+  final FacturacionLibro libro;
   final String office;
   final bool busy;
   final VoidCallback onAdd;
@@ -251,8 +225,14 @@ class _BookTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(facturasOfficeProvider(direccion));
+    final async = ref.watch(facturasOfficeProvider(libro.direccion));
     final rows = async.valueOrNull ?? const <Factura>[];
+    final kpi = libroKpi(
+      rows,
+      today: DateTime.now(),
+      emitidas: libro.isVentas,
+    );
+    final sections = facturacionLibrosIn(libro.group);
     return ListView(
       padding: const EdgeInsets.fromLTRB(24, 12, 24, 48),
       children: [
@@ -264,12 +244,8 @@ class _BookTab extends ConsumerWidget {
               children: [
                 AppPageHeader(
                   kicker: office.isEmpty ? null : office,
-                  title: direccion == 'recibida'
-                      ? 'facturacion.received'.tr()
-                      : 'facturacion.issued'.tr(),
-                  subtitle: direccion == 'recibida'
-                      ? 'facturacion.receivedHint'.tr()
-                      : 'facturacion.issuedHint'.tr(),
+                  title: 'facturacion.libro.${libro.key}'.tr(),
+                  subtitle: 'facturacion.libroHint'.tr(),
                   actions: [
                     if (onCsv != null)
                       OutlinedButton.icon(
@@ -281,13 +257,51 @@ class _BookTab extends ConsumerWidget {
                       onPressed: busy ? null : onAdd,
                       icon: const Icon(Icons.add, size: 18),
                       label: Text(
-                        direccion == 'recibida'
+                        libro.isCompras
                             ? 'facturacion.addReceived'.tr()
                             : 'facturacion.addIssued'.tr(),
                       ),
                     ),
                   ],
+                  bottom: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final group in facturacionGroups())
+                            AppStamp(
+                              label: 'facturacion.group.$group'.tr(),
+                              selected: libro.group == group,
+                              onTap: () {
+                                final first = facturacionLibrosIn(group).first;
+                                context.go('/facturacion/${first.key}');
+                              },
+                            ),
+                        ],
+                      ),
+                      if (sections.length > 1) ...[
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            for (final section in sections)
+                              AppStamp(
+                                label: 'facturacion.libro.${section.key}'.tr(),
+                                selected: section.key == libro.key,
+                                onTap: () =>
+                                    context.go('/facturacion/${section.key}'),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
+                const SizedBox(height: 8),
+                _KpiRow(kpi: kpi, emitidas: libro.isVentas),
                 const SizedBox(height: 16),
                 if (async.isLoading)
                   const Center(child: CircularProgressIndicator())
@@ -301,6 +315,7 @@ class _BookTab extends ConsumerWidget {
                     _FacturaTile(
                       row: row,
                       busy: busy,
+                      onOpen: () => context.go('/facturacion/f/${row.id}'),
                       onHide: () => onHide(row.id),
                       onEmit: onEmit == null || !row.canEmitir
                           ? null
@@ -333,6 +348,7 @@ class _FacturaTile extends StatelessWidget {
     required this.row,
     required this.busy,
     required this.onHide,
+    required this.onOpen,
     this.onEmit,
     this.onVerify,
     this.onQr,
@@ -341,6 +357,7 @@ class _FacturaTile extends StatelessWidget {
   final Factura row;
   final bool busy;
   final VoidCallback onHide;
+  final VoidCallback onOpen;
   final VoidCallback? onEmit;
   final VoidCallback? onVerify;
   final VoidCallback? onQr;
@@ -354,6 +371,7 @@ class _FacturaTile extends StatelessWidget {
       if (row.counterparty.isNotEmpty) row.counterparty,
     ].join(' · ');
     return AppCard(
+      onTap: onOpen,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
         child: Row(
@@ -418,6 +436,103 @@ class _FacturaTile extends StatelessWidget {
               onPressed: busy ? null : onHide,
               icon: const Icon(Icons.visibility_off_outlined),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _KpiRow extends StatelessWidget {
+  const _KpiRow({required this.kpi, required this.emitidas});
+
+  final LibroKpi kpi;
+  final bool emitidas;
+
+  @override
+  Widget build(BuildContext context) {
+    final fourthLabel = emitidas
+        ? 'facturacion.kpiPending'.tr()
+        : 'facturacion.kpiDueSoon'.tr();
+    final fourthValue = emitidas ? '${kpi.pendingCount}' : '${kpi.dueSoonCount}';
+    return LayoutBuilder(
+      builder: (context, c) {
+        final wide = c.maxWidth >= 720;
+        final cards = [
+          _KpiCard(
+            label: 'facturacion.kpiImporte'.tr(
+              namedArgs: {'year': '${kpi.year}'},
+            ),
+            value: '${formatCents(kpi.totalCents)} €',
+          ),
+          _KpiCard(
+            label: emitidas
+                ? 'facturacion.kpiIssued'.tr()
+                : 'facturacion.kpiReceived'.tr(),
+            value: '${kpi.count}',
+          ),
+          _KpiCard(
+            label: 'facturacion.kpiOverdue'.tr(),
+            value: '${kpi.overdueCount}',
+            hint: '${formatCents(kpi.overdueCents)} €',
+          ),
+          _KpiCard(
+            label: fourthLabel,
+            value: fourthValue,
+          ),
+        ];
+        if (!wide) {
+          return Column(
+            children: [
+              for (var i = 0; i < cards.length; i++) ...[
+                if (i > 0) const SizedBox(height: 8),
+                cards[i],
+              ],
+            ],
+          );
+        }
+        return Row(
+          children: [
+            for (var i = 0; i < cards.length; i++) ...[
+              if (i > 0) const SizedBox(width: 8),
+              Expanded(child: cards[i]),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _KpiCard extends StatelessWidget {
+  const _KpiCard({
+    required this.label,
+    required this.value,
+    this.hint,
+  });
+
+  final String label;
+  final String value;
+  final String? hint;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: 4),
+            Text(value, style: Theme.of(context).textTheme.titleLarge),
+            if (hint != null)
+              Text(
+                hint!,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppTheme.pencil,
+                    ),
+              ),
           ],
         ),
       ),

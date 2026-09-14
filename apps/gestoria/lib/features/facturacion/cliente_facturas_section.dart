@@ -81,7 +81,7 @@ class ClienteFacturasSection extends ConsumerWidget {
                       if ((row.numero ?? '').isNotEmpty) row.numero,
                     ].join(' · '),
                   ),
-                  onTap: () => context.go('/facturacion'),
+                  onTap: () => context.go('/facturacion/recibidas'),
                 ),
           ],
         ),

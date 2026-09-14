@@ -15,6 +15,8 @@ void main() {
     expect(toIsoDate('14/09/2026'), '2026-09-14');
     expect(formatIsoDate(DateTime(2026, 9, 14)), '2026-09-14');
     expect(toIsoDate('XU'), isNull);
+    expect(formatDmyDate(DateTime(2026, 9, 14)), '14-09-2026');
+    expect(toDmyDate('2026-09-14'), '14-09-2026');
   });
 
   test('platnost bere dny z nastavení, ne hardcoded 30', () {

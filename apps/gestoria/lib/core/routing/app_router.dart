@@ -17,6 +17,7 @@ import '../../features/inbox/inbox_screen.dart';
 import '../../features/mensajes/mensaje_compose_screen.dart';
 import '../../features/facturacion/facturacion_screen.dart';
 import '../../features/facturacion/factura_emit_screen.dart';
+import '../../features/facturacion/factura_detail_screen.dart';
 import '../../features/settings/settings_screen.dart';
 import '../../features/shell/app_shell.dart';
 
@@ -161,6 +162,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: '/facturacion/nueva',
             pageBuilder: (context, state) => const NoTransitionPage(
               child: FacturaEmitScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/facturacion/f/:id',
+            pageBuilder: (context, state) => NoTransitionPage(
+              child: FacturaDetailScreen(
+                facturaId: state.pathParameters['id']!,
+              ),
+            ),
+          ),
+          GoRoute(
+            path: '/facturacion/:libro',
+            pageBuilder: (context, state) => NoTransitionPage(
+              child: FacturacionScreen(
+                libroKey: state.pathParameters['libro'] ?? 'emitidas',
+              ),
             ),
           ),
           GoRoute(

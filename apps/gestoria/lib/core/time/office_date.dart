@@ -58,6 +58,20 @@ String formatIsoDate(DateTime d) {
 
 String todayIsoDate([DateTime? now]) => formatIsoDate(calendarDay(now ?? DateTime.now()));
 
+/// Papír AEAT / tisk: DD-MM-YYYY.
+String formatDmyDate(DateTime d) {
+  final y = d.year.toString().padLeft(4, '0');
+  final m = d.month.toString().padLeft(2, '0');
+  final day = d.day.toString().padLeft(2, '0');
+  return '$day-$m-$y';
+}
+
+String? toDmyDate(String? raw) {
+  final parsed = parseOfficeDate(raw ?? '');
+  if (parsed == null) return null;
+  return formatDmyDate(parsed);
+}
+
 /// [warnDays] z tenant_settings. 0 = jen prošlé vs. platné, bez „brzy“.
 ExpiryTone? expiryTone({
   required String raw,

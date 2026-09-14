@@ -53,6 +53,24 @@ final facturasClienteProvider =
   return _parse(rows);
 });
 
+final facturaByIdProvider =
+    FutureProvider.family<Factura?, String>((ref, facturaId) async {
+  ref.watch(authControllerProvider);
+  final auth = await ref.watch(authControllerProvider.future);
+  final tenantId = auth.currentTenantId;
+  final client = trySupabaseClient();
+  if (tenantId == null || client == null) return null;
+  final row = await client
+      .from('facturas')
+      .select(_facturaSelect)
+      .eq('tenant_id', tenantId)
+      .eq('id', facturaId)
+      .isFilter('deleted_at', null)
+      .maybeSingle();
+  if (row == null) return null;
+  return Factura.fromRow(Map<dynamic, dynamic>.from(row));
+});
+
 List<Factura> _parse(Object rows) {
   final out = <Factura>[];
   if (rows is! List) return out;

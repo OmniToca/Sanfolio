@@ -2,7 +2,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:gestoria_os/core/modules/module_catalog.dart';
 import 'package:gestoria_os/features/ai/documento_fields.dart';
 import 'package:gestoria_os/features/facturacion/factura.dart';
+import 'package:gestoria_os/features/facturacion/factura_kpi.dart';
 import 'package:gestoria_os/features/facturacion/factura_lineas.dart';
+import 'package:gestoria_os/features/facturacion/factura_print_html.dart';
+import 'package:gestoria_os/features/facturacion/facturacion_nav.dart';
 import 'package:gestoria_os/features/facturacion/sif_emit.dart';
 import 'package:gestoria_os/features/facturacion/sif_qr.dart';
 
@@ -92,6 +95,77 @@ void main() {
     expect(bytes, isNotNull);
     expect(bytes!.first, 0x89);
     expect(sifQrPngBytes('https://prewww2.aeat.es/x'), isNull);
+  });
+
+  test('vnitřní knihy jsou Ventas/Compras, ne další rail', () {
+    expect(facturacionGroups(), ['ventas', 'compras']);
+    expect(facturacionLibroByKey('emitidas')?.direccion, 'emitida');
+    expect(facturacionLibroByKey('recibidas')?.isCompras, isTrue);
+  });
+
+  test('KPI knihy sčítá rok a vencidas', () {
+    final kpi = libroKpi(
+      const [
+        Factura(
+          id: '1',
+          direccion: 'emitida',
+          estado: 'emitida',
+          fecha: '2026-03-01',
+          vencimiento: '2026-03-10',
+          totalCents: 12100,
+        ),
+        Factura(
+          id: '2',
+          direccion: 'emitida',
+          estado: 'pendiente',
+          fecha: '2026-09-01',
+          totalCents: 1000,
+        ),
+        Factura(
+          id: '3',
+          direccion: 'emitida',
+          estado: 'emitida',
+          fecha: '2025-01-01',
+          totalCents: 99999,
+        ),
+      ],
+      today: DateTime(2026, 9, 14),
+      emitidas: true,
+    );
+    expect(kpi.year, 2026);
+    expect(kpi.count, 2);
+    expect(kpi.totalCents, 13100);
+    expect(kpi.overdueCount, 1);
+    expect(kpi.pendingCount, 1);
+  });
+
+  test('tisk vystavené je španělský papír s NIF a totalem', () {
+    final html = facturaEmitidaPrintHtml(
+      factura: const Factura(
+        id: '1',
+        direccion: 'emitida',
+        estado: 'emitida',
+        serie: 'A',
+        numero: '3',
+        fecha: '2026-09-14',
+        destinatarioNombre: 'A <script>x</script>',
+        destinatarioNif: 'Y9736943E',
+        concepto: 'Honorarios',
+        baseCents: 900,
+        ivaCents: 189,
+        totalCents: 1089,
+        ivaBps: 2100,
+        tipoFactura: 'F1',
+      ),
+      emisorNombre: 'Empresa de prueba SL',
+      emisorNif: 'B75777847',
+    );
+    expect(html, contains('FACTURA'));
+    expect(html, contains('B75777847'));
+    expect(html, contains('Y9736943E'));
+    expect(html, contains('10,89 €'));
+    expect(html, contains('A &lt;script&gt;x&lt;/script&gt;'));
+    expect(html, isNot(contains('<script>x</script>')));
   });
 
   test('CSV knihy přijatých je středník a eura s čárkou', () {

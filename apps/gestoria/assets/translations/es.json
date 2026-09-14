@@ -729,6 +729,25 @@
     "linesRequired": "Añada al menos una línea con importe.",
     "f2OverLimit": "F2 no puede superar 3.000 €.",
     "numeroFechaRequired": "Rellene el número y la fecha de la factura.",
+    "group": {
+      "ventas": "Ventas",
+      "compras": "Compras"
+    },
+    "libro": {
+      "emitidas": "Facturas emitidas",
+      "recibidas": "Facturas recibidas"
+    },
+    "libroHint": "Más agendas (presupuestos, recurrentes, proveedores) irán aquí, no al menú izquierdo.",
+    "kpiImporte": "Importe {year}",
+    "kpiIssued": "Emitidas",
+    "kpiReceived": "Recibidas",
+    "kpiOverdue": "Vencidas",
+    "kpiPending": "Pendiente AEAT",
+    "kpiDueSoon": "Por vencer",
+    "print": "Imprimir",
+    "openCarpeta": "Abrir carpeta",
+    "detailIssuedHint": "Papel de la oficina. Imprimir abre A4 con datos en español y el QR Verifactu.",
+    "detailReceivedHint": "Asiento del libro. El PDF original está en la carpeta del cliente: no reimprimimos una recibida.",
     "estado": {
       "borrador": "Borrador",
       "guardada": "Guardada",

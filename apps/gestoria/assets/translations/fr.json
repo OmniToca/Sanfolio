@@ -729,6 +729,25 @@
     "linesRequired": "Ajoutez au moins une ligne avec un montant.",
     "f2OverLimit": "F2 ne peut pas dépasser 3 000 €.",
     "numeroFechaRequired": "Renseignez le numéro et la date de la facture.",
+    "group": {
+      "ventas": "Ventas",
+      "compras": "Compras"
+    },
+    "libro": {
+      "emitidas": "Facturas emitidas",
+      "recibidas": "Facturas recibidas"
+    },
+    "libroHint": "Les autres livres (presupuestos, recurrentes, proveedores) iront ici, pas dans le menu de gauche.",
+    "kpiImporte": "Importe {year}",
+    "kpiIssued": "Emitidas",
+    "kpiReceived": "Recibidas",
+    "kpiOverdue": "Vencidas",
+    "kpiPending": "Pendiente AEAT",
+    "kpiDueSoon": "Por vencer",
+    "print": "Imprimir",
+    "openCarpeta": "Ouvrir le dossier",
+    "detailIssuedHint": "Papier du cabinet. Imprimir ouvre un A4 en espagnol avec le QR Verifactu.",
+    "detailReceivedHint": "Écriture du livre. Le PDF original est dans le dossier client — on ne réimprime pas une reçue.",
     "estado": {
       "borrador": "Brouillon",
       "guardada": "Enregistrée",

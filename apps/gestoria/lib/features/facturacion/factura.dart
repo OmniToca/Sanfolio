@@ -93,6 +93,15 @@ class Factura {
 
   bool get alreadyEmitted => isEmitida && estado == 'emitida';
 
+  /// Série-číslo na papíře i v knize (A-3).
+  String get refLabel {
+    final bits = [
+      if ((serie ?? '').trim().isNotEmpty) serie!.trim(),
+      if ((numero ?? '').trim().isNotEmpty) numero!.trim(),
+    ];
+    return bits.join('-');
+  }
+
   String get counterparty {
     if (isRecibida) {
       return (proveedorNombre ?? '').trim().isNotEmpty
@@ -232,6 +241,29 @@ String receivedInvoicesCsv(List<Factura> rows) {
         formatCents(r.ivaCents),
         formatCents(r.totalCents),
         _csv(r.clienteNombre),
+        _csv(r.concepto),
+      ].join(';'),
+    );
+  }
+  return buf.toString();
+}
+
+String issuedInvoicesCsv(List<Factura> rows) {
+  final buf = StringBuffer(
+    'fecha;serie;numero;destinatario;nif;base;iva;total;estado;concepto\n',
+  );
+  for (final r in rows.where((x) => x.isEmitida)) {
+    buf.writeln(
+      [
+        r.fecha ?? '',
+        r.serie ?? '',
+        r.numero ?? '',
+        _csv(r.destinatarioNombre ?? r.clienteNombre),
+        r.destinatarioNif ?? '',
+        formatCents(r.baseCents),
+        formatCents(r.ivaCents),
+        formatCents(r.totalCents),
+        r.estado,
         _csv(r.concepto),
       ].join(';'),
     );

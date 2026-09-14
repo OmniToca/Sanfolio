@@ -729,6 +729,25 @@
     "linesRequired": "Přidejte aspoň jednu položku s částkou.",
     "f2OverLimit": "F2 smí nejvýš 3 000 €.",
     "numeroFechaRequired": "Doplňte číslo a datum faktury.",
+    "group": {
+      "ventas": "Ventas",
+      "compras": "Compras"
+    },
+    "libro": {
+      "emitidas": "Facturas emitidas",
+      "recibidas": "Facturas recibidas"
+    },
+    "libroHint": "Další agendy (presupuestos, recurrentes, proveedores) přibudou tady, ne do levého menu.",
+    "kpiImporte": "Importe {year}",
+    "kpiIssued": "Emitidas",
+    "kpiReceived": "Recibidas",
+    "kpiOverdue": "Vencidas",
+    "kpiPending": "Pendiente AEAT",
+    "kpiDueSoon": "Por vencer",
+    "print": "Imprimir",
+    "openCarpeta": "Otevřít složku",
+    "detailIssuedHint": "Papír kanceláře. Imprimir otevře tisk A4 se španělskými údaji a QR Verifactu.",
+    "detailReceivedHint": "Zápis v knize. Originál je PDF na složce klienta — přijatou nepřetiskujeme.",
     "estado": {
       "borrador": "Koncept",
       "guardada": "Uloženo",
