@@ -57,6 +57,18 @@ class _FacturaDetailScreenState extends ConsumerState<FacturaDetailScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          onPressed: () => context.go(
+                            row.isEmitida
+                                ? '/facturacion/emitidas'
+                                : '/facturacion/recibidas',
+                          ),
+                          icon: const Icon(Icons.arrow_back, size: 18),
+                          label: Text('facturacion.backToList'.tr()),
+                        ),
+                      ),
                       AppPageHeader(
                         kicker: settings?.displayName,
                         title: row.refLabel.isEmpty
@@ -66,14 +78,6 @@ class _FacturaDetailScreenState extends ConsumerState<FacturaDetailScreen> {
                             ? 'facturacion.detailIssuedHint'.tr()
                             : 'facturacion.detailReceivedHint'.tr(),
                         actions: [
-                          OutlinedButton(
-                            onPressed: () => context.go(
-                              row.isEmitida
-                                  ? '/facturacion/emitidas'
-                                  : '/facturacion/recibidas',
-                            ),
-                            child: Text('clients.cancel'.tr()),
-                          ),
                           if (row.isEmitida)
                             FilledButton.icon(
                               onPressed: _busy
@@ -93,6 +97,22 @@ class _FacturaDetailScreenState extends ConsumerState<FacturaDetailScreen> {
                               child: Text('facturacion.verificar'.tr()),
                             ),
                         ],
+                        bottom: Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            _ReadStamp(
+                              label: 'facturacion.estado.${row.estado}'.tr(),
+                              selected: row.estado == 'emitida',
+                            ),
+                            _ReadStamp(
+                              label: row.isSimplificada
+                                  ? 'facturacion.tipoF2'.tr()
+                                  : 'facturacion.tipoF1'.tr(),
+                              selected: true,
+                            ),
+                          ],
+                        ),
                       ),
                       if (row.isEmitida)
                         _IssuedPaper(row: row, settings: settings)
@@ -154,6 +174,26 @@ class _FacturaDetailScreenState extends ConsumerState<FacturaDetailScreen> {
   }
 }
 
+class _ReadStamp extends StatelessWidget {
+  const _ReadStamp({required this.label, this.selected = false});
+
+  final String label;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: selected ? AppTheme.accentSoft : AppTheme.surfaceMuted,
+        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+        border: Border.all(color: AppTheme.rule),
+      ),
+      child: Text(label, style: Theme.of(context).textTheme.bodySmall),
+    );
+  }
+}
+
 class _IssuedPaper extends StatelessWidget {
   const _IssuedPaper({required this.row, required this.settings});
 
@@ -170,150 +210,359 @@ class _IssuedPaper extends StatelessWidget {
       for (final raw in row.lineas) FacturaLinea.fromJson(raw),
     ]);
     final lines = totals.lineas;
-    return AppCard(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(28, 24, 28, 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              row.isSimplificada ? 'FACTURA SIMPLIFICADA' : 'FACTURA',
-              style: Theme.of(context).textTheme.headlineSmall,
+    final overdue = row.isVencida();
+    final clientName = (row.destinatarioNombre ?? row.clienteNombre ?? '').trim();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (clientName.isNotEmpty) ...[
+          Text(clientName, style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 4),
+          Wrap(
+            spacing: 16,
+            runSpacing: 4,
+            children: [
+              if ((row.destinatarioNif ?? '').isNotEmpty)
+                Text('NIF ${row.destinatarioNif}'),
+              if ((row.destinatarioEmail ?? '').isNotEmpty)
+                Text(row.destinatarioEmail!),
+              if ((row.destinatarioDireccion ?? '').isNotEmpty)
+                Text(row.destinatarioDireccion!),
+            ],
+          ),
+          const SizedBox(height: 16),
+        ],
+        _threeCol(
+          _InfoCard(
+            title: 'facturacion.datesCard'.tr(),
+            children: [
+              _kv(
+                context,
+                'facturacion.issuedDate'.tr(),
+                toDmyDate(row.fecha) ?? row.fecha ?? '—',
+              ),
+              _kv(
+                context,
+                'fields.due'.tr(),
+                toDmyDate(row.vencimiento) ?? row.vencimiento ?? '—',
+                valueColor: overdue ? AppTheme.urgent : null,
+              ),
+            ],
+          ),
+          _InfoCard(
+            title: 'facturacion.taxCard'.tr(),
+            children: [
+              _kv(
+                context,
+                'facturacion.colTipo'.tr(),
+                row.isSimplificada
+                    ? 'facturacion.tipoF2'.tr()
+                    : 'facturacion.tipoF1'.tr(),
+              ),
+              _kv(
+                context,
+                'fields.iva'.tr(),
+                lines.isEmpty
+                    ? ivaRateLabel(row.ivaBps ?? 2100)
+                    : lines.map((l) => ivaRateLabel(l.ivaBps)).toSet().join(' · '),
+              ),
+              _kv(context, 'facturacion.emisor'.tr(), emisorNombre.isEmpty ? '—' : emisorNombre),
+              if (emisorNif.isNotEmpty) _kv(context, 'NIF', emisorNif),
+            ],
+          ),
+          _InfoCard(
+            title: 'facturacion.payCard'.tr(),
+            children: [
+              _kv(
+                context,
+                'facturacion.formaPago'.tr(),
+                row.formaPago == null
+                    ? '—'
+                    : 'facturacion.pago.${row.formaPago}'.tr(),
+              ),
+              _kv(
+                context,
+                'facturacion.colEstado'.tr(),
+                'facturacion.estado.${row.estado}'.tr(),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        AppSectionCard(
+          title: 'facturacion.lineas'.tr(),
+          child: lines.isEmpty
+              ? Text(
+                  '${formatCents(row.totalCents)} € · ${row.concepto ?? ''}',
+                  style: Theme.of(context).textTheme.titleMedium,
+                )
+              : _LinesTable(lines: lines),
+        ),
+        const SizedBox(height: 16),
+        Align(
+          alignment: Alignment.centerRight,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 360),
+            child: AppSectionCard(
+              title: 'facturacion.totals'.tr(),
+              child: Column(
+                children: [
+                  if (totals.byRate.isEmpty) ...[
+                    _Amt(label: 'facturacion.baseExcl'.tr(), value: row.baseCents),
+                    _Amt(label: 'facturacion.ivaTotal'.tr(), value: row.ivaCents),
+                  ] else
+                    for (final tax in totals.byRate) ...[
+                      _Amt(
+                        label: '${'fields.base'.tr()} ${ivaRateLabel(tax.ivaBps)}',
+                        value: tax.baseCents,
+                      ),
+                      _Amt(
+                        label: '${'fields.iva'.tr()} ${ivaRateLabel(tax.ivaBps)}',
+                        value: tax.ivaCents,
+                      ),
+                    ],
+                  const Divider(),
+                  _Amt(
+                    label: 'facturacion.grandTotal'.tr(),
+                    value: totals.lineas.isNotEmpty
+                        ? totals.totalCents
+                        : row.totalCents,
+                    emphasize: true,
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 16),
-            Row(
+          ),
+        ),
+        if ((row.concepto ?? '').isNotEmpty || (row.notas ?? '').isNotEmpty) ...[
+          const SizedBox(height: 16),
+          AppSectionCard(
+            title: 'fields.concept'.tr(),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if ((row.concepto ?? '').isNotEmpty) Text(row.concepto!),
+                if ((row.notas ?? '').isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    row.notas!,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppTheme.pencil,
+                        ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+        const SizedBox(height: 16),
+        AppSectionCard(
+          title: 'facturacion.verifactuTitle'.tr(),
+          hint: 'facturacion.verifactuHint'.tr(),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: (row.sifQrUrl ?? '').isNotEmpty ||
+                    (row.sifAeatUrl ?? '').isNotEmpty
+                ? TextButton.icon(
+                    onPressed: () => showSifQrDialog(
+                      context,
+                      qrStored: row.sifQrUrl,
+                      aeatUrl: row.sifAeatUrl,
+                    ),
+                    icon: const Icon(Icons.qr_code_2_outlined, size: 18),
+                    label: Text('facturacion.qr'.tr()),
+                  )
+                : Text(
+                    'facturacion.issuedHint'.tr(),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+          ),
+        ),
+        if (row.clienteId != null) ...[
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () => context.go('/clientes/${row.clienteId}'),
+              icon: const Icon(Icons.folder_open_outlined, size: 18),
+              label: Text('nav.clients'.tr()),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+Widget _threeCol(Widget a, Widget b, Widget c) {
+  return LayoutBuilder(
+    builder: (context, constraints) {
+      if (constraints.maxWidth < 800) {
+        return Column(
+          children: [
+            a,
+            const SizedBox(height: 8),
+            b,
+            const SizedBox(height: 8),
+            c,
+          ],
+        );
+      }
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(child: a),
+          const SizedBox(width: 8),
+          Expanded(child: b),
+          const SizedBox(width: 8),
+          Expanded(child: c),
+        ],
+      );
+    },
+  );
+}
+
+class _InfoCard extends StatelessWidget {
+  const _InfoCard({required this.title, required this.children});
+
+  final String title;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppSectionCard(
+      title: title,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: children,
+      ),
+    );
+  }
+}
+
+Widget _kv(
+  BuildContext context,
+  String label,
+  String value, {
+  Color? valueColor,
+}) {
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 110,
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: valueColor,
+                  fontWeight: valueColor == null ? null : FontWeight.w600,
+                ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _LinesTable extends StatelessWidget {
+  const _LinesTable({required this.lines});
+
+  final List<FacturaLinea> lines;
+
+  @override
+  Widget build(BuildContext context) {
+    final head = Theme.of(context).textTheme.titleSmall;
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Row(
+            children: [
+              Expanded(flex: 5, child: Text('facturacion.descripcion'.tr(), style: head)),
+              Expanded(
+                flex: 1,
+                child: Text(
+                  'facturacion.colCant'.tr(),
+                  style: head,
+                  textAlign: TextAlign.right,
+                ),
+              ),
+              Expanded(
+                flex: 2,
+                child: Text(
+                  'facturacion.colPrecio'.tr(),
+                  style: head,
+                  textAlign: TextAlign.right,
+                ),
+              ),
+              Expanded(
+                flex: 1,
+                child: Text(
+                  'facturacion.colIva'.tr(),
+                  style: head,
+                  textAlign: TextAlign.right,
+                ),
+              ),
+              Expanded(
+                flex: 2,
+                child: Text(
+                  'facturacion.colImporte'.tr(),
+                  style: head,
+                  textAlign: TextAlign.right,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const Divider(),
+        for (final line in lines) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              children: [
+                Expanded(flex: 5, child: Text(line.descripcion)),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('facturacion.emisor'.tr(),
-                          style: Theme.of(context).textTheme.titleSmall),
-                      Text(emisorNombre.isEmpty ? '—' : emisorNombre),
-                      if (emisorNif.isNotEmpty) Text('NIF $emisorNif'),
-                    ],
+                  flex: 1,
+                  child: Text(
+                    cantidadString(line.cantidad),
+                    textAlign: TextAlign.right,
                   ),
                 ),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        row.refLabel,
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      Text(toDmyDate(row.fecha) ?? row.fecha ?? ''),
-                      if ((row.vencimiento ?? '').isNotEmpty)
-                        Text(
-                          '${'fields.due'.tr()} ${toDmyDate(row.vencimiento) ?? row.vencimiento}',
-                        ),
-                      Text(
-                        'facturacion.estado.${row.estado}'.tr(),
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: AppTheme.pencil,
-                            ),
-                      ),
-                    ],
+                  flex: 2,
+                  child: Text(
+                    '${formatCents(line.precioUnitarioCents)} €',
+                    textAlign: TextAlign.right,
+                  ),
+                ),
+                Expanded(
+                  flex: 1,
+                  child: Text(
+                    ivaRateLabel(line.ivaBps),
+                    textAlign: TextAlign.right,
+                  ),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    '${formatCents(line.totalCents)} €',
+                    textAlign: TextAlign.right,
                   ),
                 ),
               ],
             ),
-            if (row.destinatarioNombre != null || row.destinatarioNif != null) ...[
-              const SizedBox(height: 20),
-              Text('facturacion.destinatario'.tr(),
-                  style: Theme.of(context).textTheme.titleSmall),
-              Text(row.destinatarioNombre ?? ''),
-              if (row.destinatarioNif != null) Text('NIF ${row.destinatarioNif}'),
-              if (row.destinatarioDireccion != null)
-                Text(row.destinatarioDireccion!),
-              if (row.destinatarioEmail != null) Text(row.destinatarioEmail!),
-            ],
-            const SizedBox(height: 20),
-            if (lines.isEmpty)
-              Text(
-                '${formatCents(row.totalCents)} € · ${row.concepto ?? ''}',
-                style: Theme.of(context).textTheme.titleMedium,
-              )
-            else ...[
-              for (final line in lines)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    children: [
-                      Expanded(child: Text(line.descripcion)),
-                      Text(
-                        '${cantidadString(line.cantidad)} × ${formatCents(line.precioUnitarioCents)} €',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: AppTheme.pencil,
-                            ),
-                      ),
-                      const SizedBox(width: 12),
-                      SizedBox(
-                        width: 88,
-                        child: Text(
-                          '${formatCents(line.totalCents)} €',
-                          textAlign: TextAlign.right,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              const Divider(),
-              for (final tax in totals.byRate)
-                _Amt(
-                  label: '${'fields.iva'.tr()} ${ivaRateLabel(tax.ivaBps)}',
-                  value: tax.ivaCents,
-                ),
-              _Amt(label: 'facturacion.grandTotal'.tr(), value: totals.totalCents),
-            ],
-            if ((row.concepto ?? '').isNotEmpty) ...[
-              const SizedBox(height: 16),
-              Text(row.concepto!),
-            ],
-            if ((row.notas ?? '').isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                row.notas!,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppTheme.pencil,
-                    ),
-              ),
-            ],
-            if (row.formaPago != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                '${'facturacion.formaPago'.tr()}: ${'facturacion.pago.${row.formaPago}'.tr()}',
-              ),
-            ],
-            if ((row.sifQrUrl ?? '').isNotEmpty ||
-                (row.sifAeatUrl ?? '').isNotEmpty) ...[
-              const SizedBox(height: 16),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  onPressed: () => showSifQrDialog(
-                    context,
-                    qrStored: row.sifQrUrl,
-                    aeatUrl: row.sifAeatUrl,
-                  ),
-                  icon: const Icon(Icons.qr_code_2_outlined, size: 18),
-                  label: Text('facturacion.qr'.tr()),
-                ),
-              ),
-            ],
-            if (row.clienteId != null)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  onPressed: () => context.go('/clientes/${row.clienteId}'),
-                  icon: const Icon(Icons.folder_open_outlined, size: 18),
-                  label: Text('nav.clients'.tr()),
-                ),
-              ),
-          ],
-        ),
-      ),
+          ),
+          const Divider(),
+        ],
+      ],
     );
   }
 }
@@ -363,19 +612,27 @@ class _ReceivedRecord extends StatelessWidget {
 }
 
 class _Amt extends StatelessWidget {
-  const _Amt({required this.label, required this.value});
+  const _Amt({
+    required this.label,
+    required this.value,
+    this.emphasize = false,
+  });
 
   final String label;
   final int value;
+  final bool emphasize;
 
   @override
   Widget build(BuildContext context) {
+    final style = emphasize
+        ? Theme.of(context).textTheme.titleMedium
+        : Theme.of(context).textTheme.bodyMedium;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          Expanded(child: Text(label)),
-          Text('${formatCents(value)} €'),
+          Expanded(child: Text(label, style: style)),
+          Text('${formatCents(value)} €', style: style),
         ],
       ),
     );

@@ -166,6 +166,27 @@ void main() {
     expect(html, contains('10,89 €'));
     expect(html, contains('A &lt;script&gt;x&lt;/script&gt;'));
     expect(html, isNot(contains('<script>x</script>')));
+    expect(html, contains('@page'));
+    expect(html, contains('Emisor'));
+    expect(html, contains('Destinatario'));
+  });
+
+  test('hledání a vencida podle kalendáře', () {
+    const row = Factura(
+      id: '1',
+      direccion: 'emitida',
+      estado: 'emitida',
+      serie: 'A',
+      numero: '3',
+      destinatarioNombre: 'Ukážka Košice',
+      destinatarioNif: 'Y9736943E',
+      vencimiento: '2026-03-10',
+    );
+    expect(row.matchesQuery('kosice'), isTrue);
+    expect(row.matchesQuery('A-3'), isTrue);
+    expect(row.matchesQuery('xyz'), isFalse);
+    expect(row.isVencida(DateTime(2026, 9, 14)), isTrue);
+    expect(row.isVencida(DateTime(2026, 3, 10)), isFalse);
   });
 
   test('CSV knihy přijatých je středník a eura s čárkou', () {

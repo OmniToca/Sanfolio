@@ -127,9 +127,6 @@ class _FacturaEmitScreenState extends ConsumerState<FacturaEmitScreen> {
     }
     final totals = _totals;
     final emisorNif = (settings?.emisorNif ?? '').trim();
-    final emisorNombre = (settings?.emisorNombre ?? '').trim().isNotEmpty
-        ? settings!.emisorNombre.trim()
-        : (settings?.displayName ?? '').trim();
 
     return FeatureGate(
       module: GestoriaModule.facturacion,
@@ -144,15 +141,21 @@ class _FacturaEmitScreenState extends ConsumerState<FacturaEmitScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: _busy
+                          ? null
+                          : () => context.go('/facturacion/emitidas'),
+                      icon: const Icon(Icons.arrow_back, size: 18),
+                      label: Text('facturacion.backToList'.tr()),
+                    ),
+                  ),
                   AppPageHeader(
                     kicker: settings?.displayName,
                     title: 'facturacion.composeTitle'.tr(),
                     subtitle: 'facturacion.composeHint'.tr(),
                     actions: [
-                      OutlinedButton(
-                        onPressed: _busy ? null : () => context.go('/facturacion/emitidas'),
-                        child: Text('clients.cancel'.tr()),
-                      ),
                       OutlinedButton(
                         onPressed: _busy ? null : () => _save(emit: false),
                         child: Text('facturacion.saveDraft'.tr()),
@@ -163,34 +166,81 @@ class _FacturaEmitScreenState extends ConsumerState<FacturaEmitScreen> {
                       ),
                     ],
                   ),
-                  _twoCol(
+                  if (emisorNif.isEmpty) ...[
                     AppSectionCard(
                       title: 'facturacion.emisor'.tr(),
-                      hint: emisorNif.isEmpty
-                          ? 'facturacion.emisorMissing'.tr()
-                          : null,
+                      hint: 'facturacion.emisorMissing'.tr(),
                       trailing: TextButton(
                         onPressed: () => context.go('/settings'),
                         child: Text('nav.settings'.tr()),
                       ),
+                      child: const SizedBox.shrink(),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  _twoCol(
+                    AppSectionCard(
+                      title: 'facturacion.destinatario'.tr(),
+                      hint: 'facturacion.destinatarioHint'.tr(),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Text(
-                            emisorNombre.isEmpty
-                                ? 'facturacion.emisorNombre'.tr()
-                                : emisorNombre,
-                            style: Theme.of(context).textTheme.titleMedium,
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              OutlinedButton.icon(
+                                onPressed: _busy ? null : _pickCliente,
+                                icon: const Icon(
+                                  Icons.person_search_outlined,
+                                  size: 18,
+                                ),
+                                label: Text('facturacion.pickCliente'.tr()),
+                              ),
+                              if (_clienteId != null)
+                                TextButton(
+                                  onPressed: _busy
+                                      ? null
+                                      : () => setState(() {
+                                            _clienteId = null;
+                                            _clienteLabel = null;
+                                          }),
+                                  child: Text('facturacion.clearCliente'.tr()),
+                                ),
+                            ],
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            emisorNif.isEmpty
-                                ? 'facturacion.emisorNif'.tr()
-                                : emisorNif,
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: AppTheme.pencil,
-                                    ),
+                          const SizedBox(height: 12),
+                          if (_clienteLabel != null) ...[
+                            AppInsetRow(
+                              title: _clienteLabel!,
+                              subtitle: _nif.text.trim().isEmpty
+                                  ? null
+                                  : _nif.text.trim(),
+                              leading: const Icon(Icons.folder_open_outlined),
+                            ),
+                            const SizedBox(height: 12),
+                          ],
+                          AppTextField(
+                            label: 'facturacion.destinatarioNombre'.tr(),
+                            controller: _nombre,
+                            onChanged: (_) => setState(() {}),
+                          ),
+                          const SizedBox(height: 8),
+                          AppTextField(
+                            label: 'facturacion.destinatarioNif'.tr(),
+                            controller: _nif,
+                            onChanged: (_) => setState(() {}),
+                          ),
+                          const SizedBox(height: 8),
+                          AppTextField(
+                            label: 'fields.email'.tr(),
+                            controller: _email,
+                            keyboardType: TextInputType.emailAddress,
+                          ),
+                          const SizedBox(height: 8),
+                          AppTextField(
+                            label: 'fields.address'.tr(),
+                            controller: _direccion,
                           ),
                         ],
                       ),
@@ -251,79 +301,32 @@ class _FacturaEmitScreenState extends ConsumerState<FacturaEmitScreen> {
                             ),
                             breakpoint: 520,
                           ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                    AppSectionCard(
-                      title: 'facturacion.destinatario'.tr(),
-                      hint: 'facturacion.destinatarioHint'.tr(),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
+                          const SizedBox(height: 16),
+                          Text(
+                            'facturacion.formaPago'.tr(),
+                            style: Theme.of(context).textTheme.titleSmall,
+                          ),
+                          const SizedBox(height: 8),
                           Wrap(
                             spacing: 8,
                             runSpacing: 8,
                             children: [
-                              OutlinedButton.icon(
-                                onPressed: _busy ? null : _pickCliente,
-                                icon: const Icon(
-                                  Icons.person_search_outlined,
-                                  size: 18,
-                                ),
-                                label: Text('facturacion.pickCliente'.tr()),
-                              ),
-                              if (_clienteId != null)
-                                TextButton(
-                                  onPressed: _busy
-                                      ? null
-                                      : () => setState(() {
-                                            _clienteId = null;
-                                            _clienteLabel = null;
-                                          }),
-                                  child: Text('facturacion.clearCliente'.tr()),
+                              for (final key in const [
+                                'transferencia',
+                                'efectivo',
+                                'tarjeta',
+                                'domiciliacion',
+                                'otro',
+                              ])
+                                AppStamp(
+                                  label: 'facturacion.pago.$key'.tr(),
+                                  selected: _pago == key,
+                                  onTap: () => setState(() => _pago = key),
                                 ),
                             ],
                           ),
-                          const SizedBox(height: 12),
-                        if (_clienteLabel != null) ...[
-                          AppInsetRow(
-                            title: _clienteLabel!,
-                            subtitle: _nif.text.trim().isEmpty
-                                ? null
-                                : _nif.text.trim(),
-                            leading: const Icon(Icons.folder_open_outlined),
-                          ),
-                          const SizedBox(height: 12),
                         ],
-                        _twoCol(
-                          AppTextField(
-                            label: 'facturacion.destinatarioNombre'.tr(),
-                            controller: _nombre,
-                            onChanged: (_) => setState(() {}),
-                          ),
-                          AppTextField(
-                            label: 'facturacion.destinatarioNif'.tr(),
-                            controller: _nif,
-                            onChanged: (_) => setState(() {}),
-                          ),
-                          breakpoint: 520,
-                        ),
-                        const SizedBox(height: 8),
-                        _twoCol(
-                          AppTextField(
-                            label: 'fields.email'.tr(),
-                            controller: _email,
-                            keyboardType: TextInputType.emailAddress,
-                          ),
-                          AppTextField(
-                            label: 'fields.address'.tr(),
-                            controller: _direccion,
-                          ),
-                          breakpoint: 520,
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -332,6 +335,16 @@ class _FacturaEmitScreenState extends ConsumerState<FacturaEmitScreen> {
                     hint: 'facturacion.lineasHint'.tr(),
                     child: Column(
                       children: [
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Text(
+                              'facturacion.descripcion'.tr(),
+                              style: Theme.of(context).textTheme.titleSmall,
+                            ),
+                          ),
+                        ),
                         for (var i = 0; i < _lines.length; i++) ...[
                           if (i > 0) const SizedBox(height: 12),
                           _LineCard(
@@ -380,33 +393,6 @@ class _FacturaEmitScreenState extends ConsumerState<FacturaEmitScreen> {
                             minLines: 2,
                             maxLines: 4,
                             alignLabelWithHint: true,
-                          ),
-                          const SizedBox(height: 16),
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              'facturacion.formaPago'.tr(),
-                              style: Theme.of(context).textTheme.titleSmall,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              for (final key in const [
-                                'transferencia',
-                                'efectivo',
-                                'tarjeta',
-                                'domiciliacion',
-                                'otro',
-                              ])
-                                AppStamp(
-                                  label: 'facturacion.pago.$key'.tr(),
-                                  selected: _pago == key,
-                                  onTap: () => setState(() => _pago = key),
-                                ),
-                            ],
                           ),
                         ],
                       ),

@@ -12,11 +12,15 @@ import '../../core/modules/feature_gate.dart';
 import '../../core/modules/module_catalog.dart';
 import '../../core/presentation/widgets/app_widgets.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/time/office_date.dart';
 import '../settings/office_settings_controller.dart';
 import 'csv_save.dart';
 import 'factura.dart';
 import 'factura_cliente_pick.dart';
 import 'factura_kpi.dart';
+import 'factura_print.dart';
+import 'factura_print_html.dart';
+import 'factura_status.dart';
 import 'facturacion_nav.dart';
 import 'facturacion_providers.dart';
 import 'sif_emit.dart';
@@ -202,7 +206,7 @@ class _FacturacionScreenState extends ConsumerState<FacturacionScreen> {
   }
 }
 
-class _BookTab extends ConsumerWidget {
+class _BookTab extends ConsumerStatefulWidget {
   const _BookTab({
     required this.libro,
     required this.office,
@@ -224,15 +228,32 @@ class _BookTab extends ConsumerWidget {
   final Future<void> Function(Factura row)? onVerify;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_BookTab> createState() => _BookTabState();
+}
+
+class _BookTabState extends ConsumerState<_BookTab> {
+  final _query = TextEditingController();
+
+  @override
+  void dispose() {
+    _query.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final libro = widget.libro;
     final async = ref.watch(facturasOfficeProvider(libro.direccion));
+    final settings = ref.watch(officeSettingsProvider).valueOrNull;
     final rows = async.valueOrNull ?? const <Factura>[];
+    final filtered = rows.where((r) => r.matchesQuery(_query.text)).toList();
     final kpi = libroKpi(
       rows,
       today: DateTime.now(),
       emitidas: libro.isVentas,
     );
     final sections = facturacionLibrosIn(libro.group);
+    final groups = _groupByMonth(context, filtered);
     return ListView(
       padding: const EdgeInsets.fromLTRB(24, 12, 24, 48),
       children: [
@@ -243,18 +264,18 @@ class _BookTab extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 AppPageHeader(
-                  kicker: office.isEmpty ? null : office,
+                  kicker: widget.office.isEmpty ? null : widget.office,
                   title: 'facturacion.libro.${libro.key}'.tr(),
                   subtitle: 'facturacion.libroHint'.tr(),
                   actions: [
-                    if (onCsv != null)
+                    if (widget.onCsv != null)
                       OutlinedButton.icon(
-                        onPressed: rows.isEmpty ? null : onCsv,
+                        onPressed: rows.isEmpty ? null : widget.onCsv,
                         icon: const Icon(Icons.download_outlined, size: 18),
                         label: Text('facturacion.exportCsv'.tr()),
                       ),
                     FilledButton.icon(
-                      onPressed: busy ? null : onAdd,
+                      onPressed: widget.busy ? null : widget.onAdd,
                       icon: const Icon(Icons.add, size: 18),
                       label: Text(
                         libro.isCompras
@@ -303,36 +324,48 @@ class _BookTab extends ConsumerWidget {
                 const SizedBox(height: 8),
                 _KpiRow(kpi: kpi, emitidas: libro.isVentas),
                 const SizedBox(height: 16),
+                AppTextField(
+                  label: 'facturacion.searchHint'.tr(),
+                  controller: _query,
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  onChanged: (_) => setState(() {}),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'facturacion.listCount'.tr(
+                    namedArgs: {'n': '${filtered.length}'},
+                  ),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 12),
                 if (async.isLoading)
                   const Center(child: CircularProgressIndicator())
-                else if (rows.isEmpty)
+                else if (filtered.isEmpty)
                   AppSectionCard(
                     hint: 'facturacion.empty'.tr(),
                     child: const SizedBox.shrink(),
                   )
                 else
-                  for (final row in rows) ...[
-                    _FacturaTile(
-                      row: row,
-                      busy: busy,
-                      onOpen: () => context.go('/facturacion/f/${row.id}'),
-                      onHide: () => onHide(row.id),
-                      onEmit: onEmit == null || !row.canEmitir
-                          ? null
-                          : () => onEmit!(row),
-                      onVerify: onVerify == null || !row.canVerificar
-                          ? null
-                          : () => onVerify!(row),
-                      onQr: (row.sifQrUrl ?? '').isEmpty &&
-                              (row.sifAeatUrl ?? '').isEmpty
-                          ? null
-                          : () => showSifQrDialog(
-                                context,
-                                qrStored: row.sifQrUrl,
-                                aeatUrl: row.sifAeatUrl,
-                              ),
+                  for (final group in groups) ...[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(4, 12, 4, 8),
+                      child: Text(
+                        '${group.label} · ${group.rows.length}',
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
                     ),
-                    const SizedBox(height: 8),
+                    _InvoiceTable(
+                      rows: group.rows,
+                      ventas: libro.isVentas,
+                      busy: widget.busy,
+                      onOpen: (row) => context.go('/facturacion/f/${row.id}'),
+                      onHide: (row) => widget.onHide(row.id),
+                      onEmit: widget.onEmit,
+                      onVerify: widget.onVerify,
+                      onPrint: libro.isVentas
+                          ? (row) => _print(row, settings)
+                          : null,
+                    ),
                   ],
               ],
             ),
@@ -341,101 +374,346 @@ class _BookTab extends ConsumerWidget {
       ],
     );
   }
+
+  void _print(Factura row, OfficeSettings? settings) {
+    final html = facturaEmitidaPrintHtml(
+      factura: row,
+      emisorNombre: (settings?.emisorNombre ?? '').trim().isNotEmpty
+          ? settings!.emisorNombre.trim()
+          : (settings?.displayName ?? '').trim(),
+      emisorNif: (settings?.emisorNif ?? '').trim(),
+    );
+    printHtmlDocument(html);
+  }
 }
 
-class _FacturaTile extends StatelessWidget {
-  const _FacturaTile({
-    required this.row,
+List<({String label, List<Factura> rows})> _groupByMonth(
+  BuildContext context,
+  List<Factura> rows,
+) {
+  final map = <String, List<Factura>>{};
+  final labels = <String, String>{};
+  for (final row in rows) {
+    final d = parseOfficeDate(row.fecha ?? '');
+    final key = d == null
+        ? ''
+        : '${d.year}-${d.month.toString().padLeft(2, '0')}';
+    map.putIfAbsent(key, () => []).add(row);
+    labels[key] = d == null
+        ? 'facturacion.ungrouped'.tr()
+        : DateFormat.yMMMM(context.locale.toString()).format(d);
+  }
+  final keys = map.keys.toList()
+    ..sort((a, b) {
+      if (a.isEmpty) return 1;
+      if (b.isEmpty) return -1;
+      return b.compareTo(a);
+    });
+  return [
+    for (final k in keys) (label: labels[k]!, rows: map[k]!),
+  ];
+}
+
+class _InvoiceTable extends StatelessWidget {
+  const _InvoiceTable({
+    required this.rows,
+    required this.ventas,
     required this.busy,
-    required this.onHide,
     required this.onOpen,
+    required this.onHide,
     this.onEmit,
     this.onVerify,
-    this.onQr,
+    this.onPrint,
   });
 
-  final Factura row;
+  final List<Factura> rows;
+  final bool ventas;
   final bool busy;
-  final VoidCallback onHide;
-  final VoidCallback onOpen;
-  final VoidCallback? onEmit;
-  final VoidCallback? onVerify;
-  final VoidCallback? onQr;
+  final ValueChanged<Factura> onOpen;
+  final ValueChanged<Factura> onHide;
+  final Future<void> Function(Factura row)? onEmit;
+  final Future<void> Function(Factura row)? onVerify;
+  final ValueChanged<Factura>? onPrint;
 
   @override
   Widget build(BuildContext context) {
-    final subtitle = [
-      if ((row.fecha ?? '').isNotEmpty) row.fecha,
-      if ((row.serie ?? '').isNotEmpty || (row.numero ?? '').isNotEmpty)
-        [row.serie, row.numero].where((s) => (s ?? '').isNotEmpty).join('-'),
-      if (row.counterparty.isNotEmpty) row.counterparty,
-    ].join(' · ');
     return AppCard(
-      onTap: onOpen,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        child: LayoutBuilder(
+        builder: (context, c) {
+          final wide = c.maxWidth >= 920;
+          return Column(
+            children: [
+              if (wide) _TableHead(ventas: ventas),
+              for (var i = 0; i < rows.length; i++) ...[
+                if (i > 0)
+                  const Divider(height: 1),
+                _TableRow(
+                  row: rows[i],
+                  ventas: ventas,
+                  wide: wide,
+                  busy: busy,
+                  onOpen: () => onOpen(rows[i]),
+                  onHide: () => onHide(rows[i]),
+                  onEmit: onEmit == null || !rows[i].canEmitir
+                      ? null
+                      : () => onEmit!(rows[i]),
+                  onVerify: onVerify == null || !rows[i].canVerificar
+                      ? null
+                      : () => onVerify!(rows[i]),
+                  onPrint: onPrint == null || !rows[i].isEmitida
+                      ? null
+                      : () => onPrint!(rows[i]),
+                ),
+              ],
+            ],
+          );
+        },
+      ),
+      ),
+    );
+  }
+}
+
+class _TableHead extends StatelessWidget {
+  const _TableHead({required this.ventas});
+
+  final bool ventas;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = Theme.of(context).textTheme.titleSmall;
+    return Container(
+      color: AppTheme.surfaceMuted,
+      padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
+      child: Row(
+        children: [
+          Expanded(flex: 12, child: Text('facturacion.colNumero'.tr(), style: style)),
+          Expanded(flex: 28, child: Text('facturacion.colCliente'.tr(), style: style)),
+          if (ventas)
+            Expanded(flex: 10, child: Text('facturacion.colTipo'.tr(), style: style)),
+          Expanded(flex: 12, child: Text('facturacion.colFecha'.tr(), style: style)),
+          Expanded(flex: 12, child: Text('facturacion.colVencimiento'.tr(), style: style)),
+          Expanded(
+            flex: 12,
+            child: Text(
+              'facturacion.colImporte'.tr(),
+              style: style,
+              textAlign: TextAlign.right,
+            ),
+          ),
+          Expanded(flex: 14, child: Text('facturacion.colEstado'.tr(), style: style)),
+          const SizedBox(width: 148),
+        ],
+      ),
+    );
+  }
+}
+
+class _TableRow extends StatelessWidget {
+  const _TableRow({
+    required this.row,
+    required this.ventas,
+    required this.wide,
+    required this.busy,
+    required this.onOpen,
+    required this.onHide,
+    this.onEmit,
+    this.onVerify,
+    this.onPrint,
+  });
+
+  final Factura row;
+  final bool ventas;
+  final bool wide;
+  final bool busy;
+  final VoidCallback onOpen;
+  final VoidCallback onHide;
+  final VoidCallback? onEmit;
+  final VoidCallback? onVerify;
+  final VoidCallback? onPrint;
+
+  @override
+  Widget build(BuildContext context) {
+    final overdue = row.isVencida();
+    final dueStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
+          color: overdue ? AppTheme.urgent : null,
+          fontWeight: overdue ? FontWeight.w600 : null,
+        );
+    final actions = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (onPrint != null)
+          IconButton(
+            tooltip: 'facturacion.print'.tr(),
+            visualDensity: VisualDensity.compact,
+            onPressed: busy ? null : onPrint,
+            icon: const Icon(Icons.print_outlined, size: 18),
+          ),
+        if (onEmit != null)
+          IconButton(
+            tooltip: 'facturacion.emitir'.tr(),
+            visualDensity: VisualDensity.compact,
+            onPressed: busy ? null : onEmit,
+            icon: const Icon(Icons.send_outlined, size: 18),
+          ),
+        if (onVerify != null)
+          IconButton(
+            tooltip: 'facturacion.verificar'.tr(),
+            visualDensity: VisualDensity.compact,
+            onPressed: busy ? null : onVerify,
+            icon: const Icon(Icons.verified_outlined, size: 18),
+          ),
+        IconButton(
+          tooltip: 'clients.softDelete'.tr(),
+          visualDensity: VisualDensity.compact,
+          onPressed: busy ? null : onHide,
+          icon: const Icon(Icons.visibility_off_outlined, size: 18),
+        ),
+      ],
+    );
+    if (!wide) {
+      return InkWell(
+        onTap: onOpen,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      row.refLabel.isEmpty ? '—' : row.refLabel,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    Text(
+                      row.counterparty.isEmpty ? '—' : row.counterparty,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    if ((row.concepto ?? '').isNotEmpty)
+                      Text(
+                        row.concepto!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppTheme.pencil,
+                            ),
+                      ),
+                    Row(
+                      children: [
+                        FacturaEstadoDot(estado: row.estado),
+                        const SizedBox(width: 6),
+                        Text(
+                          'facturacion.estado.${row.estado}'.tr(),
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
                     '${formatCents(row.totalCents)} €',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
-                  if (subtitle.isNotEmpty)
+                  if ((row.vencimiento ?? '').isNotEmpty)
                     Text(
-                      subtitle,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppTheme.pencil,
-                          ),
+                      toDmyDate(row.vencimiento) ?? row.vencimiento!,
+                      style: dueStyle,
                     ),
+                ],
+              ),
+              actions,
+            ],
+          ),
+        ),
+      );
+    }
+    return InkWell(
+      onTap: onOpen,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
+        child: Row(
+          children: [
+            Expanded(
+              flex: 12,
+              child: Text(
+                row.refLabel.isEmpty ? '—' : row.refLabel,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+            Expanded(
+              flex: 28,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Text(
-                    'facturacion.estado.${row.estado}'.tr(),
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: AppTheme.pencil,
-                        ),
+                    row.counterparty.isEmpty ? '—' : row.counterparty,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  if ((row.sifStatus ?? '').isNotEmpty &&
-                      row.sifStatus != row.estado)
+                  if ((row.concepto ?? '').isNotEmpty)
                     Text(
-                      row.sifStatus!,
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      row.concepto!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: AppTheme.pencil,
                           ),
                     ),
                 ],
               ),
             ),
-            if (row.clienteId != null)
-              IconButton(
-                tooltip: 'nav.clients'.tr(),
-                onPressed: () =>
-                    context.go('/clientes/${row.clienteId}'),
-                icon: const Icon(Icons.folder_open_outlined),
+            if (ventas)
+              Expanded(
+                flex: 10,
+                child: Text(
+                  row.isSimplificada
+                      ? 'facturacion.tipoF2'.tr()
+                      : 'facturacion.tipoF1'.tr(),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
               ),
-            if (onQr != null)
-              IconButton(
-                tooltip: 'facturacion.qr'.tr(),
-                onPressed: busy ? null : onQr,
-                icon: const Icon(Icons.qr_code_2_outlined),
-              ),
-            if (onEmit != null)
-              TextButton(
-                onPressed: busy ? null : onEmit,
-                child: Text('facturacion.emitir'.tr()),
-              ),
-            if (onVerify != null)
-              TextButton(
-                onPressed: busy ? null : onVerify,
-                child: Text('facturacion.verificar'.tr()),
-              ),
-            IconButton(
-              tooltip: 'clients.softDelete'.tr(),
-              onPressed: busy ? null : onHide,
-              icon: const Icon(Icons.visibility_off_outlined),
+            Expanded(
+              flex: 12,
+              child: Text(toDmyDate(row.fecha) ?? row.fecha ?? '—'),
             ),
+            Expanded(
+              flex: 12,
+              child: Text(
+                toDmyDate(row.vencimiento) ?? row.vencimiento ?? '—',
+                style: dueStyle,
+              ),
+            ),
+            Expanded(
+              flex: 12,
+              child: Text(
+                '${formatCents(row.totalCents)} €',
+                textAlign: TextAlign.right,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+            Expanded(
+              flex: 14,
+              child: Row(
+                children: [
+                  FacturaEstadoDot(estado: row.estado),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      'facturacion.estado.${row.estado}'.tr(),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(width: 148, child: actions),
           ],
         ),
       ),

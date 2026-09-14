@@ -1,4 +1,5 @@
 import '../../core/money/cents.dart';
+import '../../core/time/office_date.dart';
 
 /// Řádek knihy. Peníze jen integer cents.
 class Factura {
@@ -109,6 +110,29 @@ class Factura {
           : (proveedorNif ?? '').trim();
     }
     return (destinatarioNombre ?? clienteNombre ?? '').trim();
+  }
+
+  /// Splatnost už prošla kalendářní den v Madridu. Anulada se nebarví.
+  bool isVencida([DateTime? now]) {
+    if (estado == 'anulada') return false;
+    final venc = parseOfficeDate(vencimiento ?? '');
+    if (venc == null) return false;
+    return calendarDay(venc).isBefore(calendarDay(now ?? DateTime.now()));
+  }
+
+  bool matchesQuery(String raw) {
+    final q = _foldSearch(raw);
+    if (q.isEmpty) return true;
+    return [
+      refLabel,
+      counterparty,
+      destinatarioNif,
+      proveedorNif,
+      concepto,
+      numero,
+      serie,
+      fecha,
+    ].whereType<String>().any((s) => _foldSearch(s).contains(q));
   }
 
   factory Factura.fromRow(Map<dynamic, dynamic> raw) {
@@ -309,4 +333,45 @@ String _csv(String? raw) {
     return '"${v.replaceAll('"', '""')}"';
   }
   return v;
+}
+
+/// Hledání bez háčků — Košice i kosice.
+String _foldSearch(String raw) {
+  var t = raw.trim().toLowerCase();
+  const pairs = {
+    'á': 'a',
+    'ä': 'a',
+    'à': 'a',
+    'â': 'a',
+    'č': 'c',
+    'ć': 'c',
+    'ď': 'd',
+    'é': 'e',
+    'ě': 'e',
+    'è': 'e',
+    'ê': 'e',
+    'í': 'i',
+    'ì': 'i',
+    'ň': 'n',
+    'ñ': 'n',
+    'ó': 'o',
+    'ö': 'o',
+    'ò': 'o',
+    'ô': 'o',
+    'ř': 'r',
+    'š': 's',
+    'ś': 's',
+    'ť': 't',
+    'ú': 'u',
+    'ů': 'u',
+    'ü': 'u',
+    'ù': 'u',
+    'ý': 'y',
+    'ž': 'z',
+    'ß': 'ss',
+  };
+  for (final e in pairs.entries) {
+    t = t.replaceAll(e.key, e.value);
+  }
+  return t;
 }

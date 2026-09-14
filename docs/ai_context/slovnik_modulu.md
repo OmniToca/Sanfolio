@@ -22,7 +22,7 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `facturas` | SQL | `recibida` bez AEAT; `pendiente` u Verifacti; `emitida` až po Ověřit |
 | `factura_emit_screen` | `features/facturacion` | plný koncept vydané: klient ze seznamu nebo ručně, řádky, F1/F2 |
 | `facturacion_nav` | `features/facturacion` | vnitřní knihy Ventas/Compras; nová agenda sem, ne do railu |
-| `factura_detail_screen` | `features/facturacion` | náhled + Imprimir A4 (španělský papír, QR) |
+| `factura_detail_screen` | `features/facturacion` | náhled (karty + tabulka řádků) + Imprimir A4 (španělský papír, QR, blob URL) |
 | `AiPanel` / `aiChatProvider` | `features/ai/ai_panel.dart` | trvalý chat; zápis `ai_conversations` + `ai_messages` |
 | `AiPanel` / `aiChatProvider` | `features/ai/ai_panel.dart` | trvalý chat; zápis `ai_conversations` + `ai_messages` |
 | `extract-document` | Edge Function | fotka/PDF → text LLM nebo vision → `ai_drafts`; compraventa: všichni kupující/prodávající, cena, finca, právník; Guardar je gestor |
