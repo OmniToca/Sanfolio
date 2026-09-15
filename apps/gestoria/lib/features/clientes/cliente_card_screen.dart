@@ -30,6 +30,7 @@ import '../expedientes/expediente_controller.dart';
 import '../facturacion/cliente_facturas_section.dart';
 import '../inbox/inbox_providers.dart';
 import '../mensajes/mensaje_history.dart';
+import '../posta/posta_cliente_section.dart';
 import '../settings/office_settings_controller.dart';
 
 class ClienteCardScreen extends ConsumerStatefulWidget {
@@ -184,6 +185,10 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
                                           clienteId: widget.clienteId,
                                         ),
                                         const SizedBox(height: 16),
+                                        ClientePostaSection(
+                                          clienteId: widget.clienteId,
+                                        ),
+                                        const SizedBox(height: 16),
                                         ClienteMensajeHistory(
                                           clienteId: widget.clienteId,
                                           clientLocale: card.locale,
@@ -199,6 +204,10 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
                               _documentsCard(card),
                               const SizedBox(height: 16),
                               ClienteFacturasSection(
+                                clienteId: widget.clienteId,
+                              ),
+                              const SizedBox(height: 16),
+                              ClientePostaSection(
                                 clienteId: widget.clienteId,
                               ),
                               const SizedBox(height: 16),

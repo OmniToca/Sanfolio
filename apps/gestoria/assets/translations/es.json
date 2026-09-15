@@ -6,6 +6,7 @@
   },
   "nav": {
     "inbox": "Hoy",
+    "posta": "Correo",
     "clients": "Clientes",
     "invoices": "Facturas",
     "settings": "Ajustes"
@@ -252,6 +253,17 @@
         "insert": "Alta de titular",
         "update": "Cambio de cuota",
         "soft_delete": "Baja de titular"
+      },
+      "posta": {
+        "insert": "Correo recibido",
+        "assigned": "Correo asignado al cliente",
+        "unassigned": "Asignación de correo retirada",
+        "ignored": "Correo ignorado",
+        "update": "Cambio de correo",
+        "filed": "Adjunto guardado en la carpeta",
+        "attachment_insert": "Adjunto de correo",
+        "attachment_update": "Cambio de adjunto",
+        "attachment_soft_delete": "Adjunto ocultado"
       }
     }
   },
@@ -294,6 +306,63 @@
       "draft": "Borrador",
       "sent": "Enviado",
       "discarded": "Descartado"
+    }
+  },
+  "posta": {
+    "title": "Correo",
+    "subtitle": "Asigne el correo al cliente y archive el adjunto en su carpeta. Responda en Gmail.",
+    "empty": "Ningún correo en este filtro.",
+    "loadError": "No se pudo cargar el correo.",
+    "moduleOff": "El módulo de mensajes está apagado.",
+    "noSubject": "(sin asunto)",
+    "noBody": "El cuerpo del correo está vacío.",
+    "back": "Volver a la lista",
+    "assign": "Asignar al cliente",
+    "assignError": "No se pudo asignar el cliente.",
+    "assigned": "Asignado a la ficha",
+    "unassign": "Quitar asignación",
+    "ignore": "Ignorar",
+    "ignoreError": "No se pudo ignorar el correo.",
+    "pickClient": "Elegir cliente",
+    "searchClient": "Buscar nombre, correo o NIE",
+    "noClient": "Nadie coincide.",
+    "file": "Guardar en carpeta",
+    "fileTo": "Dónde guardar el adjunto",
+    "fileCard": "Ficha del cliente (sin bloque)",
+    "filed": "El adjunto está en la carpeta.",
+    "fileError": "No se pudo guardar el adjunto.",
+    "alreadyFiled": "Ya está en la carpeta",
+    "attachments": "Adjuntos",
+    "noAttachments": "Sin adjunto.",
+    "attachCount": "{count} adjuntos",
+    "openGmail": "Abrir en Gmail",
+    "openInbox": "Abrir correo",
+    "badge": "{count} correos con adjunto sin cliente",
+    "cardTitle": "Correo recibido",
+    "cardHint": "Correos asignados a esta ficha. El adjunto lo guarda usted.",
+    "cardEmpty": "Aún no hay correo asignado.",
+    "ingestTitle": "Dirección para copias de correo",
+    "ingestHint": "Reenvíe el correo de la oficina aquí. Los buzones personales no.",
+    "ingestCopy": "Copiar dirección",
+    "ingestCopied": "Dirección copiada.",
+    "replyToHint": "Respuesta del cliente: {email}",
+    "replyToCopy": "Copiar Reply-To",
+    "replyToCopied": "Reply-To copiado.",
+    "filter": {
+      "unassigned": "Sin cliente",
+      "attachments": "Con adjunto",
+      "assigned": "Asignados",
+      "all": "Todos"
+    },
+    "status": {
+      "unassigned": "Sin asignar",
+      "assigned": "Asignado",
+      "ignored": "Ignorado"
+    },
+    "match": {
+      "plus_address": "Reconocido por el Reply-To de la carpeta.",
+      "from_email": "Reconocido por el correo del remitente.",
+      "manual": "Asignado por el gestor."
     }
   },
   "folder": {

@@ -6,6 +6,7 @@
   },
   "nav": {
     "inbox": "Aujourd’hui",
+    "posta": "Courrier",
     "clients": "Clients",
     "invoices": "Factures",
     "settings": "Paramètres"
@@ -252,6 +253,17 @@
         "insert": "Titular ajouté",
         "update": "Quote-part modifiée",
         "soft_delete": "Titular retiré"
+      },
+      "posta": {
+        "insert": "E-mail reçu",
+        "assigned": "E-mail lié au client",
+        "unassigned": "Lien e-mail retiré",
+        "ignored": "E-mail ignoré",
+        "update": "E-mail modifié",
+        "filed": "Pièce classée dans le dossier",
+        "attachment_insert": "Pièce jointe",
+        "attachment_update": "Pièce jointe modifiée",
+        "attachment_soft_delete": "Pièce jointe masquée"
       }
     }
   },
@@ -294,6 +306,63 @@
       "draft": "Brouillon",
       "sent": "Envoyé",
       "discarded": "Écarté"
+    }
+  },
+  "posta": {
+    "title": "Courrier",
+    "subtitle": "Liez le mail au client et classez la pièce jointe dans son dossier. Répondez dans Gmail.",
+    "empty": "Aucun mail dans ce filtre.",
+    "loadError": "Impossible de charger le courrier.",
+    "moduleOff": "Le module messages est désactivé.",
+    "noSubject": "(sans objet)",
+    "noBody": "Le corps du mail est vide.",
+    "back": "Retour à la liste",
+    "assign": "Lier au client",
+    "assignError": "Impossible de lier le client.",
+    "assigned": "Lié à la fiche",
+    "unassign": "Retirer le lien",
+    "ignore": "Ignorer",
+    "ignoreError": "Impossible d’ignorer le mail.",
+    "pickClient": "Choisir un client",
+    "searchClient": "Chercher nom, e-mail ou NIE",
+    "noClient": "Personne trouvée.",
+    "file": "Classer dans le dossier",
+    "fileTo": "Où classer la pièce jointe",
+    "fileCard": "Fiche client (sans bloc)",
+    "filed": "La pièce jointe est dans le dossier.",
+    "fileError": "Impossible de classer la pièce jointe.",
+    "alreadyFiled": "Déjà dans le dossier",
+    "attachments": "Pièces jointes",
+    "noAttachments": "Aucune pièce jointe.",
+    "attachCount": "{count} pièces jointes",
+    "openGmail": "Ouvrir dans Gmail",
+    "openInbox": "Ouvrir le courrier",
+    "badge": "{count} mails avec pièce jointe sans client",
+    "cardTitle": "Courrier reçu",
+    "cardHint": "Mails liés à cette fiche. C’est vous qui classez la pièce.",
+    "cardEmpty": "Pas encore de mail lié.",
+    "ingestTitle": "Adresse pour les copies de courrier",
+    "ingestHint": "Transférez le courrier du cabinet ici. Pas les boîtes personnelles.",
+    "ingestCopy": "Copier l’adresse",
+    "ingestCopied": "Adresse copiée.",
+    "replyToHint": "Réponse du client : {email}",
+    "replyToCopy": "Copier Reply-To",
+    "replyToCopied": "Reply-To copié.",
+    "filter": {
+      "unassigned": "Sans client",
+      "attachments": "Avec pièce jointe",
+      "assigned": "Liés",
+      "all": "Tous"
+    },
+    "status": {
+      "unassigned": "Non attribué",
+      "assigned": "Lié",
+      "ignored": "Ignoré"
+    },
+    "match": {
+      "plus_address": "Reconnu grâce au Reply-To du dossier.",
+      "from_email": "Reconnu grâce à l’e-mail de l’expéditeur.",
+      "manual": "Lié par le gestor."
     }
   },
   "folder": {

@@ -6,6 +6,7 @@
   },
   "nav": {
     "inbox": "Today",
+    "posta": "Mail",
     "clients": "Clients",
     "invoices": "Invoices",
     "settings": "Settings"
@@ -252,6 +253,17 @@
         "insert": "Added a titular",
         "update": "Updated a share",
         "soft_delete": "Removed a titular"
+      },
+      "posta": {
+        "insert": "Inbound email",
+        "assigned": "Linked email to a client",
+        "unassigned": "Unlinked an email",
+        "ignored": "Ignored an email",
+        "update": "Updated an email",
+        "filed": "Filed an attachment in the folder",
+        "attachment_insert": "Email attachment",
+        "attachment_update": "Updated an email attachment",
+        "attachment_soft_delete": "Hid an email attachment"
       }
     }
   },
@@ -294,6 +306,63 @@
       "draft": "Draft",
       "sent": "Sent",
       "discarded": "Discarded"
+    }
+  },
+  "posta": {
+    "title": "Mail",
+    "subtitle": "Link the email to a client and file the attachment in their folder. Reply in Gmail.",
+    "empty": "No mail in this filter.",
+    "loadError": "Mail could not be loaded.",
+    "moduleOff": "The messaging module is off.",
+    "noSubject": "(no subject)",
+    "noBody": "The email body is empty.",
+    "back": "Back to list",
+    "assign": "Link to client",
+    "assignError": "The client could not be linked.",
+    "assigned": "Linked to the card",
+    "unassign": "Unlink",
+    "ignore": "Ignore",
+    "ignoreError": "The email could not be ignored.",
+    "pickClient": "Choose a client",
+    "searchClient": "Search name, email or NIE",
+    "noClient": "No one matched.",
+    "file": "Save to folder",
+    "fileTo": "Where to file the attachment",
+    "fileCard": "Client card (no block)",
+    "filed": "The attachment is in the folder.",
+    "fileError": "The attachment could not be filed.",
+    "alreadyFiled": "Already in the folder",
+    "attachments": "Attachments",
+    "noAttachments": "No attachment.",
+    "attachCount": "{count} attachments",
+    "openGmail": "Open in Gmail",
+    "openInbox": "Open mail",
+    "badge": "{count} emails with attachments and no client",
+    "cardTitle": "Inbound mail",
+    "cardHint": "Emails linked to this card. You file the attachment.",
+    "cardEmpty": "No linked email yet.",
+    "ingestTitle": "Address for mail copies",
+    "ingestHint": "Forward inbound office mail here. Personal inboxes stay out.",
+    "ingestCopy": "Copy address",
+    "ingestCopied": "Address copied.",
+    "replyToHint": "Client reply: {email}",
+    "replyToCopy": "Copy Reply-To",
+    "replyToCopied": "Reply-To copied.",
+    "filter": {
+      "unassigned": "No client",
+      "attachments": "With attachment",
+      "assigned": "Linked",
+      "all": "All"
+    },
+    "status": {
+      "unassigned": "Unassigned",
+      "assigned": "Linked",
+      "ignored": "Ignored"
+    },
+    "match": {
+      "plus_address": "Matched from the folder Reply-To address.",
+      "from_email": "Matched from the sender email.",
+      "manual": "Linked by staff."
     }
   },
   "folder": {

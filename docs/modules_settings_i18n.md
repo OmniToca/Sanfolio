@@ -78,7 +78,7 @@ Workflow kanceláře = zapnuté moduly + tyhle offsety + pořadí bloků. Ne BPM
 | `core` | vždy | shell, klienti, hledání, audit |
 | `carpeta_inmueble` | ano | `carpeta.blocks` (papír) |
 | `impuestos` | ano (jen plazo) | `cliente.tabs`, `inbox.feed` |
-| `messaging` | ano (e-mail + copy WhatsApp) | `inbox.feed`, `cliente.tabs` |
+| `messaging` | ano (e-mail + copy WhatsApp + příchozí Pošta) | `inbox.feed`, `cliente.tabs`; nav `/posta` |
 | `nie_poder` | ano jako bloky na desce | `carpeta.blocks` |
 | `ai_copilot` | kostra | pravý panel (`AiPanel`) |
 | `facturacion` | ano (kniha, ne SIF) | `cliente.tabs`, `settings.section`, nav `/facturacion`; vnitřní knihy Ventas/Compras v `facturacion_nav.dart` (ne další rail) |

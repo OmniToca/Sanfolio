@@ -6,6 +6,7 @@
   },
   "nav": {
     "inbox": "Dnes",
+    "posta": "Pošta",
     "clients": "Klienti",
     "invoices": "Faktury",
     "settings": "Nastavení"
@@ -252,6 +253,17 @@
         "insert": "Přidání titulare",
         "update": "Úprava podílu",
         "soft_delete": "Odebrání titulare"
+      },
+      "posta": {
+        "insert": "Přijatý e-mail",
+        "assigned": "Přiřazení e-mailu ke klientovi",
+        "unassigned": "Zrušení přiřazení e-mailu",
+        "ignored": "Ignorování e-mailu",
+        "update": "Úprava e-mailu",
+        "filed": "Příloha uložená do složky",
+        "attachment_insert": "Příloha e-mailu",
+        "attachment_update": "Úprava přílohy e-mailu",
+        "attachment_soft_delete": "Schování přílohy e-mailu"
       }
     }
   },
@@ -294,6 +306,63 @@
       "draft": "Draft",
       "sent": "Odesláno",
       "discarded": "Zahozeno"
+    }
+  },
+  "posta": {
+    "title": "Pošta",
+    "subtitle": "Přiřaďte mail ke klientovi a přílohu uložte do složky. Odpovídáte dál v Gmailu.",
+    "empty": "Žádný mail v tomhle filtru.",
+    "loadError": "Poštu se nepodařilo načíst.",
+    "moduleOff": "Modul zpráv není zapnutý.",
+    "noSubject": "(bez předmětu)",
+    "noBody": "Tělo e-mailu je prázdné.",
+    "back": "Zpět na seznam",
+    "assign": "Přiřadit ke klientovi",
+    "assignError": "Klienta se nepodařilo přiřadit.",
+    "assigned": "Přiřazeno ke kartě",
+    "unassign": "Zrušit přiřazení",
+    "ignore": "Ignorovat",
+    "ignoreError": "Mail se nepodařilo ignorovat.",
+    "pickClient": "Vybrat klienta",
+    "searchClient": "Hledat jméno, e-mail nebo NIE",
+    "noClient": "Nikdo se nenašel.",
+    "file": "Uložit do složky",
+    "fileTo": "Kam uložit přílohu",
+    "fileCard": "Karta klienta (bez bloku)",
+    "filed": "Příloha je ve složce.",
+    "fileError": "Přílohu se nepodařilo uložit do složky.",
+    "alreadyFiled": "Už je ve složce",
+    "attachments": "Přílohy",
+    "noAttachments": "Bez přílohy.",
+    "attachCount": "{count} příloh",
+    "openGmail": "Otevřít v Gmailu",
+    "openInbox": "Otevřít poštu",
+    "badge": "{count} mailů s přílohou bez klienta",
+    "cardTitle": "Přijatá pošta",
+    "cardHint": "Maily přiřazené k této kartě. Přílohu ukládáte vy.",
+    "cardEmpty": "Zatím žádný přiřazený mail.",
+    "ingestTitle": "Adresa pro kopie pošty",
+    "ingestHint": "V Gmailu nastavte přeposílání příchozích na tuhle adresu. Sem nepatří osobní schránky.",
+    "ingestCopy": "Kopírovat adresu",
+    "ingestCopied": "Adresa je ve schránce.",
+    "replyToHint": "Odpověď klienta: {email}",
+    "replyToCopy": "Kopírovat Reply-To",
+    "replyToCopied": "Reply-To je ve schránce.",
+    "filter": {
+      "unassigned": "Bez klienta",
+      "attachments": "S přílohou",
+      "assigned": "Přiřazené",
+      "all": "Vše"
+    },
+    "status": {
+      "unassigned": "Nepřiřazeno",
+      "assigned": "Přiřazeno",
+      "ignored": "Ignorováno"
+    },
+    "match": {
+      "plus_address": "Poznáno z Reply-To adresy složky.",
+      "from_email": "Poznáno z e-mailu odesílatele.",
+      "manual": "Přiřadil gestor."
     }
   },
   "folder": {

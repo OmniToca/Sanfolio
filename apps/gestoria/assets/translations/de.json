@@ -6,6 +6,7 @@
   },
   "nav": {
     "inbox": "Heute",
+    "posta": "Post",
     "clients": "Mandanten",
     "invoices": "Rechnungen",
     "settings": "Einstellungen"
@@ -252,6 +253,17 @@
         "insert": "Titular hinzugefügt",
         "update": "Anteil geändert",
         "soft_delete": "Titular entfernt"
+      },
+      "posta": {
+        "insert": "Eingegangene E-Mail",
+        "assigned": "E-Mail dem Mandanten zugeordnet",
+        "unassigned": "E-Mail-Zuordnung gelöst",
+        "ignored": "E-Mail ignoriert",
+        "update": "E-Mail geändert",
+        "filed": "Anhang in der Mappe abgelegt",
+        "attachment_insert": "E-Mail-Anhang",
+        "attachment_update": "Anhang geändert",
+        "attachment_soft_delete": "Anhang ausgeblendet"
       }
     }
   },
@@ -294,6 +306,63 @@
       "draft": "Entwurf",
       "sent": "Gesendet",
       "discarded": "Verworfen"
+    }
+  },
+  "posta": {
+    "title": "Post",
+    "subtitle": "Mail dem Mandanten zuordnen und den Anhang in die Mappe legen. Antworten bleiben in Gmail.",
+    "empty": "Keine Mail in diesem Filter.",
+    "loadError": "Die Post konnte nicht geladen werden.",
+    "moduleOff": "Das Nachrichtenmodul ist aus.",
+    "noSubject": "(kein Betreff)",
+    "noBody": "Der Mailtext ist leer.",
+    "back": "Zurück zur Liste",
+    "assign": "Mandanten zuordnen",
+    "assignError": "Der Mandant konnte nicht zugeordnet werden.",
+    "assigned": "Der Karte zugeordnet",
+    "unassign": "Zuordnung lösen",
+    "ignore": "Ignorieren",
+    "ignoreError": "Die Mail konnte nicht ignoriert werden.",
+    "pickClient": "Mandanten wählen",
+    "searchClient": "Name, E-Mail oder NIE suchen",
+    "noClient": "Niemand gefunden.",
+    "file": "In die Mappe legen",
+    "fileTo": "Wohin der Anhang",
+    "fileCard": "Mandantenkarte (ohne Block)",
+    "filed": "Der Anhang ist in der Mappe.",
+    "fileError": "Der Anhang konnte nicht abgelegt werden.",
+    "alreadyFiled": "Bereits in der Mappe",
+    "attachments": "Anhänge",
+    "noAttachments": "Kein Anhang.",
+    "attachCount": "{count} Anhänge",
+    "openGmail": "In Gmail öffnen",
+    "openInbox": "Post öffnen",
+    "badge": "{count} Mails mit Anhang ohne Mandanten",
+    "cardTitle": "Eingegangene Post",
+    "cardHint": "Mails zu dieser Karte. Den Anhang legen Sie ab.",
+    "cardEmpty": "Noch keine zugeordnete Mail.",
+    "ingestTitle": "Adresse für Postkopien",
+    "ingestHint": "Leiten Sie die Büropost hierher weiter. Private Postfächer bleiben draußen.",
+    "ingestCopy": "Adresse kopieren",
+    "ingestCopied": "Adresse kopiert.",
+    "replyToHint": "Antwort des Mandanten: {email}",
+    "replyToCopy": "Reply-To kopieren",
+    "replyToCopied": "Reply-To kopiert.",
+    "filter": {
+      "unassigned": "Ohne Mandant",
+      "attachments": "Mit Anhang",
+      "assigned": "Zugeordnet",
+      "all": "Alle"
+    },
+    "status": {
+      "unassigned": "Nicht zugeordnet",
+      "assigned": "Zugeordnet",
+      "ignored": "Ignoriert"
+    },
+    "match": {
+      "plus_address": "Erkannt über die Reply-To-Adresse der Mappe.",
+      "from_email": "Erkannt über die Absenderadresse.",
+      "manual": "Vom Gestor zugeordnet."
     }
   },
   "folder": {

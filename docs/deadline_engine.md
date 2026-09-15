@@ -130,7 +130,7 @@ Stejné tělo jako 5.3 s konkrétním `{{bloque}}`.
 
 ## 6. Odeslání
 
-MVP: Edge Function `send_client_message` (Resend nebo SMTP). Volá ji **jen** authenticated gestor po kliknutí, ne cron, ne AI.
+MVP: Edge Function `send_client_message` (Resend nebo SMTP). Volá ji **jen** authenticated gestor po kliknutí, ne cron, ne AI. Do doby, než existuje, compose otvírá `mailto:` a do `Reply-To` dává plus-adresu složky (`posta_accounts.ingest_local+{cliente_id}@…`), aby odpověď s PDF spadla do `/posta` na stejného klienta.
 
 `tenant_settings.send_translated_outbound = true` (Gestorie Jarka): do e-mailu / WhatsApp jde **překlad** v `clientes.locale`. Originál (`mensajes.cuerpo` + `locale_original`) zůstane ve spisu a později v klientské zóně vedle překladu. Překlad se uloží jednou do `mensajes.translations`.
 

@@ -43,3 +43,6 @@ verify_jwt = true
 
 [functions.sif-status]
 verify_jwt = true
+
+[functions.posta-inbound]
+verify_jwt = false

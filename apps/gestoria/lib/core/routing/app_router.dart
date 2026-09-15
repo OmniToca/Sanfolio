@@ -18,6 +18,7 @@ import '../../features/mensajes/mensaje_compose_screen.dart';
 import '../../features/facturacion/facturacion_screen.dart';
 import '../../features/facturacion/factura_emit_screen.dart';
 import '../../features/facturacion/factura_detail_screen.dart';
+import '../../features/posta/posta_screen.dart';
 import '../../features/settings/settings_screen.dart';
 import '../../features/shell/app_shell.dart';
 
@@ -103,6 +104,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: '/inbox',
             pageBuilder: (context, state) => const NoTransitionPage(
               child: InboxScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/posta/:id',
+            pageBuilder: (context, state) => NoTransitionPage(
+              child: PostaScreen(
+                initialId: state.pathParameters['id'],
+              ),
+            ),
+          ),
+          GoRoute(
+            path: '/posta',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: PostaScreen(),
             ),
           ),
           GoRoute(

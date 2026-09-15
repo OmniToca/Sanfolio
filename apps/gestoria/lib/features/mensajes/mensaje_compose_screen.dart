@@ -8,6 +8,8 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/modules/feature_gate.dart';
 import '../../core/modules/module_catalog.dart';
+import '../posta/posta_address.dart';
+import '../posta/posta_providers.dart';
 import '../settings/office_settings_controller.dart';
 import 'mensaje_providers.dart';
 import 'mensaje_templates.dart';
@@ -89,6 +91,8 @@ class _MensajeComposeScreenState extends ConsumerState<MensajeComposeScreen> {
                 Text(row.nombre.isEmpty ? 'inbox.unnamed'.tr() : row.nombre),
                 const SizedBox(height: 8),
                 Text('messages.intro'.tr()),
+                const SizedBox(height: 12),
+                _ReplyToHint(clienteId: widget.clienteId),
                 const SizedBox(height: 16),
                 DropdownMenu<String>(
                   key: ValueKey(_tpl ?? 'none'),
@@ -221,12 +225,20 @@ class _MensajeComposeScreenState extends ConsumerState<MensajeComposeScreen> {
         status: 'sent',
         templateKey: _tpl,
       );
+      final account = ref.read(postaAccountProvider).valueOrNull;
+      final replyTo = account == null
+          ? null
+          : postaReplyTo(
+              ingestAddress: account.ingestAddress,
+              clienteId: row.id,
+            );
       final uri = Uri(
         scheme: 'mailto',
         path: row.email,
         queryParameters: {
           'subject': _asunto.text.trim(),
           'body': outbound,
+          if (replyTo != null && replyTo.isNotEmpty) 'reply-to': replyTo,
         },
       );
       await launchUrl(uri);
@@ -275,3 +287,44 @@ class _MensajeComposeScreenState extends ConsumerState<MensajeComposeScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
 }
+
+/// Reply-To plus-adresa, ať odpověď s PDF spadne do /posta na tuto kartu.
+class _ReplyToHint extends ConsumerWidget {
+  const _ReplyToHint({required this.clienteId});
+
+  final String clienteId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final account = ref.watch(postaAccountProvider).valueOrNull;
+    if (account == null || account.ingestAddress.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final addr = postaReplyTo(
+      ingestAddress: account.ingestAddress,
+      clienteId: clienteId,
+    );
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            'posta.replyToHint'.tr(namedArgs: {'email': addr}),
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ),
+        IconButton(
+          tooltip: 'posta.replyToCopy'.tr(),
+          icon: const Icon(Icons.copy),
+          onPressed: () async {
+            await Clipboard.setData(ClipboardData(text: addr));
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('posta.replyToCopied'.tr())),
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+

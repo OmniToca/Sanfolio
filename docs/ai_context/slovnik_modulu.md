@@ -73,5 +73,12 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `client_contacts` | SQL | druhý kontakt + locale (komunikace, ne vlastnictví) |
 | `inmueble_titulares` | SQL + šanon escritura | spoluvlastníci finca; Guardar založí kartu kupujícího bez carpeta; 210 čte sharePercent |
 | `organization_modules` | SQL | které moduly kancelář má |
+| `posta` | `features/posta`, modul `messaging` | příchozí pošta; `/posta` třídírna; příloha → `documentos` |
+| `posta_accounts` | SQL | ingest adresa tenanta (`p{8hex}@inbound…`) |
+| `posta_messages` | SQL | inbound, ne `mensajes`; status unassigned/assigned/ignored |
+| `posta_attachments` | SQL | blob `{tenant}/posta/{id}/…`; `documento_id` až gestor uloží |
+| `posta-inbound` | Edge Function | webhook Resend/Postmark; AI neukládá |
+| `assign_posta_message` | SQL RPC | gestor přiřadí klienta; auto jen unique From / plus-adresa |
+| `postaReplyTo` | `posta_address.dart` | Pedir `Reply-To: local+{clienteId}@domain` |
 
 Jazyky UI: `cs` `en` `es` `de` `fr` (per `profiles.locale`). Klient: `clientes.locale`. Outbound zpráva = překlad.

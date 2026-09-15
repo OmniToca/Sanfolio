@@ -28,8 +28,10 @@ class AppShell extends ConsumerWidget {
     final cfg = ref.watch(tenantConfigProvider).valueOrNull;
     final aiOn = cfg?.isOn(GestoriaModule.aiCopilot) ?? false;
     final facturacionOn = cfg?.isOn(GestoriaModule.facturacion) ?? false;
+    final postaOn = cfg?.isOn(GestoriaModule.messaging) ?? false;
     final paths = [
       '/inbox',
+      if (postaOn) '/posta',
       '/clientes',
       if (facturacionOn) '/facturacion',
       '/settings',
@@ -40,7 +42,11 @@ class AppShell extends ConsumerWidget {
         final i = paths.indexOf('/facturacion');
         return i < 0 ? 0 : i;
       }
-      if (loc.startsWith('/clientes')) return 1;
+      if (loc.startsWith('/clientes')) return paths.indexOf('/clientes');
+      if (loc.startsWith('/posta')) {
+        final i = paths.indexOf('/posta');
+        return i < 0 ? 0 : i;
+      }
       return 0;
     }
 
@@ -65,6 +71,12 @@ class AppShell extends ConsumerWidget {
         selectedIcon: const Icon(Icons.inbox),
         label: 'nav.inbox'.tr(),
       ),
+      if (postaOn)
+        NavigationDestination(
+          icon: const Icon(Icons.mail_outline),
+          selectedIcon: const Icon(Icons.mail),
+          label: 'nav.posta'.tr(),
+        ),
       NavigationDestination(
         icon: const Icon(Icons.folder_outlined),
         selectedIcon: const Icon(Icons.folder),
@@ -183,6 +195,7 @@ class AppShell extends ConsumerWidget {
               selected: selected,
               aiSelected: panelOpen,
               showAi: aiOn,
+              showPosta: postaOn,
               showFacturacion: facturacionOn,
               onSelect: goIndex,
               onAi: toggleAi,
@@ -213,6 +226,7 @@ class _OfficeRail extends StatelessWidget {
     required this.selected,
     required this.aiSelected,
     required this.showAi,
+    required this.showPosta,
     required this.showFacturacion,
     required this.onSelect,
     required this.onAi,
@@ -223,6 +237,7 @@ class _OfficeRail extends StatelessWidget {
   final int selected;
   final bool aiSelected;
   final bool showAi;
+  final bool showPosta;
   final bool showFacturacion;
   final ValueChanged<int> onSelect;
   final VoidCallback onAi;
@@ -233,6 +248,7 @@ class _OfficeRail extends StatelessWidget {
   Widget build(BuildContext context) {
     final items = [
       (Icons.inbox_outlined, Icons.inbox, 'nav.inbox'.tr()),
+      if (showPosta) (Icons.mail_outline, Icons.mail, 'nav.posta'.tr()),
       (Icons.folder_outlined, Icons.folder, 'nav.clients'.tr()),
       if (showFacturacion)
         (
