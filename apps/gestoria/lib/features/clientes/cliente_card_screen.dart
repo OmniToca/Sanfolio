@@ -179,13 +179,13 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
                                     flex: 4,
                                     child: Column(
                                       children: [
-                                        _documentsCard(card),
-                                        const SizedBox(height: 16),
-                                        ClienteFacturasSection(
+                                        ClientePostaSection(
                                           clienteId: widget.clienteId,
                                         ),
                                         const SizedBox(height: 16),
-                                        ClientePostaSection(
+                                        _documentsCard(card),
+                                        const SizedBox(height: 16),
+                                        ClienteFacturasSection(
                                           clienteId: widget.clienteId,
                                         ),
                                         const SizedBox(height: 16),
@@ -201,13 +201,13 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
                             else ...[
                               _identityCard(card),
                               const SizedBox(height: 16),
-                              _documentsCard(card),
-                              const SizedBox(height: 16),
-                              ClienteFacturasSection(
+                              ClientePostaSection(
                                 clienteId: widget.clienteId,
                               ),
                               const SizedBox(height: 16),
-                              ClientePostaSection(
+                              _documentsCard(card),
+                              const SizedBox(height: 16),
+                              ClienteFacturasSection(
                                 clienteId: widget.clienteId,
                               ),
                               const SizedBox(height: 16),

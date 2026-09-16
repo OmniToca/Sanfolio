@@ -19,7 +19,26 @@ Provozní systém španělské kanceláře. Evidence klienta a služeb, doklady,
 1. **Add new project** → Import from Git → `OmniToca/Sanfolio`.
 2. Build z root `netlify.toml` (kancelář). Support později: druhé project, Base directory `apps/support`.
 3. Environment variables: `SUPABASE_URL`, `SUPABASE_ANON_KEY`. Adresy webů Netlify doplní samo (`$URL`). Až bude Support na vlastní URL, nastav `SUPPORT_APP_URL`.
-4. Po prvním deploji: Supabase Auth → Redirect URLs včetně `https://….netlify.app/reset-password` a `https://….netlify.app/reset-password/**`. Site URL = kancelář.
+4. Po prvním deploji: Supabase Auth → Redirect URLs včetně `https://sanfolio.app/reset-password` a `https://sanfolio.app/reset-password/**` (dočasně i `https://sanfolio-os.netlify.app/…`). Site URL = `https://sanfolio.app`.
+
+### Vlastní doména (Webglobe → Netlify + pošta)
+
+`sanfolio.app` je web kanceláře. `sanfolio.com` jen přesměruje. Příchozí pošta **20 kanceláří** sdílí subdoménu `inbound.sanfolio.app` — každá má `p{8hex}@inbound.sanfolio.app`, ne vlastní mailbox.
+
+V Netlify: Domain management → Add `sanfolio.app` + `www.sanfolio.app`. Env `GESTORIA_BASE_URL=https://sanfolio.app`. Edge secret stejná URL.
+
+DNS u Webglobe (Netlify už má `sanfolio.app` + `www`):
+
+| Host | Typ | Cíl |
+| --- | --- | --- |
+| `@` (`sanfolio.app`) | ALIAS / ANAME | `apex-loadbalancer.netlify.com` |
+| `@` (když Webglobe ALIAS neumí) | A | `75.2.60.5` |
+| `www` | CNAME | `sanfolio-os.netlify.app` |
+| `@` na `sanfolio.com` | URL redirect | `https://sanfolio.app` |
+| `inbound` | MX | až Resend/Postmark (catch-all → webhook `posta-inbound`) |
+| `@` | TXT SPF / DKIM | Resend, až budeme posílat z `posta@sanfolio.app` |
+
+Bez MX na `inbound` Pošta zůstane prázdná. Bez ověřené From adresy v Resendu výzva otevře Gmail.
 
 ```bash
 # kancelář

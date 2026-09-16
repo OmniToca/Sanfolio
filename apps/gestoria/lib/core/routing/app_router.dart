@@ -154,6 +154,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 bloqueKey: state.uri.queryParameters['bloque'],
                 fecha: state.uri.queryParameters['fecha'],
                 documento: state.uri.queryParameters['documento'],
+                postaMessageId: state.uri.queryParameters['posta'],
               ),
             ),
           ),

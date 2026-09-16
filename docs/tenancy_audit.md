@@ -11,7 +11,7 @@ Vzory z OmniToca (Support ≠ Cloud, impersonace s důvodem) a LeoDejvIT (soft-d
 | `gestoria` | kancelář | Flutter web | RLS na `tenant_id` |
 | `cliente` | klienti kanceláře | později | v MVP se nestaví |
 
-Cross-app URL: `GESTORIA_BASE_URL`, `SUPPORT_APP_URL`. Release zakazuje localhost. Handoff **vždy** nese `refresh_token` v hash (dvě origin = dvě localStorage). Produkční build na Netlify: env `SUPABASE_*`; URL default `$URL` (viz root `netlify.toml`).
+Cross-app URL: `GESTORIA_BASE_URL`, `SUPPORT_APP_URL`. Release zakazuje localhost. Handoff **vždy** nese `refresh_token` v hash (dvě origin = dvě localStorage). Produkční build na Netlify: env `SUPABASE_*`; URL default `$URL` (viz root `netlify.toml`). Vlastní doména: `GESTORIA_BASE_URL=https://sanfolio.app`.
 
 Licence: tabulky `modules` + `organization_modules` (`trial` \| `active` \| `cancelled` \| `past_due`). Kill-switch Gestoría app při `cancelled`/`past_due` → `/payment-required`. Support se nezamyká.
 

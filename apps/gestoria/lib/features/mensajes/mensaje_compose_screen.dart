@@ -10,6 +10,7 @@ import '../../core/modules/feature_gate.dart';
 import '../../core/modules/module_catalog.dart';
 import '../posta/posta_address.dart';
 import '../posta/posta_providers.dart';
+import '../posta/posta_timeline.dart';
 import '../settings/office_settings_controller.dart';
 import 'mensaje_providers.dart';
 import 'mensaje_templates.dart';
@@ -23,6 +24,7 @@ class MensajeComposeScreen extends ConsumerStatefulWidget {
     this.bloqueKey,
     this.fecha,
     this.documento,
+    this.postaMessageId,
   });
 
   final String clienteId;
@@ -30,6 +32,7 @@ class MensajeComposeScreen extends ConsumerStatefulWidget {
   final String? bloqueKey;
   final String? fecha;
   final String? documento;
+  final String? postaMessageId;
 
   @override
   ConsumerState<MensajeComposeScreen> createState() =>
@@ -213,6 +216,25 @@ class _MensajeComposeScreenState extends ConsumerState<MensajeComposeScreen> {
     final outbound = await _outbound(row, cuerpo);
     setState(() => _busy = true);
     try {
+      final sent = await sendClientMessage(
+        tenantId: tenantId,
+        clienteId: row.id,
+        asunto: _asunto.text.trim(),
+        cuerpoOriginal: cuerpo,
+        outboundBody: outbound,
+        outboundLocale: row.locale,
+        templateKey: _tpl,
+        postaMessageId: widget.postaMessageId,
+      );
+      if (sent.ok) {
+        if (!mounted) return;
+        _goAfterSend();
+        return;
+      }
+      if (!sent.notConfigured) {
+        if (mounted) _toast('messages.sendError'.tr());
+        return;
+      }
       await recordMensaje(
         tenantId: tenantId,
         clienteId: row.id,
@@ -242,12 +264,27 @@ class _MensajeComposeScreenState extends ConsumerState<MensajeComposeScreen> {
         },
       );
       await launchUrl(uri);
-      if (mounted) context.go('/clientes/${widget.clienteId}/carpeta');
+      if (mounted) {
+        _toast('messages.sendFallbackGmail'.tr());
+        _goAfterSend();
+      }
     } on Object {
       if (mounted) _toast('messages.sendError'.tr());
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  void _goAfterSend() {
+    ref.invalidate(clienteMensajesProvider(widget.clienteId));
+    ref.invalidate(clienteMailTimelineProvider(widget.clienteId));
+    ref.invalidate(clientePostaProvider);
+    final postaId = widget.postaMessageId;
+    if (postaId != null && postaId.isNotEmpty) {
+      context.go('/posta/$postaId');
+      return;
+    }
+    context.go('/clientes/${widget.clienteId}/carpeta');
   }
 
   Future<void> _whatsapp(MensajeCliente row) async {

@@ -58,6 +58,7 @@ class PostaMessage {
     this.matchMethod,
     this.gmailUrl,
     this.messageIdHeader,
+    this.mensajeId,
     this.attachments = const [],
   });
 
@@ -73,9 +74,12 @@ class PostaMessage {
   final String? matchMethod;
   final String? gmailUrl;
   final String? messageIdHeader;
+  final String? mensajeId;
   final List<PostaAttachment> attachments;
 
   bool get hasAttachments => attachments.isNotEmpty;
+  bool get hasUnfiled => attachments.any((a) => !a.filed);
+  int get unfiledCount => attachments.where((a) => !a.filed).length;
   bool get assigned => status == 'assigned' && (clienteId ?? '').isNotEmpty;
 
   String get fromLabel {
@@ -112,12 +116,16 @@ class PostaClienteHit {
     required this.nombre,
     this.email,
     this.nie,
+    this.matchMethod,
+    this.auto = false,
   });
 
   final String id;
   final String nombre;
   final String? email;
   final String? nie;
+  final String? matchMethod;
+  final bool auto;
 
   String get subtitle {
     return [
@@ -158,6 +166,18 @@ final postaUnassignedCountProvider = FutureProvider<int>((ref) async {
   return int.tryParse('$raw') ?? 0;
 });
 
+final postaUnfiledCountProvider = FutureProvider<int>((ref) async {
+  ref.watch(authControllerProvider);
+  final client = trySupabaseClient();
+  final tenantId = ref.read(authControllerProvider).valueOrNull?.currentTenantId;
+  if (client == null || tenantId == null) return 0;
+  final raw = await client.rpc(
+    'posta_unfiled_count',
+    params: {'p_tenant_id': tenantId},
+  );
+  return int.tryParse('$raw') ?? 0;
+});
+
 final postaFilterProvider = StateProvider<String>((ref) => 'unassigned');
 
 final postaListProvider = FutureProvider<List<PostaMessage>>((ref) async {
@@ -170,7 +190,7 @@ final postaListProvider = FutureProvider<List<PostaMessage>>((ref) async {
       .from('posta_messages')
       .select(
         'id, from_address, from_name, subject, received_at, status, '
-        'cliente_id, match_method, gmail_url, message_id_header, '
+        'cliente_id, match_method, gmail_url, message_id_header, mensaje_id, '
         'clientes(nombre, apellidos, razon_social), '
         'posta_attachments(id, filename, mime, byte_size, storage_path, documento_id, deleted_at)',
       )
@@ -200,7 +220,7 @@ final postaDetailProvider =
       .from('posta_messages')
       .select(
         'id, from_address, from_name, subject, body_text, received_at, status, '
-        'cliente_id, match_method, gmail_url, message_id_header, '
+        'cliente_id, match_method, gmail_url, message_id_header, mensaje_id, '
         'clientes(nombre, apellidos, razon_social), '
         'posta_attachments(id, filename, mime, byte_size, storage_path, documento_id, deleted_at)',
       )
@@ -222,7 +242,7 @@ final clientePostaProvider =
       .from('posta_messages')
       .select(
         'id, from_address, from_name, subject, received_at, status, '
-        'cliente_id, match_method, gmail_url, message_id_header, '
+        'cliente_id, match_method, gmail_url, message_id_header, mensaje_id, '
         'posta_attachments(id, filename, mime, byte_size, storage_path, documento_id, deleted_at)',
       )
       .eq('tenant_id', tenantId)
@@ -242,6 +262,7 @@ final clientePostaProvider =
 bool matchesPostaFilter(PostaMessage msg, String filter) {
   return switch (filter) {
     'unassigned' => msg.status == 'unassigned',
+    'unfiled' => msg.hasUnfiled && msg.status != 'ignored',
     'attachments' => msg.hasAttachments && msg.status != 'ignored',
     'assigned' => msg.status == 'assigned',
     'all' => msg.status != 'ignored',
@@ -276,6 +297,46 @@ Future<void> unassignPostaMessage(String messageId) async {
   await client.rpc(
     'unassign_posta_message',
     params: {'p_message_id': messageId},
+  );
+}
+
+final postaSuggestProvider =
+    FutureProvider.family<PostaClienteHit?, String>((ref, messageId) async {
+  ref.watch(authControllerProvider);
+  final msg = await ref.watch(postaDetailProvider(messageId).future);
+  final tenantId = ref.read(authControllerProvider).valueOrNull?.currentTenantId;
+  if (msg == null || msg.assigned || tenantId == null) return null;
+  return suggestPostaCliente(
+    tenantId: tenantId,
+    email: msg.fromAddress,
+    fromName: msg.fromName,
+  );
+});
+
+Future<PostaClienteHit?> suggestPostaCliente({
+  required String tenantId,
+  required String email,
+  String? fromName,
+}) async {
+  final client = trySupabaseClient();
+  if (client == null) return null;
+  final raw = await client.rpc(
+    'suggest_posta_cliente',
+    params: {
+      'p_tenant_id': tenantId,
+      'p_email': email,
+      'p_from_name': fromName,
+    },
+  );
+  final row = _firstMap(raw);
+  if (row == null || row['cliente_id'] == null) return null;
+  return PostaClienteHit(
+    id: '${row['cliente_id']}',
+    nombre: '${row['nombre'] ?? ''}'.trim().isEmpty
+        ? '—'
+        : '${row['nombre']}'.trim(),
+    matchMethod: _trimOrNull(row['match_method']),
+    auto: row['auto'] == true,
   );
 }
 
@@ -460,6 +521,7 @@ PostaMessage _messageFrom(Map raw, {required bool includeBody}) {
     matchMethod: _trimOrNull(raw['match_method']),
     gmailUrl: _trimOrNull(raw['gmail_url']),
     messageIdHeader: _trimOrNull(raw['message_id_header']),
+    mensajeId: _trimOrNull(raw['mensaje_id']),
     attachments: attachments,
   );
 }

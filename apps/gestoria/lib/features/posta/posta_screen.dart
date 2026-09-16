@@ -10,6 +10,7 @@ import '../../core/modules/module_catalog.dart';
 import '../../core/presentation/widgets/app_widgets.dart';
 import '../../core/theme/app_theme.dart';
 import 'posta_providers.dart';
+import 'posta_timeline.dart';
 
 /// Třídírna pracovní pošty. Gmail zůstává na odpověď.
 class PostaScreen extends ConsumerStatefulWidget {
@@ -69,9 +70,12 @@ class _PostaScreenState extends ConsumerState<PostaScreen> {
                                 messageId: selectedId,
                                 busy: _busy,
                                 onAssign: () => _assign(selectedId),
+                                onAssignHit: (hit) =>
+                                    _assignHit(selectedId, hit),
                                 onIgnore: () => _ignore(selectedId),
                                 onUnassign: () => _unassign(selectedId),
                                 onFile: (att, msg) => _file(att, msg),
+                                onReply: (msg) => _reply(msg),
                               ),
                       ),
                     ],
@@ -83,9 +87,11 @@ class _PostaScreenState extends ConsumerState<PostaScreen> {
                     busy: _busy,
                     onBack: () => setState(() => _selectedId = null),
                     onAssign: () => _assign(selectedId),
+                    onAssignHit: (hit) => _assignHit(selectedId, hit),
                     onIgnore: () => _ignore(selectedId),
                     onUnassign: () => _unassign(selectedId),
                     onFile: (att, msg) => _file(att, msg),
+                    onReply: (msg) => _reply(msg),
                   );
                 }
                 return _PostaListPane(
@@ -107,6 +113,10 @@ class _PostaScreenState extends ConsumerState<PostaScreen> {
       builder: (ctx) => const _PostaClienteDialog(),
     );
     if (hit == null) return;
+    await _assignHit(messageId, hit);
+  }
+
+  Future<void> _assignHit(String messageId, PostaClienteHit hit) async {
     setState(() => _busy = true);
     try {
       await assignPostaMessage(messageId: messageId, clienteId: hit.id);
@@ -116,6 +126,12 @@ class _PostaScreenState extends ConsumerState<PostaScreen> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  void _reply(PostaMessage msg) {
+    final clienteId = msg.clienteId;
+    if (clienteId == null || clienteId.isEmpty) return;
+    context.go('/clientes/$clienteId/mensaje?posta=${msg.id}');
   }
 
   Future<void> _ignore(String messageId) async {
@@ -174,7 +190,7 @@ class _PostaScreenState extends ConsumerState<PostaScreen> {
         createdBy: ref.read(authControllerProvider).valueOrNull?.profile?.id,
       );
       _invalidate();
-      if (mounted) _toast('posta.filed'.tr());
+      if (mounted) _toast('posta.filedExtract'.tr());
     } on Object {
       if (mounted) _toast('posta.fileError'.tr());
     } finally {
@@ -185,6 +201,8 @@ class _PostaScreenState extends ConsumerState<PostaScreen> {
   void _invalidate() {
     ref.invalidate(postaListProvider);
     ref.invalidate(postaUnassignedCountProvider);
+    ref.invalidate(postaUnfiledCountProvider);
+    ref.invalidate(clienteMailTimelineProvider);
     final id = _selectedId;
     if (id != null) ref.invalidate(postaDetailProvider(id));
     ref.invalidate(clientePostaProvider);
@@ -206,7 +224,13 @@ class _PostaListPane extends ConsumerWidget {
   final String? selectedId;
   final ValueChanged<String> onSelect;
 
-  static const _filters = ['unassigned', 'attachments', 'assigned', 'all'];
+  static const _filters = [
+    'unassigned',
+    'unfiled',
+    'attachments',
+    'assigned',
+    'all',
+  ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -248,7 +272,8 @@ class _PostaListPane extends ConsumerWidget {
               padding: const EdgeInsets.only(bottom: 8),
               child: AppCard(
                 emphasized: row.id == selectedId,
-                stripe: row.status == 'unassigned' && row.hasAttachments
+                stripe: (row.status == 'unassigned' && row.hasAttachments) ||
+                        (row.status == 'assigned' && row.hasUnfiled)
                     ? AppTheme.statusWarn
                     : null,
                 onTap: () => onSelect(row.id),
@@ -283,6 +308,10 @@ class _PostaListPane extends ConsumerWidget {
                                 'count': '${row.attachments.length}',
                               },
                             ),
+                          if (row.hasUnfiled)
+                            'posta.unfiledCount'.tr(
+                              namedArgs: {'count': '${row.unfiledCount}'},
+                            ),
                         ].join(' · '),
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: AppTheme.pencil,
@@ -303,18 +332,22 @@ class _PostaDetailPane extends ConsumerWidget {
     required this.messageId,
     required this.busy,
     required this.onAssign,
+    required this.onAssignHit,
     required this.onIgnore,
     required this.onUnassign,
     required this.onFile,
+    required this.onReply,
     this.onBack,
   });
 
   final String messageId;
   final bool busy;
   final VoidCallback onAssign;
+  final ValueChanged<PostaClienteHit> onAssignHit;
   final VoidCallback onIgnore;
   final VoidCallback onUnassign;
   final Future<void> Function(PostaAttachment att, PostaMessage msg) onFile;
+  final ValueChanged<PostaMessage> onReply;
   final VoidCallback? onBack;
 
   @override
@@ -371,6 +404,14 @@ class _PostaDetailPane extends ConsumerWidget {
                     ),
               ),
             ],
+            if (!msg.assigned) ...[
+              const SizedBox(height: 12),
+              _PostaSuggestCard(
+                messageId: messageId,
+                busy: busy,
+                onConfirm: onAssignHit,
+              ),
+            ],
             const SizedBox(height: 16),
             Wrap(
               spacing: 8,
@@ -380,6 +421,11 @@ class _PostaDetailPane extends ConsumerWidget {
                   onPressed: busy ? null : onAssign,
                   child: Text('posta.assign'.tr()),
                 ),
+                if (msg.assigned)
+                  FilledButton.tonal(
+                    onPressed: busy ? null : () => onReply(msg),
+                    child: Text('posta.reply'.tr()),
+                  ),
                 if (msg.assigned)
                   OutlinedButton(
                     onPressed: busy ? null : onUnassign,
@@ -453,6 +499,49 @@ class _PostaDetailPane extends ConsumerWidget {
           ],
         );
       },
+    );
+  }
+}
+
+class _PostaSuggestCard extends ConsumerWidget {
+  const _PostaSuggestCard({
+    required this.messageId,
+    required this.busy,
+    required this.onConfirm,
+  });
+
+  final String messageId;
+  final bool busy;
+  final ValueChanged<PostaClienteHit> onConfirm;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(postaSuggestProvider(messageId));
+    return async.maybeWhen(
+      data: (hit) {
+        if (hit == null) return const SizedBox.shrink();
+        return AppCard(
+          stripe: AppTheme.accent,
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+            title: Text(
+              'posta.suggest'.tr(namedArgs: {'name': hit.nombre}),
+            ),
+            subtitle: Text(
+              [
+                if (hit.matchMethod != null)
+                  'posta.match.${hit.matchMethod}'.tr(),
+                'posta.suggestHint'.tr(),
+              ].join(' '),
+            ),
+            trailing: FilledButton(
+              onPressed: busy ? null : () => onConfirm(hit),
+              child: Text('posta.assign'.tr()),
+            ),
+          ),
+        );
+      },
+      orElse: () => const SizedBox.shrink(),
     );
   }
 }

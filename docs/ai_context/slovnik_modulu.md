@@ -80,5 +80,9 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `posta-inbound` | Edge Function | webhook Resend/Postmark; AI neukládá |
 | `assign_posta_message` | SQL RPC | gestor přiřadí klienta; auto jen unique From / plus-adresa |
 | `postaReplyTo` | `posta_address.dart` | Pedir `Reply-To: local+{clienteId}@domain` |
+| `posta_senders` | SQL | From, který gestor jednou přiřadil; další mail spadne na stejnou kartu |
+| `suggest_posta_cliente` | SQL RPC | jeden klik v `/posta`; auto jen unique / remembered |
+| `clienteMailTimelineProvider` | karta klienta | Od + Pro: přiřazená `posta_messages` + odeslané `mensajes` email; WhatsApp ne |
+| `send-client-message` | Edge Function | Resend po kliknutí gestora; `POSTA_FROM_EMAIL`; AI neposílá |
 
 Jazyky UI: `cs` `en` `es` `de` `fr` (per `profiles.locale`). Klient: `clientes.locale`. Outbound zpráva = překlad.

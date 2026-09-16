@@ -81,9 +81,11 @@ Deno.serve(async (req) => {
   }
 
   let clienteId = resolved.cliente_id;
-  let matchMethod: "plus_address" | "from_email" | null = clienteId
-    ? "plus_address"
-    : null;
+  let matchMethod:
+    | "plus_address"
+    | "from_email"
+    | "remembered"
+    | null = clienteId ? "plus_address" : null;
   if (!clienteId) {
     const { data: matched } = await admin.rpc("match_posta_cliente", {
       p_tenant_id: resolved.tenant_id,
@@ -91,7 +93,14 @@ Deno.serve(async (req) => {
     });
     if (typeof matched === "string" && matched.length > 0) {
       clienteId = matched;
-      matchMethod = "from_email";
+      const { data: remembered } = await admin
+        .from("posta_senders")
+        .select("id")
+        .eq("tenant_id", resolved.tenant_id)
+        .eq("email", parsed.from)
+        .is("deleted_at", null)
+        .maybeSingle();
+      matchMethod = remembered ? "remembered" : "from_email";
     }
   }
 
@@ -115,6 +124,8 @@ Deno.serve(async (req) => {
       subject: parsed.subject,
       body_text: clip(parsed.bodyText, MAX_BODY),
       received_at: parsed.receivedAt,
+      in_reply_to: parsed.inReplyTo,
+      references_header: parsed.referencesHeader,
       cliente_id: clienteId,
       match_method: matchMethod,
       status: clienteId ? "assigned" : "unassigned",
@@ -130,6 +141,7 @@ Deno.serve(async (req) => {
     return json(500, { ok: false, error: insErr.message });
   }
   const messageId = String(inserted.id);
+  await admin.rpc("link_posta_reply", { p_message_id: messageId });
 
   let stored = 0;
   for (const att of parsed.attachments.slice(0, MAX_ATTACH)) {
@@ -181,6 +193,8 @@ function inboundAuthorized(req: Request): boolean {
 type ParsedInbound = {
   providerId: string;
   messageIdHeader: string | null;
+  inReplyTo: string | null;
+  referencesHeader: string | null;
   from: string;
   fromName: string | null;
   to: string[];
@@ -212,10 +226,14 @@ function parseInbound(raw: unknown): ParsedInbound | null {
     obj.provider_message_id ?? obj.message_id ?? obj.id ?? obj.MessageID,
   ) || crypto.randomUUID();
 
+  const headers = headerMap(obj.headers ?? obj.Headers);
   return {
     providerId,
     messageIdHeader: stringify(obj.message_id_header ?? obj.MessageID) ||
+      headers["message-id"] ||
       null,
+    inReplyTo: stringify(obj.in_reply_to) || headers["in-reply-to"] || null,
+    referencesHeader: stringify(obj.references) || headers.references || null,
     from,
     fromName: stringify(obj.from_name ?? obj.fromName) || nameFrom(fromRaw),
     to,
@@ -235,9 +253,13 @@ function parsePostmark(obj: Record<string, unknown>): ParsedInbound | null {
   );
   const to = emailsFrom(obj.ToFull ?? obj.To);
   if (!from || to.length === 0) return null;
+  const headers = headerMap(obj.Headers);
   return {
     providerId: stringify(obj.MessageID) || crypto.randomUUID(),
-    messageIdHeader: stringify(obj.MessageID) || null,
+    messageIdHeader: stringify(obj.MessageID) || headers["message-id"] ||
+      null,
+    inReplyTo: headers["in-reply-to"] || null,
+    referencesHeader: headers.references || null,
     from,
     fromName: stringify(fromFull?.Name) || nameFrom(stringify(obj.From)),
     to,
@@ -324,6 +346,30 @@ function stringify(v: unknown): string {
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return Boolean(v) && typeof v === "object" && !Array.isArray(v);
+}
+
+function headerMap(raw: unknown): Record<string, string> {
+  const out: Record<string, string> = {};
+  const put = (k: string, v: string) => {
+    const key = k.trim().toLowerCase();
+    const val = v.trim();
+    if (key && val) out[key] = val;
+  };
+  if (isRecord(raw)) {
+    for (const [k, v] of Object.entries(raw)) {
+      if (typeof v === "string") put(k, v);
+    }
+    return out;
+  }
+  if (!Array.isArray(raw)) return out;
+  for (const item of raw) {
+    if (!isRecord(item)) continue;
+    put(
+      stringify(item.Name ?? item.name ?? item.key),
+      stringify(item.Value ?? item.value),
+    );
+  }
+  return out;
 }
 
 function firstRow(data: unknown): Record<string, unknown> | null {

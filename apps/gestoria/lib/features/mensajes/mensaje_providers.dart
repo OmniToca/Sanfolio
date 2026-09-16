@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gestoria_auth/gestoria_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class MensajeCliente {
   const MensajeCliente({
@@ -199,6 +200,73 @@ final clienteMensajesProvider =
 String? _trimOrNull(Object? v) {
   final s = '$v'.trim();
   return s.isEmpty || s == 'null' ? null : s;
+}
+
+class SendClientMessageResult {
+  const SendClientMessageResult({
+    required this.ok,
+    this.notConfigured = false,
+    this.error,
+  });
+
+  final bool ok;
+  final bool notConfigured;
+  final String? error;
+}
+
+/// Resend z kanceláře. Bez klíče → [notConfigured], Flutter otevře Gmail.
+/// AI tuhle funkci nevolá.
+Future<SendClientMessageResult> sendClientMessage({
+  required String tenantId,
+  required String clienteId,
+  required String asunto,
+  required String cuerpoOriginal,
+  required String outboundBody,
+  required String outboundLocale,
+  String? templateKey,
+  String? postaMessageId,
+}) async {
+  final client = trySupabaseClient();
+  if (client == null) {
+    return const SendClientMessageResult(ok: false, notConfigured: true);
+  }
+  try {
+    final response = await client.functions.invoke(
+      'send-client-message',
+      body: {
+        'tenant_id': tenantId,
+        'cliente_id': clienteId,
+        'asunto': asunto,
+        'cuerpo_original': cuerpoOriginal,
+        'outbound_body': outboundBody,
+        'outbound_locale': outboundLocale,
+        if (templateKey != null && templateKey.isNotEmpty)
+          'template_key': templateKey,
+        if (postaMessageId != null && postaMessageId.isNotEmpty)
+          'posta_message_id': postaMessageId,
+      },
+    );
+    return _sendResultFrom(response.status, response.data);
+  } on FunctionException catch (e) {
+    return _sendResultFrom(e.status, e.details);
+  } on Object {
+    return const SendClientMessageResult(ok: false, error: 'send_failed');
+  }
+}
+
+SendClientMessageResult _sendResultFrom(int? status, Object? data) {
+  final map = data is Map ? Map<Object?, Object?>.from(data) : const {};
+  final err = '${map['error'] ?? ''}'.trim();
+  if (map['ok'] == true) {
+    return const SendClientMessageResult(ok: true);
+  }
+  if (status == 503 || err == 'not_configured') {
+    return const SendClientMessageResult(ok: false, notConfigured: true);
+  }
+  return SendClientMessageResult(
+    ok: false,
+    error: err.isEmpty ? 'send_failed' : err,
+  );
 }
 
 /// Soft stav, ne DELETE. Audit trigger zapíše `mensajes.discarded`.
