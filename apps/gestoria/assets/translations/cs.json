@@ -365,13 +365,16 @@
     "directionOut": "Kancelář → klient",
     "threadReply": "Odpověď na výzvu",
     "ingestTitle": "Adresa pro kopie pošty",
-    "ingestHint": "V Gmailu nastavte přeposílání příchozích na tuhle adresu. Sem nepatří osobní schránky.",
+    "ingestHint": "Veřejná schránka kanceláře je Reply-To. Sem Gmail posílá kopii k třídění.",
+    "officeEmail": "E-mail kanceláře (Reply-To)",
+    "officeEmailHint": "Na tuhle adresu klient klikne Odpovědět. Musí to být schránka, která se sem přeposílá.",
+    "officeEmailMissing": "V Nastavení doplňte e-mail kanceláře. Jinak klient odpovídá na technickou adresu.",
     "ingestCopy": "Kopírovat adresu",
     "ingestCopied": "Adresa je ve schránce.",
     "ingestStep1": "Zkopírujte adresu kanceláře výše.",
     "ingestStep2": "Gmail → Nastavení → Přeposílání a protokol POP/IMAP → přidejte tuhle adresu.",
     "ingestStep3": "Potvrďte odkaz, který Gmail pošle. Sem nepatří soukromá pošta.",
-    "ingestStep4": "Výzva z kanceláře má Reply-To s plus-adresou klienta, ať odpověď s PDF spadne na kartu.",
+    "ingestStep4": "Výzva má Reply-To na e-mail kanceláře. Gmail kopii pošle sem a PDF spadne do Pošty.",
     "ingestManyOffices": "Každá kancelář má vlastní adresu na stejné doméně inbound.sanfolio.app. Dvacet kanceláří = dvacet adres v systému, ne dvacet nákupů schránek.",
     "replyToHint": "Odpověď klienta: {email}",
     "replyToCopy": "Kopírovat Reply-To",
@@ -381,12 +384,14 @@
       "unfiled": "K uložení",
       "attachments": "S přílohou",
       "assigned": "Přiřazené",
-      "all": "Vše"
+      "all": "Vše",
+      "done": "Zapsané"
     },
     "status": {
       "unassigned": "Nepřiřazeno",
       "assigned": "Přiřazeno",
-      "ignored": "Ignorováno"
+      "ignored": "Ignorováno",
+      "done": "Zapsáno"
     },
     "match": {
       "plus_address": "Poznáno z Reply-To adresy složky.",
@@ -395,7 +400,21 @@
       "reply_thread": "Odpověď na výzvu kanceláře.",
       "from_name": "Podle jména odesílatele — ověřte kartu.",
       "manual": "Přiřadil gestor."
-    }
+    },
+    "fileAll": "Uložit vše do složky ({count})",
+    "fileAllTo": "Uložit vše k {name} → {block}",
+    "markDone": "Označit jako zapsáno",
+    "undone": "Vrátit do fronty",
+    "markedDone": "Mail je zapsaný. Na kartě zůstane.",
+    "doneError": "Stav se nepodařilo změnit.",
+    "doneNeedFile": "Nejdřív uložte přílohy na desku.",
+    "searchMail": "Hledat jméno, e-mail, předmět nebo text",
+    "shortcuts": "J/K seznam · F uložit · A přiřadit · D zapsáno · I ignorovat · / hledat",
+    "thread": "Vlákno",
+    "officePhone": "Telefon kanceláře",
+    "officePhoneHint": "Připojí se k podpisu odchozí výzvy.",
+    "bounce": "Nedoručeno",
+    "badgeBounce": "{count} nedoručených výzev"
   },
   "folder": {
     "title": "Složka",

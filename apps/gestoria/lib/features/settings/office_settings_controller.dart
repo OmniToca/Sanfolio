@@ -21,6 +21,8 @@ class OfficeSettings {
     this.emisorNif = '',
     this.emisorNombre = '',
     this.facturaSerie = 'A',
+    this.officeEmail = '',
+    this.officePhone = '',
   });
 
   final String displayName;
@@ -39,6 +41,8 @@ class OfficeSettings {
   final String emisorNif;
   final String emisorNombre;
   final String facturaSerie;
+  final String officeEmail;
+  final String officePhone;
 
   bool get ibiDueConfigured =>
       ibiDueMonth >= 1 && ibiDueMonth <= 12 && ibiDueDay >= 1 && ibiDueDay <= 31;
@@ -59,6 +63,8 @@ class OfficeSettings {
     String? emisorNif,
     String? emisorNombre,
     String? facturaSerie,
+    String? officeEmail,
+    String? officePhone,
   }) {
     return OfficeSettings(
       displayName: displayName ?? this.displayName,
@@ -77,6 +83,8 @@ class OfficeSettings {
       emisorNif: emisorNif ?? this.emisorNif,
       emisorNombre: emisorNombre ?? this.emisorNombre,
       facturaSerie: facturaSerie ?? this.facturaSerie,
+      officeEmail: officeEmail ?? this.officeEmail,
+      officePhone: officePhone ?? this.officePhone,
     );
   }
 
@@ -97,6 +105,8 @@ class OfficeSettings {
       emisorNif: '${row['emisor_nif'] ?? ''}'.trim(),
       emisorNombre: '${row['emisor_nombre'] ?? ''}'.trim(),
       facturaSerie: _serie(row['factura_serie']),
+      officeEmail: '${row['office_email'] ?? ''}'.trim(),
+      officePhone: '${row['office_phone'] ?? ''}'.trim(),
     );
   }
 
@@ -153,7 +163,7 @@ class OfficeSettingsController extends AsyncNotifier<OfficeSettings> {
           'ibi_due_day, seguro_warn_days, '
           'alarma_warn_days, poder_warn_days, send_translated_outbound, '
           'nudge_interval_days, stale_expediente_days, slot_order, '
-          'emisor_nif, emisor_nombre, factura_serie',
+          'emisor_nif, emisor_nombre, factura_serie, office_email, office_phone',
         )
         .eq('tenant_id', tenantId)
         .maybeSingle();
@@ -225,6 +235,16 @@ class OfficeSettingsController extends AsyncNotifier<OfficeSettings> {
   Future<void> setEmisorNombre(String v) => _patch(
         {'emisor_nombre': v.trim()},
         (s) => s.copyWith(emisorNombre: v.trim()),
+      );
+
+  Future<void> setOfficeEmail(String v) => _patch(
+        {'office_email': v.trim()},
+        (s) => s.copyWith(officeEmail: v.trim()),
+      );
+
+  Future<void> setOfficePhone(String v) => _patch(
+        {'office_phone': v.trim()},
+        (s) => s.copyWith(officePhone: v.trim()),
       );
 
   Future<void> setFacturaSerie(String v) {

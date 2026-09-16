@@ -365,13 +365,16 @@
     "directionOut": "Office → client",
     "threadReply": "Reply to a request",
     "ingestTitle": "Address for mail copies",
-    "ingestHint": "Forward inbound office mail here. Personal inboxes stay out.",
+    "ingestHint": "The office inbox is Reply-To. Gmail forwards a copy here for filing.",
+    "officeEmail": "Office email (Reply-To)",
+    "officeEmailHint": "This is where the client hits Reply. It must be the mailbox that forwards here.",
+    "officeEmailMissing": "Add the office email in Settings. Otherwise the client replies to a technical address.",
     "ingestCopy": "Copy address",
     "ingestCopied": "Address copied.",
     "ingestStep1": "Copy the office address above.",
     "ingestStep2": "Gmail → Settings → Forwarding and POP/IMAP → add this address.",
     "ingestStep3": "Confirm the link Gmail sends. Private mail does not belong here.",
-    "ingestStep4": "Office requests use a plus-address Reply-To so a PDF reply lands on the card.",
+    "ingestStep4": "Office requests use the office inbox as Reply-To. Gmail forwards the copy here so a PDF lands in Mail.",
     "ingestManyOffices": "Each office has its own address on inbound.sanfolio.app. Twenty offices means twenty addresses in the system, not twenty mailboxes to buy.",
     "replyToHint": "Client reply: {email}",
     "replyToCopy": "Copy Reply-To",
@@ -381,12 +384,14 @@
       "unfiled": "To file",
       "attachments": "With attachment",
       "assigned": "Linked",
-      "all": "All"
+      "all": "All",
+      "done": "Recorded"
     },
     "status": {
       "unassigned": "Unassigned",
       "assigned": "Linked",
-      "ignored": "Ignored"
+      "ignored": "Ignored",
+      "done": "Recorded"
     },
     "match": {
       "plus_address": "Matched from the folder Reply-To address.",
@@ -395,28 +400,21 @@
       "reply_thread": "Reply to an office request.",
       "from_name": "Matched by sender name — check the card.",
       "manual": "Linked by staff."
-    }
-  },
-  "folder": {
-    "replyToHint": "Client reply: {email}",
-    "replyToCopy": "Copy Reply-To",
-    "replyToCopied": "Reply-To copied.",
-    "filter": {
-      "unassigned": "No client",
-      "attachments": "With attachment",
-      "assigned": "Linked",
-      "all": "All"
     },
-    "status": {
-      "unassigned": "Unassigned",
-      "assigned": "Linked",
-      "ignored": "Ignored"
-    },
-    "match": {
-      "plus_address": "Matched from the folder Reply-To address.",
-      "from_email": "Matched from the sender email.",
-      "manual": "Linked by staff."
-    }
+    "fileAll": "File all attachments ({count})",
+    "fileAllTo": "File all to {name} → {block}",
+    "markDone": "Mark as recorded",
+    "undone": "Return to queue",
+    "markedDone": "Mail is recorded. It stays on the card.",
+    "doneError": "Could not update the status.",
+    "doneNeedFile": "File the attachments to the desk first.",
+    "searchMail": "Search name, email, subject or body",
+    "shortcuts": "J/K list · F file · A assign · D recorded · I ignore · / search",
+    "thread": "Thread",
+    "officePhone": "Office phone",
+    "officePhoneHint": "Added to the signature of outbound mail.",
+    "bounce": "Bounced",
+    "badgeBounce": "{count} undelivered messages"
   },
   "folder": {
     "title": "Folder",

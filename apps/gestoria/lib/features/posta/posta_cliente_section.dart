@@ -102,6 +102,8 @@ class ClientePostaSection extends ConsumerWidget {
                             'posta.unfiledCount'.tr(
                               namedArgs: {'count': '${row.unfiledCount}'},
                             ),
+                          if (row.bounced) 'posta.bounce'.tr(),
+                          if (row.done) 'posta.status.done'.tr(),
                         ].join(' · '),
                       ),
                       onTap: () {

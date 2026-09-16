@@ -82,10 +82,18 @@ Deno.serve(async (req) => {
 
   const { data: settings } = await userClient
     .from("tenant_settings")
-    .select("display_name")
+    .select("display_name, office_email, office_phone, emisor_nif")
     .eq("tenant_id", tenantId)
     .maybeSingle();
   const officeName = str(settings?.display_name) || "Sanfolio";
+  const officeEmail = str(settings?.office_email).toLowerCase();
+  const signature = officeSignature({
+    name: officeName,
+    phone: str(settings?.office_phone),
+    email: officeEmail,
+    nif: str(settings?.emisor_nif),
+  });
+  const bodyWithSig = appendSignature(outboundBody, signature);
 
   const { data: accountRows, error: accErr } = await userClient.rpc(
     "ensure_posta_account",
@@ -96,9 +104,8 @@ Deno.serve(async (req) => {
   const ingest = str(account?.ingest_address);
   const ingestDomain = str(account?.ingest_domain) ||
     (ingest.includes("@") ? ingest.split("@")[1] : "inbound.sanfolio.app");
-  const replyTo = ingest.includes("@")
-    ? `${ingest.split("@")[0].split("+")[0]}+${clienteId}@${ingestDomain}`
-    : null;
+  // Klient odpovídá na Gmail kanceláře. Plus-adresa je jen ingest, ne Reply-To.
+  const replyTo = officeEmail.includes("@") ? officeEmail : null;
 
   let inReplyTo: string | null = null;
   if (postaMessageId) {
@@ -115,7 +122,7 @@ Deno.serve(async (req) => {
 
   const mensajeId = crypto.randomUUID();
   const messageIdHeader = `${mensajeId}@${ingestDomain}`;
-  // Jedna ověřená From adresa pro všechny kanceláře. Reply-To je per tenant+klient.
+  // Jedna ověřená From adresa pro všechny kanceláře. Reply-To = office_email.
   const fromEmail = Deno.env.get("POSTA_FROM_EMAIL")?.trim() ||
     "posta@inbound.sanfolio.app";
   if (!fromEmail.includes("@")) {
@@ -130,7 +137,7 @@ Deno.serve(async (req) => {
     asunto: asunto || null,
     cuerpo: cuerpoOriginal,
     locale_original: "es",
-    translations: { [outboundLocale]: outboundBody },
+    translations: { [outboundLocale]: bodyWithSig },
     status: "draft",
     template_key: templateKey,
     message_id_header: messageIdHeader,
@@ -156,7 +163,7 @@ Deno.serve(async (req) => {
       from: `${officeName} <${fromEmail}>`,
       to: [to],
       subject: asunto || officeName,
-      text: outboundBody,
+      text: bodyWithSig,
       reply_to: replyTo || undefined,
       headers,
     }),
@@ -202,6 +209,30 @@ Deno.serve(async (req) => {
 
   return json(200, { ok: true, id: mensajeId, provider_id: providerId });
 });
+
+function officeSignature(parts: {
+  name: string;
+  phone: string;
+  email: string;
+  nif: string;
+}): string {
+  const lines = [
+    parts.name,
+    parts.phone,
+    parts.email.includes("@") ? parts.email : "",
+    parts.nif ? `NIF ${parts.nif}` : "",
+  ].filter((s) => s.length > 0);
+  if (lines.length === 0) return "";
+  return `--\n${lines.join("\n")}`;
+}
+
+function appendSignature(body: string, signature: string): string {
+  if (!signature) return body;
+  if (body.includes(signature) || body.trimEnd().endsWith(signature)) {
+    return body;
+  }
+  return `${body.trimEnd()}\n\n${signature}`;
+}
 
 function str(v: unknown): string {
   if (v == null) return "";

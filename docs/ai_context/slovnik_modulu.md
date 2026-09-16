@@ -79,10 +79,19 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `posta_attachments` | SQL | blob `{tenant}/posta/{id}/…`; `documento_id` až gestor uloží |
 | `posta-inbound` | Edge Function | webhook Resend/Postmark; AI neukládá |
 | `assign_posta_message` | SQL RPC | gestor přiřadí klienta; auto jen unique From / plus-adresa |
-| `postaReplyTo` | `posta_address.dart` | Pedir `Reply-To: local+{clienteId}@domain` |
+| `postaReplyTo` | `posta_address.dart` | technická plus-adresa ingestu |
+| `postaClientReplyTo` | `posta_address.dart` | Reply-To = `office_email` |
 | `posta_senders` | SQL | From, který gestor jednou přiřadil; další mail spadne na stejnou kartu |
+| `posta_sender_domains` | SQL | firemní doména → blok desky (iberdrola = luz); Gmail ne |
+| `posta.done_at` | `/posta` | zapsáno bez přílohy; fronta pryč, karta drží |
+| `search_posta` | SQL RPC | hledání v Poště (From, předmět, tělo, jméno) |
+| `mark_mensaje_bounce` | SQL + webhook | Resend nedoručil výzvu |
+| `officeEmailSignature` | `posta_address.dart` | podpis výzvy z názvu, telefonu, e-mailu, NIF |
+| `postaThreadProvider` | `/posta` | vlákno výzva + odpověď v náhledu |
+| `postaRealtimeTickProvider` | `/posta` | postgres changes, seznam bez F5 |
 | `isPostaNoiseMail` | `posta_address.dart` | Gmail forwarding / mailer-daemon → ignorovat, ne deska |
 | `postaQuickFileProvider` | `/posta` | jedno tlačítko klient→blok; gestor kliká |
+| `tenant_settings.office_email` | Nastavení | Reply-To výzvy; Gmail kanceláře, ne plus-adresa |
 | `clienteMailTimelineProvider` | karta klienta | Od + Pro: přiřazená `posta_messages` + odeslané `mensajes` email; WhatsApp ne |
 | `send-client-message` | Edge Function | Resend po kliknutí gestora; `POSTA_FROM_EMAIL`; AI neposílá |
 

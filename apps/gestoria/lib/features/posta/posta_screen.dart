@@ -11,7 +11,9 @@ import '../../core/modules/module_catalog.dart';
 import '../../core/presentation/widgets/app_widgets.dart';
 import '../../core/theme/app_theme.dart';
 import '../carpeta/carpeta_routes.dart';
+import '../mensajes/mensaje_providers.dart';
 import 'posta_address.dart';
+import 'posta_html_view.dart';
 import 'posta_providers.dart';
 import 'posta_timeline.dart';
 
@@ -28,11 +30,29 @@ class PostaScreen extends ConsumerStatefulWidget {
 class _PostaScreenState extends ConsumerState<PostaScreen> {
   String? _selectedId;
   var _busy = false;
+  final _searchFocus = FocusNode();
+  final _search = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _selectedId = widget.initialId;
+  }
+
+  @override
+  void dispose() {
+    _searchFocus.dispose();
+    _search.dispose();
+    super.dispose();
+  }
+
+  bool get _typing {
+    final primary = FocusManager.instance.primaryFocus;
+    if (primary == _searchFocus) return true;
+    final ctx = primary?.context;
+    if (ctx == null) return false;
+    return ctx.widget is EditableText ||
+        ctx.findAncestorWidgetOfExactType<EditableText>() != null;
   }
 
   @override
@@ -43,7 +63,23 @@ class _PostaScreenState extends ConsumerState<PostaScreen> {
         appBar: AppBar(title: Text('posta.title'.tr())),
         body: Center(child: Text('posta.moduleOff'.tr())),
       ),
-      child: Scaffold(
+      child: CallbackShortcuts(
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.keyJ): () => _move(1),
+          const SingleActivator(LogicalKeyboardKey.keyK): () => _move(-1),
+          const SingleActivator(LogicalKeyboardKey.keyF): _shortcutFile,
+          const SingleActivator(LogicalKeyboardKey.keyA): _shortcutAssign,
+          const SingleActivator(LogicalKeyboardKey.keyD): _shortcutDone,
+          const SingleActivator(LogicalKeyboardKey.keyI): _shortcutIgnore,
+          const SingleActivator(LogicalKeyboardKey.keyR): _shortcutReply,
+          const SingleActivator(LogicalKeyboardKey.slash): () {
+            if (_typing) return;
+            _searchFocus.requestFocus();
+          },
+        },
+        child: Focus(
+          autofocus: true,
+          child: Scaffold(
         body: LayoutBuilder(
           builder: (context, constraints) {
             final wide = constraints.maxWidth >= 900;
@@ -59,9 +95,11 @@ class _PostaScreenState extends ConsumerState<PostaScreen> {
                     children: [
                       SizedBox(
                         width: 380,
-                        child: _PostaListPane(
+                        child:                         _PostaListPane(
                           rows: rows,
                           selectedId: selectedId,
+                          search: _search,
+                          searchFocus: _searchFocus,
                           onSelect: (id) => setState(() => _selectedId = id),
                           onIgnoreNoise: () => _ignoreNoise(rows),
                         ),
@@ -78,8 +116,12 @@ class _PostaScreenState extends ConsumerState<PostaScreen> {
                                     _assignHit(selectedId, hit),
                                 onIgnore: () => _ignore(selectedId),
                                 onUnassign: () => _unassign(selectedId),
+                                onDone: () => _done(selectedId),
+                                onUndone: () => _undone(selectedId),
                                 onFile: (att, msg, {quick}) =>
                                     _file(att, msg, quick: quick),
+                                onFileAll: (msg, {quick}) =>
+                                    _fileAll(msg, quick: quick),
                                 onReply: (msg) => _reply(msg),
                               ),
                       ),
@@ -95,20 +137,28 @@ class _PostaScreenState extends ConsumerState<PostaScreen> {
                     onAssignHit: (hit) => _assignHit(selectedId, hit),
                     onIgnore: () => _ignore(selectedId),
                     onUnassign: () => _unassign(selectedId),
+                    onDone: () => _done(selectedId),
+                    onUndone: () => _undone(selectedId),
                     onFile: (att, msg, {quick}) =>
                         _file(att, msg, quick: quick),
+                    onFileAll: (msg, {quick}) =>
+                        _fileAll(msg, quick: quick),
                     onReply: (msg) => _reply(msg),
                   );
                 }
                 return _PostaListPane(
                   rows: rows,
                   selectedId: selectedId,
+                  search: _search,
+                  searchFocus: _searchFocus,
                   onSelect: (id) => setState(() => _selectedId = id),
                   onIgnoreNoise: () => _ignoreNoise(rows),
                 );
               },
             );
           },
+        ),
+          ),
         ),
       ),
     );
@@ -151,6 +201,111 @@ class _PostaScreenState extends ConsumerState<PostaScreen> {
     final clienteId = msg.clienteId;
     if (clienteId == null || clienteId.isEmpty) return;
     context.go('/clientes/$clienteId/mensaje?posta=${msg.id}');
+  }
+
+  void _move(int delta) {
+    if (_typing) return;
+    final rows = ref.read(postaListProvider).valueOrNull ?? const [];
+    if (rows.isEmpty) return;
+    final current = _selectedId ?? rows.first.id;
+    final i = rows.indexWhere((r) => r.id == current);
+    final next = (i + delta).clamp(0, rows.length - 1);
+    setState(() => _selectedId = rows[next].id);
+  }
+
+  void _shortcutFile() {
+    if (_typing || _busy) return;
+    final id = _selectedId;
+    if (id == null) return;
+    final msg = ref.read(postaDetailProvider(id)).valueOrNull;
+    if (msg == null || !msg.hasUnfiled) return;
+    final quick = ref.read(postaQuickFileProvider(id)).valueOrNull;
+    _fileAll(msg, quick: quick);
+  }
+
+  void _shortcutAssign() {
+    if (_typing || _busy) return;
+    final id = _selectedId;
+    if (id == null) return;
+    final hit = ref.read(postaSuggestProvider(id)).valueOrNull;
+    if (hit != null) {
+      _assignHit(id, hit);
+      return;
+    }
+    _assign(id);
+  }
+
+  void _shortcutDone() {
+    if (_typing || _busy) return;
+    final id = _selectedId;
+    if (id == null) return;
+    _done(id);
+  }
+
+  void _shortcutIgnore() {
+    if (_typing || _busy) return;
+    final id = _selectedId;
+    if (id == null) return;
+    _ignore(id);
+  }
+
+  void _shortcutReply() {
+    if (_typing) return;
+    final id = _selectedId;
+    if (id == null) return;
+    final msg = ref.read(postaDetailProvider(id)).valueOrNull;
+    if (msg != null) _reply(msg);
+  }
+
+  Future<void> _done(String messageId) async {
+    final msg = ref.read(postaDetailProvider(messageId)).valueOrNull;
+    if (msg == null) return;
+    if (msg.hasUnfiled) {
+      _toast('posta.doneNeedFile'.tr());
+      return;
+    }
+    if (!msg.assigned) {
+      final tenantId =
+          ref.read(authControllerProvider).valueOrNull?.currentTenantId;
+      PostaClienteHit? hit;
+      if (tenantId != null) {
+        hit = await suggestPostaCliente(
+          tenantId: tenantId,
+          email: msg.fromAddress,
+          fromName: msg.fromName,
+        );
+      }
+      if (hit == null) {
+        if (!mounted) return;
+        await _assign(messageId);
+        final again = ref.read(postaDetailProvider(messageId)).valueOrNull;
+        if (again == null || !again.assigned) return;
+      } else {
+        await _assignHit(messageId, hit);
+      }
+    }
+    setState(() => _busy = true);
+    try {
+      await markPostaDone(messageId);
+      _invalidate();
+      if (mounted) _toast('posta.markedDone'.tr());
+    } on Object {
+      if (mounted) _toast('posta.doneError'.tr());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _undone(String messageId) async {
+    setState(() => _busy = true);
+    try {
+      await markPostaUndone(messageId);
+      _invalidate();
+    } on Object {
+      if (mounted) _toast('posta.doneError'.tr());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _ignore(String messageId) async {
@@ -241,10 +396,19 @@ class _PostaScreenState extends ConsumerState<PostaScreen> {
         await assignPostaMessage(messageId: msg.id, clienteId: hit.id);
         clienteId = hit.id;
       }
+      final tenantHints =
+          ref.read(authControllerProvider).valueOrNull?.currentTenantId;
+      final remembered = tenantHints == null
+          ? null
+          : await suggestPostaSenderBlock(
+              tenantId: tenantHints,
+              email: msg.fromAddress,
+            );
       final hints = suggestPostaBloqueKeys(
         filename: att.filename,
         subject: msg.subject ?? '',
         body: msg.bodyText ?? '',
+        rememberedKey: remembered,
       );
       final targets = await loadPostaFileTargets(
         clienteId,
@@ -268,6 +432,88 @@ class _PostaScreenState extends ConsumerState<PostaScreen> {
         attachment: att,
         target: target,
         createdBy: ref.read(authControllerProvider).valueOrNull?.profile?.id,
+        fromAddress: msg.fromAddress,
+      );
+      _invalidate();
+      if (mounted) _toastFiled(clienteId, target);
+    } on Object {
+      if (mounted) _toast('posta.fileError'.tr());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _fileAll(
+    PostaMessage msg, {
+    PostaQuickFile? quick,
+  }) async {
+    var clienteId = msg.clienteId;
+    var target = quick?.target;
+    if (quick != null) {
+      clienteId = quick.clienteId;
+      if (quick.assignHit != null && !msg.assigned) {
+        await assignPostaMessage(
+          messageId: msg.id,
+          clienteId: quick.clienteId,
+        );
+      }
+    } else {
+      if (clienteId == null || clienteId.isEmpty) {
+        final tenantId =
+            ref.read(authControllerProvider).valueOrNull?.currentTenantId;
+        PostaClienteHit? suggested;
+        if (tenantId != null) {
+          suggested = await suggestPostaCliente(
+            tenantId: tenantId,
+            email: msg.fromAddress,
+            fromName: msg.fromName,
+          );
+        }
+        if (!mounted) return;
+        final hit = await showDialog<PostaClienteHit>(
+          context: context,
+          builder: (ctx) => _PostaClienteDialog(suggested: suggested),
+        );
+        if (hit == null) return;
+        await assignPostaMessage(messageId: msg.id, clienteId: hit.id);
+        clienteId = hit.id;
+      }
+      final tenantIdHints =
+          ref.read(authControllerProvider).valueOrNull?.currentTenantId;
+      final remembered = tenantIdHints == null
+          ? null
+          : await suggestPostaSenderBlock(
+              tenantId: tenantIdHints,
+              email: msg.fromAddress,
+            );
+      final hints = suggestPostaBloqueKeys(
+        filename: msg.attachments.map((a) => a.filename).join('\n'),
+        subject: msg.subject ?? '',
+        body: msg.bodyText ?? '',
+        rememberedKey: remembered,
+      );
+      final targets = await loadPostaFileTargets(
+        clienteId,
+        suggestedKeys: hints,
+      );
+      if (!mounted) return;
+      target = await showDialog<PostaFileTarget>(
+        context: context,
+        builder: (ctx) => _PostaFileDialog(targets: targets),
+      );
+    }
+    if (target == null || clienteId.isEmpty) return;
+    final tenantId =
+        ref.read(authControllerProvider).valueOrNull?.currentTenantId;
+    if (tenantId == null) return;
+    setState(() => _busy = true);
+    try {
+      await fileAllPostaAttachments(
+        tenantId: tenantId,
+        clienteId: clienteId,
+        msg: msg,
+        target: target,
+        createdBy: ref.read(authControllerProvider).valueOrNull?.profile?.id,
       );
       _invalidate();
       if (mounted) _toastFiled(clienteId, target);
@@ -282,14 +528,18 @@ class _PostaScreenState extends ConsumerState<PostaScreen> {
     ref.invalidate(postaListProvider);
     ref.invalidate(postaUnassignedCountProvider);
     ref.invalidate(postaUnfiledCountProvider);
+    ref.invalidate(postaBounceCountProvider);
+    ref.invalidate(postaBounceListProvider);
     ref.invalidate(postaQuickFileProvider);
     ref.invalidate(clienteMailTimelineProvider);
+    ref.invalidate(postaThreadProvider);
     final id = _selectedId;
     if (id != null) {
       ref.invalidate(postaDetailProvider(id));
       ref.invalidate(postaSuggestProvider(id));
     }
     ref.invalidate(clientePostaProvider);
+    ref.invalidate(clienteMensajesProvider);
   }
 
   void _toast(String text) {
@@ -331,18 +581,23 @@ class _PostaListPane extends ConsumerWidget {
     required this.selectedId,
     required this.onSelect,
     required this.onIgnoreNoise,
+    required this.search,
+    required this.searchFocus,
   });
 
   final List<PostaMessage> rows;
   final String? selectedId;
   final ValueChanged<String> onSelect;
   final VoidCallback onIgnoreNoise;
+  final TextEditingController search;
+  final FocusNode searchFocus;
 
   static const _filters = [
     'unassigned',
     'unfiled',
     'attachments',
     'assigned',
+    'done',
     'all',
   ];
 
@@ -362,6 +617,32 @@ class _PostaListPane extends ConsumerWidget {
         AppPageHeader(
           title: 'posta.title'.tr(),
           subtitle: 'posta.subtitle'.tr(),
+        ),
+        TextField(
+          controller: search,
+          focusNode: searchFocus,
+          decoration: InputDecoration(
+            hintText: 'posta.searchMail'.tr(),
+            prefixIcon: const Icon(Icons.search),
+            suffixIcon: search.text.isEmpty
+                ? null
+                : IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () {
+                      search.clear();
+                      ref.read(postaSearchQueryProvider.notifier).state = '';
+                    },
+                  ),
+          ),
+          onChanged: (v) =>
+              ref.read(postaSearchQueryProvider.notifier).state = v,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'posta.shortcuts'.tr(),
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppTheme.pencil,
+              ),
         ),
         Wrap(
           spacing: 8,
@@ -388,6 +669,7 @@ class _PostaListPane extends ConsumerWidget {
             ),
           ),
         ],
+        const _PostaBounceStrip(),
         const SizedBox(height: 16),
         if (rows.isEmpty)
           Padding(
@@ -410,10 +692,13 @@ class _PostaListPane extends ConsumerWidget {
                           subject: row.subject,
                         )
                     ? AppTheme.pencil
-                    : ((row.status == 'unassigned' && row.hasAttachments) ||
-                            (row.status == 'assigned' && row.hasUnfiled)
-                        ? AppTheme.statusWarn
-                        : null),
+                    : (row.isDone
+                        ? AppTheme.statusOk
+                        : ((row.status == 'unassigned' &&
+                                    row.hasAttachments) ||
+                                (row.status == 'assigned' && row.hasUnfiled)
+                            ? AppTheme.statusWarn
+                            : null)),
                 onTap: () => onSelect(row.id),
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
@@ -450,6 +735,7 @@ class _PostaListPane extends ConsumerWidget {
                             'posta.unfiledCount'.tr(
                               namedArgs: {'count': '${row.unfiledCount}'},
                             ),
+                          if (row.isDone) 'posta.status.done'.tr(),
                         ].join(' · '),
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: AppTheme.pencil,
@@ -473,7 +759,10 @@ class _PostaDetailPane extends ConsumerWidget {
     required this.onAssignHit,
     required this.onIgnore,
     required this.onUnassign,
+    required this.onDone,
+    required this.onUndone,
     required this.onFile,
+    required this.onFileAll,
     required this.onReply,
     this.onBack,
   });
@@ -484,11 +773,17 @@ class _PostaDetailPane extends ConsumerWidget {
   final ValueChanged<PostaClienteHit> onAssignHit;
   final VoidCallback onIgnore;
   final VoidCallback onUnassign;
+  final VoidCallback onDone;
+  final VoidCallback onUndone;
   final Future<void> Function(
     PostaAttachment att,
     PostaMessage msg, {
     PostaQuickFile? quick,
   }) onFile;
+  final Future<void> Function(
+    PostaMessage msg, {
+    PostaQuickFile? quick,
+  }) onFileAll;
   final ValueChanged<PostaMessage> onReply;
   final VoidCallback? onBack;
 
@@ -569,6 +864,7 @@ class _PostaDetailPane extends ConsumerWidget {
                 busy: busy,
                 msg: msg,
                 onFile: onFile,
+                onFileAll: onFileAll,
               ),
             ] else
               _PostaQuickFileBar(
@@ -576,6 +872,7 @@ class _PostaDetailPane extends ConsumerWidget {
                 busy: busy,
                 msg: msg,
                 onFile: onFile,
+                onFileAll: onFileAll,
               ),
             const SizedBox(height: 16),
             Wrap(
@@ -597,6 +894,25 @@ class _PostaDetailPane extends ConsumerWidget {
                       onPressed: busy ? null : () => onReply(msg),
                       child: Text('posta.reply'.tr()),
                     ),
+                  if (msg.assigned && !msg.isDone)
+                    FilledButton.tonal(
+                      onPressed: busy ? null : onDone,
+                      child: Text('posta.markDone'.tr()),
+                    ),
+                  if (msg.isDone)
+                    OutlinedButton(
+                      onPressed: busy ? null : onUndone,
+                      child: Text('posta.undone'.tr()),
+                    ),
+                  if (msg.unfiledCount > 1)
+                    FilledButton.tonal(
+                      onPressed: busy ? null : () => onFileAll(msg),
+                      child: Text(
+                        'posta.fileAll'.tr(
+                          namedArgs: {'count': '${msg.unfiledCount}'},
+                        ),
+                      ),
+                    ),
                   if (msg.assigned)
                     OutlinedButton(
                       onPressed: busy ? null : onUnassign,
@@ -614,6 +930,8 @@ class _PostaDetailPane extends ConsumerWidget {
                   ),
               ],
             ),
+            const SizedBox(height: 24),
+            _PostaThreadPane(messageId: messageId),
             const SizedBox(height: 24),
             Text(
               'posta.attachments'.tr(),
@@ -654,7 +972,7 @@ class _PostaDetailPane extends ConsumerWidget {
                   ),
                 ),
             const SizedBox(height: 24),
-            _PostaBody(text: msg.bodyText),
+            PostaHtmlBody(html: msg.bodyHtml, text: msg.bodyText),
           ],
         );
       },
@@ -685,6 +1003,7 @@ class _PostaQuickFileBar extends ConsumerWidget {
     required this.busy,
     required this.msg,
     required this.onFile,
+    required this.onFileAll,
   });
 
   final String messageId;
@@ -695,6 +1014,10 @@ class _PostaQuickFileBar extends ConsumerWidget {
     PostaMessage msg, {
     PostaQuickFile? quick,
   }) onFile;
+  final Future<void> Function(
+    PostaMessage msg, {
+    PostaQuickFile? quick,
+  }) onFileAll;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -712,12 +1035,18 @@ class _PostaQuickFileBar extends ConsumerWidget {
             child: FilledButton.tonal(
               onPressed: busy
                   ? null
-                  : () => onFile(quick.attachment, msg, quick: quick),
+                  : () => quick.count > 1
+                      ? onFileAll(msg, quick: quick)
+                      : onFile(quick.attachment, msg, quick: quick),
               child: Text(
-                'posta.quickFile'.tr(
+                (quick.count > 1
+                        ? 'posta.fileAllTo'
+                        : 'posta.quickFile')
+                    .tr(
                   namedArgs: {
                     'name': quick.clienteNombre,
                     'block': where,
+                    'count': '${quick.count}',
                   },
                 ),
               ),
@@ -730,64 +1059,124 @@ class _PostaQuickFileBar extends ConsumerWidget {
   }
 }
 
-/// Tělo mailu jde označit a zkopírovat; URL jsou tlačítka (Flutter Text nejde klikat).
-class _PostaBody extends StatelessWidget {
-  const _PostaBody({required this.text});
-
-  final String? text;
+class _PostaBounceStrip extends ConsumerWidget {
+  const _PostaBounceStrip();
 
   @override
-  Widget build(BuildContext context) {
-    final body = text?.trim() ?? '';
-    if (body.isEmpty) {
-      return Text('posta.noBody'.tr());
-    }
-    final urls = extractHttpUrls(body);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: SelectableText(
-                body,
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-            ),
-            IconButton(
-              tooltip: 'posta.copyBody'.tr(),
-              icon: const Icon(Icons.copy),
-              onPressed: () async {
-                await Clipboard.setData(ClipboardData(text: body));
-                if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('posta.copiedBody'.tr())),
-                );
-              },
-            ),
-          ],
-        ),
-        if (urls.isNotEmpty) ...[
-          const SizedBox(height: 12),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final rows = ref.watch(postaBounceListProvider).valueOrNull ?? const [];
+    if (rows.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           Text(
-            'posta.links'.tr(),
-            style: Theme.of(context).textTheme.titleSmall,
+            'posta.badgeBounce'.tr(namedArgs: {'count': '${rows.length}'}),
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: AppTheme.statusAlert,
+                ),
           ),
-          const SizedBox(height: 4),
-          for (final url in urls)
+          const SizedBox(height: 8),
+          for (final row in rows.take(5))
             Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton(
-                  onPressed: () => launchUrl(Uri.parse(url)),
-                  child: Text(url, textAlign: TextAlign.left),
+              padding: const EdgeInsets.only(bottom: 8),
+              child: AppCard(
+                stripe: AppTheme.statusAlert,
+                onTap: row.clienteId.isEmpty
+                    ? null
+                    : () => context.go('/clientes/${row.clienteId}'),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        row.clienteNombre,
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                      Text(
+                        [
+                          'posta.bounce'.tr(),
+                          if (row.subject.isNotEmpty) row.subject,
+                          if ((row.reason ?? '').isNotEmpty) row.reason!,
+                        ].join(' · '),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppTheme.pencil,
+                            ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
         ],
-      ],
+      ),
+    );
+  }
+}
+
+class _PostaThreadPane extends ConsumerWidget {
+  const _PostaThreadPane({required this.messageId});
+
+  final String messageId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(postaThreadProvider(messageId));
+    return async.maybeWhen(
+      data: (rows) {
+        if (rows.length < 2) return const SizedBox.shrink();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'posta.thread'.tr(),
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            for (final row in rows)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: AppCard(
+                  emphasized: row.current,
+                  stripe: row.bounced
+                      ? AppTheme.statusAlert
+                      : (row.inbound ? AppTheme.accent : AppTheme.rule),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          [
+                            row.inbound
+                                ? 'posta.directionIn'.tr()
+                                : 'posta.directionOut'.tr(),
+                            if (row.subject.isNotEmpty) row.subject,
+                            if (row.bounced) 'posta.bounce'.tr(),
+                          ].join(' · '),
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
+                        if ((row.body ?? '').trim().isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              row.body!.trim(),
+                              maxLines: row.current ? 8 : 3,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+      orElse: () => const SizedBox.shrink(),
     );
   }
 }

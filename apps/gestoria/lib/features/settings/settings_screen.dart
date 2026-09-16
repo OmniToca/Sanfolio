@@ -182,7 +182,7 @@ class _OfficeTab extends ConsumerWidget {
                 },
               ),
               const SizedBox(height: 16),
-              const PostaIngestSection(),
+              PostaIngestSection(settings: settings),
               const SizedBox(height: 16),
               const OfficeAccountSection(),
               const SizedBox(height: 16),

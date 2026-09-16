@@ -366,12 +366,15 @@
     "threadReply": "Respuesta a un aviso",
     "ingestTitle": "Dirección para copias de correo",
     "ingestHint": "Reenvíe el correo de la oficina aquí. Los buzones personales no.",
+    "officeEmail": "Correo del despacho (Reply-To)",
+    "officeEmailHint": "Ahí pulsa Responder el cliente. Debe ser la bandeja que reenvía aquí.",
+    "officeEmailMissing": "Ponga el correo del despacho en Ajustes. Si no, el cliente responde a una dirección técnica.",
     "ingestCopy": "Copiar dirección",
     "ingestCopied": "Dirección copiada.",
     "ingestStep1": "Copie la dirección del despacho arriba.",
     "ingestStep2": "Gmail → Ajustes → Reenvío y POP/IMAP → añada esta dirección.",
     "ingestStep3": "Confirme el enlace que envía Gmail. El correo personal no pertenece aquí.",
-    "ingestStep4": "Los avisos del despacho usan Reply-To con plus-address para que la respuesta con PDF caiga en la ficha.",
+    "ingestStep4": "Los avisos usan el correo del despacho como Reply-To. Gmail reenvía la copia aquí y el PDF cae en Correo.",
     "ingestManyOffices": "Cada despacho tiene su propia dirección en inbound.sanfolio.app. Veinte despachos son veinte direcciones en el sistema, no veinte buzones comprados.",
     "replyToHint": "Respuesta del cliente: {email}",
     "replyToCopy": "Copiar Reply-To",
@@ -381,12 +384,14 @@
       "unfiled": "Por guardar",
       "attachments": "Con adjunto",
       "assigned": "Asignados",
-      "all": "Todos"
+      "all": "Todos",
+      "done": "Anotados"
     },
     "status": {
       "unassigned": "Sin asignar",
       "assigned": "Asignado",
-      "ignored": "Ignorado"
+      "ignored": "Ignorado",
+      "done": "Anotado"
     },
     "match": {
       "plus_address": "Reconocido por el Reply-To de la carpeta.",
@@ -395,7 +400,21 @@
       "reply_thread": "Respuesta a un aviso del despacho.",
       "from_name": "Por el nombre del remitente — compruebe la ficha.",
       "manual": "Asignado por el gestor."
-    }
+    },
+    "fileAll": "Archivar todos los adjuntos ({count})",
+    "fileAllTo": "Archivar todo en {name} → {block}",
+    "markDone": "Marcar como anotado",
+    "undone": "Devolver a la cola",
+    "markedDone": "El correo está anotado. Sigue en la ficha.",
+    "doneError": "No se pudo cambiar el estado.",
+    "doneNeedFile": "Archive primero los adjuntos en el tablero.",
+    "searchMail": "Buscar nombre, correo, asunto o texto",
+    "shortcuts": "J/K lista · F archivar · A asignar · D anotado · I ignorar · / buscar",
+    "thread": "Hilo",
+    "officePhone": "Teléfono del despacho",
+    "officePhoneHint": "Se añade a la firma del aviso saliente.",
+    "bounce": "No entregado",
+    "badgeBounce": "{count} avisos no entregados"
   },
   "folder": {
     "title": "Carpeta",

@@ -52,19 +52,27 @@ Deno.serve(async (req) => {
     return json(400, { ok: false, error: "json" });
   }
 
-  if (isRecord(raw) && raw.type === "email.received") {
-    try {
-      const hydrated = await hydrateResendReceived(raw);
-      if (!hydrated) {
-        return json(400, { ok: false, error: "payload" });
-      }
-      raw = hydrated;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "resend";
-      return json(502, { ok: false, error: msg });
+  if (isRecord(raw) && typeof raw.type === "string") {
+    const kind = raw.type;
+    if (kind === "email.bounced" || kind === "email.failed" ||
+      kind === "email.complained") {
+      const marked = await markOutboundBounce(url, service, raw);
+      return json(200, { ok: true, bounce: marked, type: kind });
     }
-  } else if (isRecord(raw) && typeof raw.type === "string") {
-    return json(200, { ok: true, ignored: raw.type });
+    if (kind === "email.received") {
+      try {
+        const hydrated = await hydrateResendReceived(raw);
+        if (!hydrated) {
+          return json(400, { ok: false, error: "payload" });
+        }
+        raw = hydrated;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "resend";
+        return json(502, { ok: false, error: msg });
+      }
+    } else {
+      return json(200, { ok: true, ignored: kind });
+    }
   }
 
   const parsed = parseInbound(raw);
@@ -127,10 +135,12 @@ Deno.serve(async (req) => {
     }
   }
 
-  const gmailUrl = parsed.messageIdHeader
-    ? `https://mail.google.com/mail/#search/rfc822msgid:${
-      encodeURIComponent(parsed.messageIdHeader)
-    }`
+  let msgid = (parsed.messageIdHeader ?? "").trim();
+  if (msgid.startsWith("<") && msgid.endsWith(">") && msgid.length > 2) {
+    msgid = msgid.slice(1, -1).trim();
+  }
+  const gmailUrl = msgid.includes("@")
+    ? `https://mail.google.com/mail/#search/rfc822msgid:${encodeURIComponent(msgid)}`
     : null;
 
   const { data: inserted, error: insErr } = await admin
@@ -146,6 +156,7 @@ Deno.serve(async (req) => {
       cc_addresses: parsed.cc,
       subject: parsed.subject,
       body_text: clip(parsed.bodyText, MAX_BODY),
+      body_html: parsed.bodyHtml ? clip(parsed.bodyHtml, MAX_BODY) : null,
       received_at: parsed.receivedAt,
       in_reply_to: parsed.inReplyTo,
       references_header: parsed.referencesHeader,
@@ -200,6 +211,30 @@ Deno.serve(async (req) => {
   });
 });
 
+/** Resend bounce/fail → razítko na odeslané výzvě. AI nic neposílá znovu. */
+async function markOutboundBounce(
+  url: string,
+  service: string,
+  raw: Record<string, unknown>,
+): Promise<boolean> {
+  const data = isRecord(raw.data) ? raw.data : raw;
+  const emailId = stringify(data.email_id ?? data.id ?? data.emailId);
+  if (!emailId) return false;
+  const bounce = isRecord(data.bounce) ? data.bounce : null;
+  const reason = stringify(
+    bounce?.message ?? data.reason ?? data.error ?? raw.type,
+  );
+  const admin = createClient(url, service, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  const { data: marked, error } = await admin.rpc("mark_mensaje_bounce", {
+    p_provider_id: emailId,
+    p_reason: reason || stringify(raw.type),
+  });
+  if (error) return false;
+  return marked === true;
+}
+
 async function inboundAuthorized(req: Request, rawBody: string): Promise<boolean> {
   const secret = Deno.env.get("POSTA_INBOUND_SECRET")?.trim() ?? "";
   if (secret) {
@@ -226,6 +261,7 @@ type ParsedInbound = {
   cc: string[];
   subject: string | null;
   bodyText: string;
+  bodyHtml: string | null;
   receivedAt: string;
   attachments: { filename: string; mime: string; bytes: Uint8Array }[];
 };
@@ -264,8 +300,9 @@ function parseInbound(raw: unknown): ParsedInbound | null {
     to,
     cc: emailsFrom(obj.cc ?? obj.Cc),
     subject: stringify(obj.subject ?? obj.Subject) || null,
+    bodyHtml: stringify(obj.html ?? obj.body_html ?? obj.HtmlBody) || null,
     bodyText: stringify(obj.text ?? obj.body ?? obj.body_text ?? obj.TextBody) ||
-      stripTags(stringify(obj.html ?? obj.HtmlBody)),
+      htmlToText(stringify(obj.html ?? obj.HtmlBody)),
     receivedAt: isoDate(obj.received_at ?? obj.Date ?? obj.created_at),
     attachments: decodeAttachments(obj.attachments ?? obj.Attachments),
   };
@@ -290,7 +327,8 @@ function parsePostmark(obj: Record<string, unknown>): ParsedInbound | null {
     to,
     cc: emailsFrom(obj.CcFull ?? obj.Cc),
     subject: stringify(obj.Subject) || null,
-    bodyText: stringify(obj.TextBody) || stripTags(stringify(obj.HtmlBody)),
+    bodyHtml: stringify(obj.HtmlBody) || null,
+    bodyText: stringify(obj.TextBody) || htmlToText(stringify(obj.HtmlBody)),
     receivedAt: isoDate(obj.Date),
     attachments: decodeAttachments(obj.Attachments),
   };
@@ -350,8 +388,37 @@ function nameFrom(raw: string): string | null {
   return trimmed.length > 0 && !trimmed.includes("@") ? trimmed : null;
 }
 
+/** HTML dodavatelů na čitelný text (odstavce, odkazy, citace). */
+function htmlToText(html: string): string {
+  if (!html) return "";
+  let s = html.replace(/\r\n/g, "\n");
+  s = s.replace(/<script[\s\S]*?<\/script>/gi, "");
+  s = s.replace(/<style[\s\S]*?<\/style>/gi, "");
+  s = s.replace(/<br\s*\/?>/gi, "\n");
+  s = s.replace(/<\/(p|div|tr|h[1-6]|li|blockquote|table)>/gi, "\n");
+  s = s.replace(/<li[^>]*>/gi, "• ");
+  s = s.replace(/<blockquote[^>]*>/gi, "> ");
+  s = s.replace(
+    /<a[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi,
+    (_, href: string, label: string) => {
+      const t = stripTags(label) || href;
+      return t.includes(href) ? t : `${t} (${href})`;
+    },
+  );
+  s = s.replace(/<img[^>]*alt=["']([^"']*)["'][^>]*>/gi, " $1 ");
+  s = stripTags(s);
+  s = s
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/g, "'");
+  return s.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
 function stripTags(html: string): string {
-  return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  return html.replace(/<[^>]+>/g, " ").replace(/[ \t]+/g, " ").trim();
 }
 
 function clip(s: string, max: number): string {
@@ -441,7 +508,8 @@ async function hydrateResendReceived(
     to,
     cc: emailsFrom(email.cc),
     subject: stringify(email.subject) || stringify(data?.subject),
-    text: stringify(email.text) || stripTags(stringify(email.html)),
+    html: stringify(email.html) || null,
+    text: stringify(email.text) || htmlToText(stringify(email.html)),
     received_at: stringify(email.created_at) || stringify(data?.created_at),
     headers: headerSrc,
     attachments: await downloadResendAttachments(emailId, key),

@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gestoria_auth/gestoria_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/documents/documento_storage.dart';
 import '../../core/identity/nie_persist.dart';
@@ -59,6 +61,10 @@ class PostaMessage {
     this.gmailUrl,
     this.messageIdHeader,
     this.mensajeId,
+    this.bodyHtml,
+    this.inReplyTo,
+    this.referencesHeader,
+    this.doneAt,
     this.attachments = const [],
   });
 
@@ -75,12 +81,17 @@ class PostaMessage {
   final String? gmailUrl;
   final String? messageIdHeader;
   final String? mensajeId;
+  final String? bodyHtml;
+  final String? inReplyTo;
+  final String? referencesHeader;
+  final DateTime? doneAt;
   final List<PostaAttachment> attachments;
 
   bool get hasAttachments => attachments.isNotEmpty;
   bool get hasUnfiled => attachments.any((a) => !a.filed);
   int get unfiledCount => attachments.where((a) => !a.filed).length;
   bool get assigned => status == 'assigned' && (clienteId ?? '').isNotEmpty;
+  bool get isDone => doneAt != null;
 
   String get fromLabel {
     final name = fromName?.trim() ?? '';
@@ -88,10 +99,11 @@ class PostaMessage {
     return fromAddress;
   }
 
-  String? get openInGmail =>
-      (gmailUrl != null && gmailUrl!.isNotEmpty)
-          ? gmailUrl
-          : gmailSearchUrl(messageIdHeader);
+  String? get openInGmail => gmailSearchUrl(
+        messageIdHeader,
+        from: fromAddress,
+        subject: subject,
+      );
 }
 
 class PostaFileTarget {
@@ -174,6 +186,7 @@ final postaAccountProvider = FutureProvider<PostaAccount?>((ref) async {
 
 final postaUnassignedCountProvider = FutureProvider<int>((ref) async {
   ref.watch(authControllerProvider);
+  ref.watch(postaRealtimeTickProvider);
   final client = trySupabaseClient();
   final tenantId = ref.read(authControllerProvider).valueOrNull?.currentTenantId;
   if (client == null || tenantId == null) return 0;
@@ -186,6 +199,7 @@ final postaUnassignedCountProvider = FutureProvider<int>((ref) async {
 
 final postaUnfiledCountProvider = FutureProvider<int>((ref) async {
   ref.watch(authControllerProvider);
+  ref.watch(postaRealtimeTickProvider);
   final client = trySupabaseClient();
   final tenantId = ref.read(authControllerProvider).valueOrNull?.currentTenantId;
   if (client == null || tenantId == null) return 0;
@@ -196,34 +210,188 @@ final postaUnfiledCountProvider = FutureProvider<int>((ref) async {
   return int.tryParse('$raw') ?? 0;
 });
 
+final postaBounceCountProvider = FutureProvider<int>((ref) async {
+  ref.watch(authControllerProvider);
+  ref.watch(postaRealtimeTickProvider);
+  final client = trySupabaseClient();
+  final tenantId = ref.read(authControllerProvider).valueOrNull?.currentTenantId;
+  if (client == null || tenantId == null) return 0;
+  final raw = await client.rpc(
+    'posta_bounce_count',
+    params: {'p_tenant_id': tenantId},
+  );
+  return int.tryParse('$raw') ?? 0;
+});
+
+class PostaBounceHit {
+  const PostaBounceHit({
+    required this.id,
+    required this.clienteId,
+    required this.clienteNombre,
+    required this.subject,
+    required this.at,
+    this.reason,
+  });
+
+  final String id;
+  final String clienteId;
+  final String clienteNombre;
+  final String subject;
+  final DateTime at;
+  final String? reason;
+}
+
+final postaBounceListProvider = FutureProvider<List<PostaBounceHit>>((ref) async {
+  ref.watch(authControllerProvider);
+  ref.watch(postaRealtimeTickProvider);
+  final client = trySupabaseClient();
+  final tenantId = ref.read(authControllerProvider).valueOrNull?.currentTenantId;
+  if (client == null || tenantId == null) return [];
+  final rows = await client
+      .from('mensajes')
+      .select(
+        'id, cliente_id, asunto, bounce_at, bounce_reason, '
+        'clientes(nombre, apellidos, razon_social)',
+      )
+      .eq('tenant_id', tenantId)
+      .isFilter('deleted_at', null)
+      .not('bounce_at', 'is', null)
+      .eq('status', 'sent')
+      .order('bounce_at', ascending: false)
+      .limit(12);
+  final out = <PostaBounceHit>[];
+  for (final raw in rows as List) {
+    if (raw is! Map) continue;
+    final at = DateTime.tryParse('${raw['bounce_at']}');
+    if (at == null) continue;
+    out.add(
+      PostaBounceHit(
+        id: '${raw['id']}',
+        clienteId: '${raw['cliente_id'] ?? ''}',
+        clienteNombre: _embeddedClienteNombre(raw['clientes']) ?? '—',
+        subject: '${raw['asunto'] ?? ''}'.trim(),
+        at: at,
+        reason: _trimOrNull(raw['bounce_reason']),
+      ),
+    );
+  }
+  return out;
+});
+
+final postaSearchQueryProvider = StateProvider<String>((ref) => '');
+
+/// Realtime tik — seznam a počty se přepočítají, když přijde nový mail.
+final postaRealtimeTickProvider = StreamProvider<int>((ref) async* {
+  ref.watch(authControllerProvider);
+  final client = trySupabaseClient();
+  final tenantId = ref.read(authControllerProvider).valueOrNull?.currentTenantId;
+  if (client == null || tenantId == null) {
+    yield 0;
+    return;
+  }
+  yield 0;
+  final controller = StreamController<int>();
+  var n = 0;
+  final channel = client
+      .channel('posta-$tenantId')
+      .onPostgresChanges(
+        event: PostgresChangeEvent.all,
+        schema: 'public',
+        table: 'posta_messages',
+        filter: PostgresChangeFilter(
+          type: PostgresChangeFilterType.eq,
+          column: 'tenant_id',
+          value: tenantId,
+        ),
+        callback: (_) {
+          n += 1;
+          if (!controller.isClosed) controller.add(n);
+        },
+      )
+      .onPostgresChanges(
+        event: PostgresChangeEvent.all,
+        schema: 'public',
+        table: 'posta_attachments',
+        filter: PostgresChangeFilter(
+          type: PostgresChangeFilterType.eq,
+          column: 'tenant_id',
+          value: tenantId,
+        ),
+        callback: (_) {
+          n += 1;
+          if (!controller.isClosed) controller.add(n);
+        },
+      )
+      .onPostgresChanges(
+        event: PostgresChangeEvent.all,
+        schema: 'public',
+        table: 'mensajes',
+        filter: PostgresChangeFilter(
+          type: PostgresChangeFilterType.eq,
+          column: 'tenant_id',
+          value: tenantId,
+        ),
+        callback: (_) {
+          n += 1;
+          if (!controller.isClosed) controller.add(n);
+        },
+      )
+      .subscribe();
+  ref.onDispose(() {
+    client.removeChannel(channel);
+    controller.close();
+  });
+  yield* controller.stream;
+});
+
 final postaFilterProvider = StateProvider<String>((ref) => 'unassigned');
 
 final postaListProvider = FutureProvider<List<PostaMessage>>((ref) async {
   ref.watch(authControllerProvider);
+  ref.watch(postaRealtimeTickProvider);
   final client = trySupabaseClient();
   final tenantId = ref.read(authControllerProvider).valueOrNull?.currentTenantId;
   if (client == null || tenantId == null) return [];
   final filter = ref.watch(postaFilterProvider);
+  final q = ref.watch(postaSearchQueryProvider).trim();
+  const select = 'id, from_address, from_name, subject, received_at, status, '
+      'cliente_id, match_method, gmail_url, message_id_header, mensaje_id, '
+      'in_reply_to, references_header, done_at, '
+      'clientes(nombre, apellidos, razon_social), '
+      'posta_attachments(id, filename, mime, byte_size, storage_path, documento_id, deleted_at)';
+  List ids = const [];
+  if (q.length >= 2) {
+    final found = await client.rpc(
+      'search_posta',
+      params: {'p_tenant_id': tenantId, 'p_q': q, 'p_limit': 60},
+    );
+    ids = [
+      for (final raw in found as List)
+        if (raw is Map && raw['message_id'] != null) '${raw['message_id']}'
+        else if (raw is String) raw,
+    ];
+    if (ids.isEmpty) return [];
+  }
   var query = client
       .from('posta_messages')
-      .select(
-        'id, from_address, from_name, subject, received_at, status, '
-        'cliente_id, match_method, gmail_url, message_id_header, mensaje_id, '
-        'clientes(nombre, apellidos, razon_social), '
-        'posta_attachments(id, filename, mime, byte_size, storage_path, documento_id, deleted_at)',
-      )
+      .select(select)
       .eq('tenant_id', tenantId)
       .isFilter('deleted_at', null);
-  query = switch (filter) {
-    'unassigned' || 'assigned' => query.eq('status', filter),
-    _ => query.neq('status', 'ignored'),
-  };
+  if (ids.isNotEmpty) {
+    query = query.inFilter('id', ids);
+  } else {
+    query = switch (filter) {
+      'unassigned' || 'assigned' => query.eq('status', filter),
+      'done' => query.not('done_at', 'is', null),
+      _ => query.neq('status', 'ignored'),
+    };
+  }
   final rows = await query.order('received_at', ascending: false).limit(80);
   final out = <PostaMessage>[];
   for (final raw in rows as List) {
     if (raw is! Map) continue;
     final msg = _messageFrom(raw, includeBody: false);
-    if (matchesPostaFilter(msg, filter)) out.add(msg);
+    if (q.length >= 2 || matchesPostaFilter(msg, filter)) out.add(msg);
   }
   return out;
 });
@@ -231,14 +399,16 @@ final postaListProvider = FutureProvider<List<PostaMessage>>((ref) async {
 final postaDetailProvider =
     FutureProvider.family<PostaMessage?, String>((ref, id) async {
   ref.watch(authControllerProvider);
+  ref.watch(postaRealtimeTickProvider);
   final client = trySupabaseClient();
   final tenantId = ref.read(authControllerProvider).valueOrNull?.currentTenantId;
   if (client == null || tenantId == null || id.isEmpty) return null;
   final row = await client
       .from('posta_messages')
       .select(
-        'id, from_address, from_name, subject, body_text, received_at, status, '
+        'id, from_address, from_name, subject, body_text, body_html, received_at, status, '
         'cliente_id, match_method, gmail_url, message_id_header, mensaje_id, '
+        'in_reply_to, references_header, done_at, '
         'clientes(nombre, apellidos, razon_social), '
         'posta_attachments(id, filename, mime, byte_size, storage_path, documento_id, deleted_at)',
       )
@@ -253,6 +423,7 @@ final postaDetailProvider =
 final clientePostaProvider =
     FutureProvider.family<List<PostaMessage>, String>((ref, clienteId) async {
   ref.watch(authControllerProvider);
+  ref.watch(postaRealtimeTickProvider);
   final client = trySupabaseClient();
   final tenantId = ref.read(authControllerProvider).valueOrNull?.currentTenantId;
   if (client == null || tenantId == null) return [];
@@ -261,6 +432,7 @@ final clientePostaProvider =
       .select(
         'id, from_address, from_name, subject, received_at, status, '
         'cliente_id, match_method, gmail_url, message_id_header, mensaje_id, '
+        'in_reply_to, references_header, done_at, '
         'posta_attachments(id, filename, mime, byte_size, storage_path, documento_id, deleted_at)',
       )
       .eq('tenant_id', tenantId)
@@ -279,10 +451,11 @@ final clientePostaProvider =
 
 bool matchesPostaFilter(PostaMessage msg, String filter) {
   return switch (filter) {
-    'unassigned' => msg.status == 'unassigned',
+    'unassigned' => msg.status == 'unassigned' && !msg.isDone,
     'unfiled' => msg.hasUnfiled && msg.status != 'ignored',
     'attachments' => msg.hasAttachments && msg.status != 'ignored',
-    'assigned' => msg.status == 'assigned',
+    'assigned' => msg.status == 'assigned' && !msg.isDone,
+    'done' => msg.isDone && msg.status != 'ignored',
     'all' => msg.status != 'ignored',
     _ => true,
   };
@@ -318,6 +491,39 @@ Future<void> unassignPostaMessage(String messageId) async {
   );
 }
 
+Future<void> markPostaDone(String messageId) async {
+  final client = trySupabaseClient();
+  if (client == null) throw StateError('not configured');
+  await client.rpc(
+    'mark_posta_done',
+    params: {'p_message_id': messageId},
+  );
+}
+
+Future<void> markPostaUndone(String messageId) async {
+  final client = trySupabaseClient();
+  if (client == null) throw StateError('not configured');
+  await client.rpc(
+    'mark_posta_undone',
+    params: {'p_message_id': messageId},
+  );
+}
+
+Future<String?> suggestPostaSenderBlock({
+  required String tenantId,
+  required String email,
+}) async {
+  final client = trySupabaseClient();
+  if (client == null) return null;
+  final raw = await client.rpc(
+    'suggest_posta_sender_block',
+    params: {'p_tenant_id': tenantId, 'p_email': email},
+  );
+  final key = '$raw'.trim();
+  if (key.isEmpty || key == 'null') return null;
+  return key;
+}
+
 final postaSuggestProvider =
     FutureProvider.family<PostaClienteHit?, String>((ref, messageId) async {
   ref.watch(authControllerProvider);
@@ -335,16 +541,19 @@ class PostaQuickFile {
   const PostaQuickFile({
     required this.clienteId,
     required this.clienteNombre,
-    required this.attachment,
+    required this.attachments,
     required this.target,
     this.assignHit,
   });
 
   final String clienteId;
   final String clienteNombre;
-  final PostaAttachment attachment;
+  final List<PostaAttachment> attachments;
   final PostaFileTarget target;
   final PostaClienteHit? assignHit;
+
+  PostaAttachment get attachment => attachments.first;
+  int get count => attachments.length;
 }
 
 /// Unikátní klient + unikátní blok → jedno tlačítko. Jinak null (dialog).
@@ -370,11 +579,17 @@ final postaQuickFileProvider =
     nombre = hit?.nombre ?? '';
   }
   if (clienteId == null || clienteId.isEmpty) return null;
-  final att = msg.attachments.firstWhere((a) => !a.filed);
+  final unfiled = [for (final a in msg.attachments) if (!a.filed) a];
+  if (unfiled.isEmpty) return null;
+  final remembered = await suggestPostaSenderBlock(
+    tenantId: tenantId,
+    email: msg.fromAddress,
+  );
   final hints = suggestPostaBloqueKeys(
-    filename: att.filename,
+    filename: unfiled.map((a) => a.filename).join('\n'),
     subject: msg.subject ?? '',
     body: msg.bodyText ?? '',
+    rememberedKey: remembered,
   );
   if (hints.isEmpty) return null;
   final targets = await loadPostaFileTargets(
@@ -386,7 +601,7 @@ final postaQuickFileProvider =
   return PostaQuickFile(
     clienteId: clienteId,
     clienteNombre: nombre,
-    attachment: att,
+    attachments: unfiled,
     target: target,
     assignHit: hit,
   );
@@ -542,6 +757,7 @@ Future<void> filePostaAttachment({
   required PostaAttachment attachment,
   required PostaFileTarget target,
   String? createdBy,
+  String? fromAddress,
 }) async {
   final client = trySupabaseClient();
   if (client == null) throw OfficeUploadException('not_configured');
@@ -596,6 +812,57 @@ Future<void> filePostaAttachment({
     docTipo: tipo,
     bloqueKey: target.templateKey ?? 'cliente_snapshot',
   );
+  final key = target.templateKey;
+  if (fromAddress != null && key != null && key.isNotEmpty) {
+    await rememberPostaSenderBlock(
+      tenantId: tenantId,
+      fromAddress: fromAddress,
+      templateKey: key,
+    );
+  }
+}
+
+Future<void> rememberPostaSenderBlock({
+  required String tenantId,
+  required String fromAddress,
+  required String templateKey,
+}) async {
+  final key = templateKey.trim();
+  if (key.isEmpty) return;
+  final client = trySupabaseClient();
+  if (client == null) return;
+  final domain = postaSenderDomain(fromAddress);
+  await client.rpc(
+    'remember_posta_sender_block',
+    params: {
+      'p_tenant_id': tenantId,
+      'p_email': fromAddress,
+      'p_template_key': key,
+      'p_domain': (domain != null && !isPostaConsumerDomain(domain))
+          ? domain
+          : null,
+    },
+  );
+}
+
+Future<void> fileAllPostaAttachments({
+  required String tenantId,
+  required String clienteId,
+  required PostaMessage msg,
+  required PostaFileTarget target,
+  String? createdBy,
+}) async {
+  final unfiled = [for (final a in msg.attachments) if (!a.filed) a];
+  for (final att in unfiled) {
+    await filePostaAttachment(
+      tenantId: tenantId,
+      clienteId: clienteId,
+      attachment: att,
+      target: target,
+      createdBy: createdBy,
+      fromAddress: msg.fromAddress,
+    );
+  }
 }
 
 Future<String> signedPostaUrl(String storagePath) async {
@@ -629,6 +896,7 @@ PostaMessage _messageFrom(Map raw, {required bool includeBody}) {
     fromName: _trimOrNull(raw['from_name']),
     subject: _trimOrNull(raw['subject']),
     bodyText: includeBody ? _trimOrNull(raw['body_text']) : null,
+    bodyHtml: includeBody ? _trimOrNull(raw['body_html']) : null,
     receivedAt: DateTime.tryParse('${raw['received_at']}') ?? DateTime.now(),
     status: '${raw['status'] ?? 'unassigned'}',
     clienteId: _trimOrNull(raw['cliente_id']),
@@ -637,6 +905,11 @@ PostaMessage _messageFrom(Map raw, {required bool includeBody}) {
     gmailUrl: _trimOrNull(raw['gmail_url']),
     messageIdHeader: _trimOrNull(raw['message_id_header']),
     mensajeId: _trimOrNull(raw['mensaje_id']),
+    inReplyTo: _trimOrNull(raw['in_reply_to']),
+    referencesHeader: _trimOrNull(raw['references_header']),
+    doneAt: raw['done_at'] == null
+        ? null
+        : DateTime.tryParse('${raw['done_at']}'),
     attachments: attachments,
   );
 }

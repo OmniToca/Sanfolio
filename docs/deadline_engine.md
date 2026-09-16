@@ -130,9 +130,7 @@ Stejné tělo jako 5.3 s konkrétním `{{bloque}}`.
 
 ## 6. Odeslání
 
-MVP: Edge Function `send-client-message` (Resend). Volá ji **jen** authenticated gestor po kliknutí, ne cron, ne AI. Bez `RESEND_API_KEY` compose otevře `mailto:` a do `Reply-To` dá plus-adresu složky (`posta_accounts.ingest_local+{cliente_id}@inbound.sanfolio.app`), aby odpověď s PDF spadla do `/posta` na stejného klienta.
-
-Dvacet kanceláří = dvacet `posta_accounts` na **jedné** ingest doméně, ne dvacet schránek. From odchozí pošty je sdílené `posta@sanfolio.app` (jméno kanceláře v display name). Reply-To je unikátní per tenant+klient. Web app je `https://sanfolio.app`; `sanfolio.com` jen přesměruje.
+MVP: Edge Function `send-client-message` (Resend). Volá ji **jen** authenticated gestor po kliknutí, ne cron, ne AI. Bez `RESEND_API_KEY` compose otevře `mailto:`. **Reply-To** je `tenant_settings.office_email` (Gmail kanceláře). Plus-adresa ingestu je jen kam Gmail posílá kopii, klient ji v Odpovědět nevidí. From odchozí pošty je sdílené `posta@inbound.sanfolio.app` (jméno kanceláře v display name). Podpis = `display_name` + `office_phone` + `office_email` + NIF. Bounce z Resendu (`email.bounced`) se razítkuje na `mensajes.bounce_at` — AI znovu neposílá.
 
 `tenant_settings.send_translated_outbound = true` (Gestorie Jarka): do e-mailu / WhatsApp jde **překlad** v `clientes.locale`. Originál (`mensajes.cuerpo` + `locale_original`) zůstane ve spisu a později v klientské zóně vedle překladu. Překlad se uloží jednou do `mensajes.translations`.
 

@@ -366,12 +366,15 @@
     "threadReply": "Antwort auf ein Schreiben",
     "ingestTitle": "Adresse für Postkopien",
     "ingestHint": "Leiten Sie die Büropost hierher weiter. Private Postfächer bleiben draußen.",
+    "officeEmail": "Kanzlei-E-Mail (Reply-To)",
+    "officeEmailHint": "Dorthin klickt der Mandant auf Antworten. Es muss das Postfach sein, das hierher weiterleitet.",
+    "officeEmailMissing": "Tragen Sie die Kanzlei-E-Mail in den Einstellungen ein. Sonst antwortet der Mandant an eine technische Adresse.",
     "ingestCopy": "Adresse kopieren",
     "ingestCopied": "Adresse kopiert.",
     "ingestStep1": "Kopieren Sie die Kanzlei-Adresse oben.",
     "ingestStep2": "Gmail → Einstellungen → Weiterleitung und POP/IMAP → diese Adresse hinzufügen.",
     "ingestStep3": "Bestätigen Sie den Link, den Gmail sendet. Private Post gehört nicht hierher.",
-    "ingestStep4": "Kanzlei-Schreiben nutzen Reply-To mit Plus-Adresse, damit eine PDF-Antwort auf der Karte landet.",
+    "ingestStep4": "Schreiben nutzen das Kanzlei-Postfach als Reply-To. Gmail leitet die Kopie hierher, das PDF landet in der Post.",
     "ingestManyOffices": "Jede Kanzlei hat eine eigene Adresse auf inbound.sanfolio.app. Zwanzig Kanzleien sind zwanzig Adressen im System, keine zwanzig gekauften Postfächer.",
     "replyToHint": "Antwort des Mandanten: {email}",
     "replyToCopy": "Reply-To kopieren",
@@ -381,12 +384,14 @@
       "unfiled": "Abzulegen",
       "attachments": "Mit Anhang",
       "assigned": "Zugeordnet",
-      "all": "Alle"
+      "all": "Alle",
+      "done": "Vermerkt"
     },
     "status": {
       "unassigned": "Nicht zugeordnet",
       "assigned": "Zugeordnet",
-      "ignored": "Ignoriert"
+      "ignored": "Ignoriert",
+      "done": "Vermerkt"
     },
     "match": {
       "plus_address": "Erkannt über die Reply-To-Adresse der Mappe.",
@@ -395,7 +400,21 @@
       "reply_thread": "Antwort auf ein Schreiben der Kanzlei.",
       "from_name": "Nach Absendernamen — prüfen Sie die Karte.",
       "manual": "Vom Gestor zugeordnet."
-    }
+    },
+    "fileAll": "Alle Anhänge ablegen ({count})",
+    "fileAllTo": "Alles zu {name} → {block} ablegen",
+    "markDone": "Als vermerkt markieren",
+    "undone": "Zurück in die Queue",
+    "markedDone": "Die Mail ist vermerkt. Sie bleibt auf der Karte.",
+    "doneError": "Status konnte nicht geändert werden.",
+    "doneNeedFile": "Legen Sie die Anhänge zuerst auf die Tafel.",
+    "searchMail": "Name, E-Mail, Betreff oder Text suchen",
+    "shortcuts": "J/K Liste · F ablegen · A zuordnen · D vermerkt · I ignorieren · / suchen",
+    "thread": "Verlauf",
+    "officePhone": "Kanzlei-Telefon",
+    "officePhoneHint": "Kommt in die Signatur der ausgehenden Mail.",
+    "bounce": "Nicht zugestellt",
+    "badgeBounce": "{count} unzustellbare Nachrichten"
   },
   "folder": {
     "title": "Mappe",

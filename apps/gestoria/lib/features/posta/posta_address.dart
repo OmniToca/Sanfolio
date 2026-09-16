@@ -24,6 +24,86 @@ String postaReplyTo({
   return '$base+$clienteId@$domain';
 }
 
+/// Kam má klient kliknout Odpovědět: schránka kanceláře, ne plus-adresa ingestu.
+String? postaClientReplyTo(String officeEmail) {
+  return extractEmailAddress(officeEmail);
+}
+
+/// Podpis odchozí výzvy. Jméno + telefon + e-mail + NIF, nic víc.
+String officeEmailSignature({
+  String displayName = '',
+  String phone = '',
+  String email = '',
+  String nif = '',
+}) {
+  final addr = extractEmailAddress(email) ?? '';
+  final lines = [
+    displayName.trim(),
+    phone.trim(),
+    addr,
+    nif.trim().isEmpty ? '' : 'NIF ${nif.trim()}',
+  ].where((s) => s.isNotEmpty).toList();
+  if (lines.isEmpty) return '';
+  return '--\n${lines.join('\n')}';
+}
+
+/// Připojí podpis, pokud v těle ještě není.
+String withOfficeSignature(String body, String signature) {
+  final sig = signature.trim();
+  if (sig.isEmpty) return body;
+  final trimmed = body.trimRight();
+  if (trimmed.contains(sig) || trimmed.endsWith(sig)) return trimmed;
+  return '$trimmed\n\n$sig';
+}
+
+/// Doména From. Gmail/Seznam sem nepatří — tam blok pamatujeme jen na přesný e-mail.
+String? postaSenderDomain(String address) {
+  final email = extractEmailAddress(address) ?? address.trim().toLowerCase();
+  final at = email.lastIndexOf('@');
+  if (at <= 0 || at == email.length - 1) return null;
+  return email.substring(at + 1);
+}
+
+const kPostaConsumerDomains = {
+  'gmail.com',
+  'googlemail.com',
+  'outlook.com',
+  'hotmail.com',
+  'live.com',
+  'msn.com',
+  'icloud.com',
+  'me.com',
+  'mac.com',
+  'yahoo.com',
+  'yahoo.es',
+  'ymail.com',
+  'proton.me',
+  'protonmail.com',
+  'seznam.cz',
+  'email.cz',
+  'post.cz',
+  'centrum.cz',
+  'volny.cz',
+};
+
+bool isPostaConsumerDomain(String domain) =>
+    kPostaConsumerDomains.contains(domain.toLowerCase());
+
+/// Re:/Fwd: pryč, ať výzva a odpověď sedí do jednoho vlákna.
+String normalizePostaSubject(String? subject) {
+  var s = (subject ?? '').trim();
+  final prefix = RegExp(
+    r'^(re|fw|fwd|aw|sv|odp|vá)\s*:\s*',
+    caseSensitive: false,
+  );
+  for (var i = 0; i < 6; i++) {
+    final next = s.replaceFirst(prefix, '');
+    if (next == s) break;
+    s = next.trim();
+  }
+  return s.toLowerCase();
+}
+
 /// UUID klienta z plus-tagu. Nevalidní tag = null (nesmí spadnout).
 String? postaPlusClienteId(String address) {
   final email = extractEmailAddress(address);
@@ -36,11 +116,33 @@ String? postaPlusClienteId(String address) {
   return tag.toLowerCase();
 }
 
-/// Gmail hledání podle RFC Message-ID, když Edge URL nedala.
-String? gmailSearchUrl(String? messageIdHeader) {
-  final id = messageIdHeader?.trim() ?? '';
-  if (id.isEmpty) return null;
-  return 'https://mail.google.com/mail/#search/rfc822msgid:${Uri.encodeComponent(id)}';
+/// Gmail `rfc822msgid:` chce ID bez `< >`. Se závorkami hledání spadne na nulu.
+String rfc822MessageId(String raw) {
+  var id = raw.trim();
+  if (id.startsWith('<') && id.endsWith('>') && id.length > 2) {
+    id = id.substring(1, id.length - 1).trim();
+  }
+  return id;
+}
+
+/// Hledání v Gmailu: nejdřív Message-ID, jinak From + předmět (přeposlaná kopie).
+String? gmailSearchUrl(
+  String? messageIdHeader, {
+  String? from,
+  String? subject,
+}) {
+  final id = rfc822MessageId(messageIdHeader ?? '');
+  if (id.contains('@')) {
+    return 'https://mail.google.com/mail/#search/rfc822msgid:${Uri.encodeComponent(id)}';
+  }
+  final fromAddr = extractEmailAddress(from ?? '') ?? '';
+  final sub = (subject ?? '').trim().replaceAll('"', '');
+  if (fromAddr.isEmpty && sub.isEmpty) return null;
+  final q = [
+    if (fromAddr.isNotEmpty) 'from:$fromAddr',
+    if (sub.isNotEmpty) 'subject:"$sub"',
+  ].join(' ');
+  return 'https://mail.google.com/mail/#search/${Uri.encodeComponent(q)}';
 }
 
 /// HTTP(S) odkazy z těla mailu. Zalomení řádku uprostřed URL slepíme.
@@ -64,12 +166,16 @@ List<String> extractHttpUrls(String text) {
   return out;
 }
 
-/// Návrh bloku desky z názvu souboru a textu mailu. Gestor potvrdí, AI neukládá.
+/// Návrh bloku desky z názvu souboru, textu a zapamatovaného odesílatele.
 List<String> suggestPostaBloqueKeys({
   String filename = '',
   String subject = '',
   String body = '',
+  String? rememberedKey,
 }) {
+  final hit = <String>[];
+  final remembered = (rememberedKey ?? '').trim();
+  if (remembered.isNotEmpty) hit.add(remembered);
   final hay = '$filename\n$subject\n$body'.toLowerCase();
   const rules = <(String key, String pattern)>[
     ('luz', r'luz|electri|elektřin|iberdrola|endesa|cups|kwh|kilovatio|edp'),
@@ -83,7 +189,6 @@ List<String> suggestPostaBloqueKeys({
     ('alarma', r'alarma|alarm'),
     ('poder', r'\bpoder\b|pln[aá]\s+moc'),
   ];
-  final hit = <String>[];
   for (final rule in rules) {
     if (RegExp(rule.$2).hasMatch(hay) && !hit.contains(rule.$1)) {
       hit.add(rule.$1);

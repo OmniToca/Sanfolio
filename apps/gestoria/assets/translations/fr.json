@@ -366,12 +366,15 @@
     "threadReply": "Réponse à un avis",
     "ingestTitle": "Adresse pour les copies de courrier",
     "ingestHint": "Transférez le courrier du cabinet ici. Pas les boîtes personnelles.",
+    "officeEmail": "E-mail du cabinet (Reply-To)",
+    "officeEmailHint": "C’est là que le client clique Répondre. Ça doit être la boîte qui transfère ici.",
+    "officeEmailMissing": "Indiquez l’e-mail du cabinet dans Réglages. Sinon le client répond à une adresse technique.",
     "ingestCopy": "Copier l’adresse",
     "ingestCopied": "Adresse copiée.",
     "ingestStep1": "Copiez l’adresse du cabinet ci-dessus.",
     "ingestStep2": "Gmail → Paramètres → Transfert et POP/IMAP → ajoutez cette adresse.",
     "ingestStep3": "Confirmez le lien envoyé par Gmail. Le courrier privé n’a pas sa place ici.",
-    "ingestStep4": "Les avis du cabinet utilisent un Reply-To plus-address pour que la réponse PDF tombe sur la fiche.",
+    "ingestStep4": "Les avis utilisent la boîte du cabinet en Reply-To. Gmail transfère la copie ici, le PDF arrive dans Courrier.",
     "ingestManyOffices": "Chaque cabinet a sa propre adresse sur inbound.sanfolio.app. Vingt cabinets = vingt adresses dans le système, pas vingt boîtes achetées.",
     "replyToHint": "Réponse du client : {email}",
     "replyToCopy": "Copier Reply-To",
@@ -381,12 +384,14 @@
       "unfiled": "À classer",
       "attachments": "Avec pièce jointe",
       "assigned": "Liés",
-      "all": "Tous"
+      "all": "Tous",
+      "done": "Notés"
     },
     "status": {
       "unassigned": "Non attribué",
       "assigned": "Lié",
-      "ignored": "Ignoré"
+      "ignored": "Ignoré",
+      "done": "Noté"
     },
     "match": {
       "plus_address": "Reconnu grâce au Reply-To du dossier.",
@@ -395,7 +400,21 @@
       "reply_thread": "Réponse à un avis du cabinet.",
       "from_name": "D’après le nom de l’expéditeur — vérifiez la fiche.",
       "manual": "Lié par le gestor."
-    }
+    },
+    "fileAll": "Classer toutes les pièces ({count})",
+    "fileAllTo": "Tout classer chez {name} → {block}",
+    "markDone": "Marquer comme noté",
+    "undone": "Remettre dans la file",
+    "markedDone": "Le mail est noté. Il reste sur la fiche.",
+    "doneError": "Impossible de changer l’état.",
+    "doneNeedFile": "Classez d’abord les pièces sur le tableau.",
+    "searchMail": "Chercher nom, e-mail, objet ou texte",
+    "shortcuts": "J/K liste · F classer · A assigner · D noté · I ignorer · / chercher",
+    "thread": "Fil",
+    "officePhone": "Téléphone du cabinet",
+    "officePhoneHint": "Ajouté à la signature du message sortant.",
+    "bounce": "Non délivré",
+    "badgeBounce": "{count} messages non délivrés"
   },
   "folder": {
     "title": "Dossier",

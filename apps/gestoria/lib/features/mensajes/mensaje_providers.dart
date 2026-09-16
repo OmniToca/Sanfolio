@@ -123,6 +123,9 @@ class ClienteMensaje {
     this.canal,
     this.sentAt,
     this.createdAt,
+    this.messageIdHeader,
+    this.bounceAt,
+    this.bounceReason,
   });
 
   final String id;
@@ -134,6 +137,9 @@ class ClienteMensaje {
   final String? canal;
   final DateTime? sentAt;
   final DateTime? createdAt;
+  final String? messageIdHeader;
+  final DateTime? bounceAt;
+  final String? bounceReason;
 
   /// Překlad vedle originálu. Stejný text neschováváme jako „druhý jazyk“.
   String? translationBesideOriginal(String clientLocale) {
@@ -159,7 +165,7 @@ final clienteMensajesProvider =
       .from('mensajes')
       .select(
         'id, status, asunto, cuerpo, locale_original, translations, '
-        'canal, sent_at, created_at',
+        'canal, sent_at, created_at, message_id_header, bounce_at, bounce_reason',
       )
       .eq('cliente_id', clienteId)
       .eq('tenant_id', tenantId)
@@ -191,6 +197,11 @@ final clienteMensajesProvider =
         createdAt: raw['created_at'] == null
             ? null
             : DateTime.tryParse('${raw['created_at']}'),
+        messageIdHeader: _trimOrNull(raw['message_id_header']),
+        bounceAt: raw['bounce_at'] == null
+            ? null
+            : DateTime.tryParse('${raw['bounce_at']}'),
+        bounceReason: _trimOrNull(raw['bounce_reason']),
       ),
     );
   }

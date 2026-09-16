@@ -18,7 +18,10 @@ class PostaInboxBanner extends ConsumerWidget {
     final unassigned =
         ref.watch(postaUnassignedCountProvider).valueOrNull ?? 0;
     final unfiled = ref.watch(postaUnfiledCountProvider).valueOrNull ?? 0;
-    if (unassigned <= 0 && unfiled <= 0) return const SizedBox.shrink();
+    final bounce = ref.watch(postaBounceCountProvider).valueOrNull ?? 0;
+    if (unassigned <= 0 && unfiled <= 0 && bounce <= 0) {
+      return const SizedBox.shrink();
+    }
     return FeatureGate(
       module: GestoriaModule.messaging,
       child: Column(
@@ -39,6 +42,12 @@ class PostaInboxBanner extends ConsumerWidget {
                 context.go('/posta');
               },
             ),
+          if (bounce > 0)
+            _PostaCountCard(
+              text: 'posta.badgeBounce'.tr(namedArgs: {'count': '$bounce'}),
+              stripe: AppTheme.statusAlert,
+              onTap: () => context.go('/posta'),
+            ),
         ],
       ),
     );
@@ -46,17 +55,22 @@ class PostaInboxBanner extends ConsumerWidget {
 }
 
 class _PostaCountCard extends StatelessWidget {
-  const _PostaCountCard({required this.text, required this.onTap});
+  const _PostaCountCard({
+    required this.text,
+    required this.onTap,
+    this.stripe = AppTheme.statusWarn,
+  });
 
   final String text;
   final VoidCallback onTap;
+  final Color stripe;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: AppCard(
-        stripe: AppTheme.statusWarn,
+        stripe: stripe,
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),

@@ -95,7 +95,7 @@ class _MensajeComposeScreenState extends ConsumerState<MensajeComposeScreen> {
                 const SizedBox(height: 8),
                 Text('messages.intro'.tr()),
                 const SizedBox(height: 12),
-                _ReplyToHint(clienteId: widget.clienteId),
+                _ReplyToHint(),
                 const SizedBox(height: 16),
                 DropdownMenu<String>(
                   key: ValueKey(_tpl ?? 'none'),
@@ -247,19 +247,23 @@ class _MensajeComposeScreenState extends ConsumerState<MensajeComposeScreen> {
         status: 'sent',
         templateKey: _tpl,
       );
-      final account = ref.read(postaAccountProvider).valueOrNull;
-      final replyTo = account == null
-          ? null
-          : postaReplyTo(
-              ingestAddress: account.ingestAddress,
-              clienteId: row.id,
-            );
+      final office = ref.read(officeSettingsProvider).valueOrNull;
+      final replyTo = postaClientReplyTo(office?.officeEmail ?? '');
+      final signed = withOfficeSignature(
+        outbound,
+        officeEmailSignature(
+          displayName: office?.displayName ?? '',
+          phone: office?.officePhone ?? '',
+          email: office?.officeEmail ?? '',
+          nif: office?.emisorNif ?? '',
+        ),
+      );
       final uri = Uri(
         scheme: 'mailto',
         path: row.email,
         queryParameters: {
           'subject': _asunto.text.trim(),
-          'body': outbound,
+          'body': signed,
           if (replyTo != null && replyTo.isNotEmpty) 'reply-to': replyTo,
         },
       );
@@ -325,22 +329,21 @@ class _MensajeComposeScreenState extends ConsumerState<MensajeComposeScreen> {
   }
 }
 
-/// Reply-To plus-adresa, ať odpověď s PDF spadne do /posta na tuto kartu.
+/// Reply-To je schránka kanceláře. Ingest plus-adresa sem nepatří.
 class _ReplyToHint extends ConsumerWidget {
-  const _ReplyToHint({required this.clienteId});
-
-  final String clienteId;
+  const _ReplyToHint();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final account = ref.watch(postaAccountProvider).valueOrNull;
-    if (account == null || account.ingestAddress.isEmpty) {
-      return const SizedBox.shrink();
+    final office =
+        ref.watch(officeSettingsProvider).valueOrNull?.officeEmail ?? '';
+    final addr = postaClientReplyTo(office);
+    if (addr == null) {
+      return Text(
+        'posta.officeEmailMissing'.tr(),
+        style: Theme.of(context).textTheme.bodySmall,
+      );
     }
-    final addr = postaReplyTo(
-      ingestAddress: account.ingestAddress,
-      clienteId: clienteId,
-    );
     return Row(
       children: [
         Expanded(
