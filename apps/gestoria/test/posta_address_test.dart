@@ -139,4 +139,54 @@ void main() {
       ['https://mail.google.com/mail/u/f-%5Bfoobar%5D-tail'],
     );
   });
+
+  test('suggestPostaBloqueKeys pozná elektřinu a fakturu bez slova luz v názvu', () {
+    expect(
+      suggestPostaBloqueKeys(
+        filename: '06_04_2026.pdf',
+        subject: 'Faktura za elektřinu duben',
+      ),
+      contains('luz'),
+    );
+    expect(
+      suggestPostaBloqueKeys(filename: 'factura_agua.pdf'),
+      contains('agua'),
+    );
+    expect(
+      suggestPostaBloqueKeys(filename: '31_07_2026.pdf'),
+      containsAll(const ['luz', 'agua']),
+    );
+  });
+
+  test('isPostaNoiseMail pozná potvrzení přeposílání Gmailu', () {
+    expect(
+      isPostaNoiseMail(
+        from: 'forwarding-noreply@google.com',
+        subject: '(Gmail) Potvrzení přeposílání – Příjem e-mailů',
+      ),
+      isTrue,
+    );
+    expect(
+      isPostaNoiseMail(from: 'sokol@gmail.com', subject: 'Faktura luz'),
+      isFalse,
+    );
+  });
+
+  test('uniqueSuggestedFileTarget jen když je jeden blok', () {
+    const one = PostaFileTarget(
+      labelKey: 'blocks.luz',
+      bloqueId: '1',
+      templateKey: 'luz',
+      suggested: true,
+    );
+    const two = PostaFileTarget(
+      labelKey: 'blocks.luz',
+      bloqueId: '2',
+      templateKey: 'luz',
+      suggested: true,
+      place: 'Calle 2',
+    );
+    expect(uniqueSuggestedFileTarget([one]), one);
+    expect(uniqueSuggestedFileTarget([one, two]), isNull);
+  });
 }

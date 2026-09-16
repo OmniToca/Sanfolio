@@ -100,6 +100,9 @@ class PostaFileTarget {
     this.bloqueId,
     this.templateKey,
     this.requiredDocTypes = const [],
+    this.place,
+    this.suggested = false,
+    this.expedienteId,
   });
 
   final String labelKey;
@@ -107,7 +110,22 @@ class PostaFileTarget {
   final String? templateKey;
   final List<String> requiredDocTypes;
 
+  /// Adresa finca / titul spisu, když má klient víc desek stejného bloku.
+  final String? place;
+  final bool suggested;
+  final String? expedienteId;
+
   bool get isCard => bloqueId == null || bloqueId!.isEmpty;
+}
+
+/// Jeden návrh bloku = lze nabídnout uložení bez dalšího výběru. Dvě finca ne.
+PostaFileTarget? uniqueSuggestedFileTarget(Iterable<PostaFileTarget> targets) {
+  final hits = [
+    for (final t in targets)
+      if (t.suggested && !t.isCard) t,
+  ];
+  if (hits.length != 1) return null;
+  return hits.first;
 }
 
 class PostaClienteHit {
@@ -313,6 +331,67 @@ final postaSuggestProvider =
   );
 });
 
+class PostaQuickFile {
+  const PostaQuickFile({
+    required this.clienteId,
+    required this.clienteNombre,
+    required this.attachment,
+    required this.target,
+    this.assignHit,
+  });
+
+  final String clienteId;
+  final String clienteNombre;
+  final PostaAttachment attachment;
+  final PostaFileTarget target;
+  final PostaClienteHit? assignHit;
+}
+
+/// Unikátní klient + unikátní blok → jedno tlačítko. Jinak null (dialog).
+final postaQuickFileProvider =
+    FutureProvider.family<PostaQuickFile?, String>((ref, messageId) async {
+  ref.watch(authControllerProvider);
+  final msg = await ref.watch(postaDetailProvider(messageId).future);
+  final tenantId = ref.read(authControllerProvider).valueOrNull?.currentTenantId;
+  if (msg == null || tenantId == null || !msg.hasUnfiled) return null;
+  if (isPostaNoiseMail(from: msg.fromAddress, subject: msg.subject)) {
+    return null;
+  }
+  PostaClienteHit? hit;
+  var clienteId = msg.clienteId;
+  var nombre = msg.clienteNombre ?? '';
+  if (clienteId == null || clienteId.isEmpty) {
+    hit = await suggestPostaCliente(
+      tenantId: tenantId,
+      email: msg.fromAddress,
+      fromName: msg.fromName,
+    );
+    clienteId = hit?.id;
+    nombre = hit?.nombre ?? '';
+  }
+  if (clienteId == null || clienteId.isEmpty) return null;
+  final att = msg.attachments.firstWhere((a) => !a.filed);
+  final hints = suggestPostaBloqueKeys(
+    filename: att.filename,
+    subject: msg.subject ?? '',
+    body: msg.bodyText ?? '',
+  );
+  if (hints.isEmpty) return null;
+  final targets = await loadPostaFileTargets(
+    clienteId,
+    suggestedKeys: hints,
+  );
+  final target = uniqueSuggestedFileTarget(targets);
+  if (target == null) return null;
+  return PostaQuickFile(
+    clienteId: clienteId,
+    clienteNombre: nombre,
+    attachment: att,
+    target: target,
+    assignHit: hit,
+  );
+});
+
 Future<PostaClienteHit?> suggestPostaCliente({
   required String tenantId,
   required String email,
@@ -382,21 +461,23 @@ Future<List<PostaClienteHit>> searchPostaClientes(String query) async {
   ];
 }
 
-Future<List<PostaFileTarget>> loadPostaFileTargets(String clienteId) async {
+Future<List<PostaFileTarget>> loadPostaFileTargets(
+  String clienteId, {
+  List<String> suggestedKeys = const [],
+}) async {
   final client = trySupabaseClient();
   if (client == null) return const [PostaFileTarget(labelKey: 'posta.fileCard')];
   final rows = await client
       .from('bloques')
       .select(
-        'id, template_key, status, expedientes!inner(cliente_id, deleted_at)',
+        'id, template_key, status, '
+        'expedientes!inner(id, cliente_id, deleted_at, titulo, inmuebles(direccion))',
       )
       .eq('expedientes.cliente_id', clienteId)
       .isFilter('deleted_at', null)
       .isFilter('expedientes.deleted_at', null)
       .neq('status', 'off');
-  final out = <PostaFileTarget>[
-    const PostaFileTarget(labelKey: 'posta.fileCard'),
-  ];
+  final blocks = <PostaFileTarget>[];
   for (final raw in rows as List) {
     if (raw is! Map) continue;
     final key = '${raw['template_key'] ?? ''}';
@@ -408,16 +489,50 @@ Future<List<PostaFileTarget>> loadPostaFileTargets(String clienteId) async {
         break;
       }
     }
-    out.add(
+    blocks.add(
       PostaFileTarget(
         labelKey: 'blocks.$key',
         bloqueId: '${raw['id']}',
         templateKey: key,
         requiredDocTypes: template?.requiredDocTypes ?? const [],
+        place: _filePlace(raw['expedientes']),
+        suggested: suggestedKeys.contains(key),
+        expedienteId: _expedienteId(raw['expedientes']),
       ),
     );
   }
-  return out;
+  final order = <String, int>{
+    for (var i = 0; i < compraventaBloques.length; i++)
+      compraventaBloques[i].key: i,
+  };
+  blocks.sort((a, b) {
+    final as = a.suggested ? 0 : 1;
+    final bs = b.suggested ? 0 : 1;
+    if (as != bs) return as - bs;
+    final ao = order[a.templateKey] ?? 99;
+    final bo = order[b.templateKey] ?? 99;
+    if (ao != bo) return ao - bo;
+    return (a.place ?? '').compareTo(b.place ?? '');
+  });
+  return [
+    ...blocks,
+    const PostaFileTarget(labelKey: 'posta.fileCard'),
+  ];
+}
+
+String? _expedienteId(Object? expediente) {
+  if (expediente is! Map) return null;
+  final id = '${expediente['id'] ?? ''}'.trim();
+  return id.isEmpty ? null : id;
+}
+
+String? _filePlace(Object? expediente) {
+  if (expediente is! Map) return null;
+  final inm = expediente['inmuebles'];
+  final direccion = inm is Map ? '${inm['direccion'] ?? ''}'.trim() : '';
+  if (direccion.isNotEmpty) return direccion;
+  final titulo = '${expediente['titulo'] ?? ''}'.trim();
+  return titulo.isEmpty ? null : titulo;
 }
 
 /// Stáhne přílohu z ingest cesty a uloží ji jako `documentos` u klienta.

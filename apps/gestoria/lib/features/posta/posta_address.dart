@@ -63,3 +63,56 @@ List<String> extractHttpUrls(String text) {
   }
   return out;
 }
+
+/// Návrh bloku desky z názvu souboru a textu mailu. Gestor potvrdí, AI neukládá.
+List<String> suggestPostaBloqueKeys({
+  String filename = '',
+  String subject = '',
+  String body = '',
+}) {
+  final hay = '$filename\n$subject\n$body'.toLowerCase();
+  const rules = <(String key, String pattern)>[
+    ('luz', r'luz|electri|elektřin|iberdrola|endesa|cups|kwh|kilovatio|edp'),
+    ('agua', r'agua|voda|hidralia|aqualia|emasa|canal\s|hidr[aá]|m³|\bm3\b'),
+    ('gaz', r'\bgaz\b|\bgas\b|butano|gas\s?natural'),
+    ('suma', r'\bibi\b|\bsuma\b|catastral|impuesto\s+sobre\s+bienes'),
+    ('plusvalia', r'plusval[ií]a'),
+    ('escritura', r'escritur|notari|compravent|smlouv'),
+    ('comunidad', r'comunidad|administrador|společenstv'),
+    ('seguro', r'seguro|p[oó]liza|pojist'),
+    ('alarma', r'alarma|alarm'),
+    ('poder', r'\bpoder\b|pln[aá]\s+moc'),
+  ];
+  final hit = <String>[];
+  for (final rule in rules) {
+    if (RegExp(rule.$2).hasMatch(hay) && !hit.contains(rule.$1)) {
+      hit.add(rule.$1);
+    }
+  }
+  if (hit.isEmpty &&
+      RegExp(r'factura|invoice|recibo|abono|\d{1,2}[._-]\d{1,2}[._-]\d{2,4}')
+          .hasMatch(hay)) {
+    hit.addAll(const ['luz', 'agua', 'gaz', 'suma']);
+  }
+  return hit;
+}
+
+/// Gmail potvrzení přeposílání a podobný šum — do složky nepatří.
+bool isPostaNoiseMail({
+  required String from,
+  String? subject,
+}) {
+  final email = (extractEmailAddress(from) ?? from).toLowerCase();
+  final s = (subject ?? '').toLowerCase();
+  if (email.contains('forwarding-noreply@google.') ||
+      email.contains('mailer-daemon@') ||
+      email.startsWith('no-reply@google.') ||
+      email.startsWith('noreply@google.')) {
+    return true;
+  }
+  return s.contains('potvrzení přeposílání') ||
+      s.contains('confirmation of forwarding') ||
+      s.contains('forwarding confirmation') ||
+      s.contains('confirmar el reenvío') ||
+      s.contains('bestätigung der weiterleitung');
+}
