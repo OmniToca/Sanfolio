@@ -6,13 +6,15 @@ import { createClient } from "npm:@supabase/supabase-js@2";
  * Uloží metadata + přílohy. Klienta přiřadí jen unique From nebo plus-adresa.
  * Blok na desce nevybírá — to dělá gestor v /posta.
  *
- * Auth: POSTA_INBOUND_SECRET (Bearer / x-posta-secret). Ne JWT uživatele.
+ * Auth: POSTA_INBOUND_SECRET (Postmark / ruční test) nebo Svix
+ * `RESEND_WEBHOOK_SECRET`. Tělo Resendu se stáhne přes RESEND_API_KEY.
+ * Ne JWT uživatele.
  */
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-posta-secret, x-webhook-secret",
+    "authorization, x-client-info, apikey, content-type, x-posta-secret, x-webhook-secret, svix-id, svix-timestamp, svix-signature",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -27,21 +29,42 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") {
     return json(405, { ok: false, error: "method" });
   }
-  if (!inboundAuthorized(req)) {
-    return json(401, { ok: false, error: "unauthorized" });
-  }
-
   const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")?.trim() ?? "";
   const url = Deno.env.get("SUPABASE_URL")?.trim() ?? "";
   if (!service || !url) {
     return json(500, { ok: false, error: "not_configured" });
   }
 
-  let raw: unknown;
+  let rawText = "";
   try {
-    raw = await req.json();
+    rawText = await req.text();
   } catch {
     return json(400, { ok: false, error: "json" });
+  }
+  if (!(await inboundAuthorized(req, rawText))) {
+    return json(401, { ok: false, error: "unauthorized" });
+  }
+
+  let raw: unknown;
+  try {
+    raw = JSON.parse(rawText) as unknown;
+  } catch {
+    return json(400, { ok: false, error: "json" });
+  }
+
+  if (isRecord(raw) && raw.type === "email.received") {
+    try {
+      const hydrated = await hydrateResendReceived(raw);
+      if (!hydrated) {
+        return json(400, { ok: false, error: "payload" });
+      }
+      raw = hydrated;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "resend";
+      return json(502, { ok: false, error: msg });
+    }
+  } else if (isRecord(raw) && typeof raw.type === "string") {
+    return json(200, { ok: true, ignored: raw.type });
   }
 
   const parsed = parseInbound(raw);
@@ -177,17 +200,19 @@ Deno.serve(async (req) => {
   });
 });
 
-function inboundAuthorized(req: Request): boolean {
+async function inboundAuthorized(req: Request, rawBody: string): Promise<boolean> {
   const secret = Deno.env.get("POSTA_INBOUND_SECRET")?.trim() ?? "";
-  if (!secret) return false;
-  const bearer = (req.headers.get("Authorization") ?? "").replace(
-    /^Bearer\s+/i,
-    "",
-  ).trim();
-  const header = (req.headers.get("x-posta-secret") ??
-    req.headers.get("x-webhook-secret") ??
-    "").trim();
-  return bearer === secret || header === secret;
+  if (secret) {
+    const bearer = (req.headers.get("Authorization") ?? "").replace(
+      /^Bearer\s+/i,
+      "",
+    ).trim();
+    const header = (req.headers.get("x-posta-secret") ??
+      req.headers.get("x-webhook-secret") ??
+      "").trim();
+    if (bearer === secret || header === secret) return true;
+  }
+  return await verifyResendSvix(req, rawBody);
 }
 
 type ParsedInbound = {
@@ -380,6 +405,142 @@ function firstRow(data: unknown): Record<string, unknown> | null {
     return data as Record<string, unknown>;
   }
   return null;
+}
+
+/** Resend webhook: metadata → tělo + bajty příloh. */
+async function hydrateResendReceived(
+  event: Record<string, unknown>,
+): Promise<Record<string, unknown> | null> {
+  const data = isRecord(event.data) ? event.data : null;
+  const emailId = stringify(data?.email_id);
+  if (!emailId) return null;
+  const key = Deno.env.get("RESEND_API_KEY")?.trim() ?? "";
+  if (!key) throw new Error("not_configured");
+
+  const email = await resendJson(
+    `https://api.resend.com/emails/receiving/${emailId}`,
+    key,
+  );
+  if (!email) throw new Error("resend_email");
+
+  const headerSrc = isRecord(email.headers) ? email.headers : {};
+  const to = [
+    ...emailsFrom(email.to),
+    ...emailsFrom(email.received_for),
+    ...emailsFrom(data?.to),
+    ...emailsFrom(data?.received_for),
+  ];
+  const fromRaw = stringify(headerSrc.from) || stringify(email.from) ||
+    stringify(data?.from);
+  return {
+    provider_message_id: emailId,
+    message_id_header: stringify(email.message_id) ||
+      stringify(data?.message_id),
+    from: fromRaw,
+    from_name: nameFrom(fromRaw),
+    to,
+    cc: emailsFrom(email.cc),
+    subject: stringify(email.subject) || stringify(data?.subject),
+    text: stringify(email.text) || stripTags(stringify(email.html)),
+    received_at: stringify(email.created_at) || stringify(data?.created_at),
+    headers: headerSrc,
+    attachments: await downloadResendAttachments(emailId, key),
+  };
+}
+
+async function downloadResendAttachments(
+  emailId: string,
+  apiKey: string,
+): Promise<{ filename: string; mime: string; content: string }[]> {
+  const listed = await resendJson(
+    `https://api.resend.com/emails/receiving/${emailId}/attachments`,
+    apiKey,
+  );
+  const rows = listed && Array.isArray(listed.data) ? listed.data : [];
+  const out: { filename: string; mime: string; content: string }[] = [];
+  for (const item of rows.slice(0, MAX_ATTACH)) {
+    if (!isRecord(item)) continue;
+    const url = stringify(item.download_url);
+    if (!url) continue;
+    const size = Number(item.size ?? 0);
+    if (size > MAX_ATTACH_BYTES) continue;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const buf = new Uint8Array(await res.arrayBuffer());
+      if (buf.length === 0 || buf.length > MAX_ATTACH_BYTES) continue;
+      let b64 = "";
+      const chunk = 0x8000;
+      for (let i = 0; i < buf.length; i += chunk) {
+        b64 += String.fromCharCode(...buf.subarray(i, i + chunk));
+      }
+      out.push({
+        filename: stringify(item.filename) || "file",
+        mime: stringify(item.content_type) || "application/octet-stream",
+        content: btoa(b64),
+      });
+    } catch {
+      // Jedna příloha nesmí shodit mail.
+    }
+  }
+  return out;
+}
+
+async function resendJson(
+  url: string,
+  apiKey: string,
+): Promise<Record<string, unknown> | null> {
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  });
+  if (!res.ok) return null;
+  const body = await res.json() as unknown;
+  return isRecord(body) ? body : null;
+}
+
+async function verifyResendSvix(req: Request, rawBody: string): Promise<boolean> {
+  const secret = Deno.env.get("RESEND_WEBHOOK_SECRET")?.trim() ?? "";
+  if (!secret) return false;
+  const id = (req.headers.get("svix-id") ?? "").trim();
+  const ts = (req.headers.get("svix-timestamp") ?? "").trim();
+  const sigHeader = (req.headers.get("svix-signature") ?? "").trim();
+  if (!id || !ts || !sigHeader) return false;
+  const b64 = secret.startsWith("whsec_") ? secret.slice("whsec_".length) : secret;
+  let keyBytes: Uint8Array;
+  try {
+    keyBytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+  } catch {
+    return false;
+  }
+  const key = await crypto.subtle.importKey(
+    "raw",
+    keyBytes,
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signed = new TextEncoder().encode(`${id}.${ts}.${rawBody}`);
+  const mac = new Uint8Array(await crypto.subtle.sign("HMAC", key, signed));
+  const digest = btoa(String.fromCharCode(...mac));
+  for (const part of sigHeader.split(/[\s,]+/)) {
+    const val = part.trim();
+    const hex = val.startsWith("v1=")
+      ? val.slice(3)
+      : val.startsWith("v1,")
+      ? val.slice(3)
+      : val;
+    if (hex && timingSafeEqual(hex, digest)) return true;
+  }
+  return false;
+}
+
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let n = 0;
+  for (let i = 0; i < a.length; i++) {
+    n |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return n === 0;
 }
 
 function json(status: number, body: Record<string, unknown>) {

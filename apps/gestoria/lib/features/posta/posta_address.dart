@@ -42,3 +42,24 @@ String? gmailSearchUrl(String? messageIdHeader) {
   if (id.isEmpty) return null;
   return 'https://mail.google.com/mail/#search/rfc822msgid:${Uri.encodeComponent(id)}';
 }
+
+/// HTTP(S) odkazy z těla mailu. Zalomení řádku uprostřed URL slepíme.
+List<String> extractHttpUrls(String text) {
+  var glued = text;
+  for (var i = 0; i < 8; i++) {
+    final next = glued.replaceAllMapped(
+      RegExp(r'(https?://[^\s]+)\s*\n\s*([^\s]+)'),
+      (m) => '${m[1]}${m[2]}',
+    );
+    if (next == glued) break;
+    glued = next;
+  }
+  final out = <String>[];
+  for (final m in RegExp(r'https?://[^\s<>"]+', caseSensitive: false)
+      .allMatches(glued)) {
+    var url = m.group(0)!;
+    url = url.replaceFirst(RegExp(r'[),.;:]+$'), '');
+    if (url.isNotEmpty && !out.contains(url)) out.add(url);
+  }
+  return out;
+}

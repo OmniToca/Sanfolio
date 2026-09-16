@@ -124,4 +124,19 @@ void main() {
     expect(merged.last.id, 'in');
     expect(merged.last.direction, ClienteMailDirection.inbound);
   });
+
+  test('extractHttpUrls najde odkaz a slepí zalomení', () {
+    expect(
+      extractHttpUrls(
+        'klikněte: https://mail.google.com/mail/u/abc-def\n',
+      ),
+      ['https://mail.google.com/mail/u/abc-def'],
+    );
+    expect(
+      extractHttpUrls(
+        'https://mail.google.com/mail/u/f-%5Bfoo\nbar%5D-tail.',
+      ),
+      ['https://mail.google.com/mail/u/f-%5Bfoobar%5D-tail'],
+    );
+  });
 }

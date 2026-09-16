@@ -117,7 +117,7 @@ Deno.serve(async (req) => {
   const messageIdHeader = `${mensajeId}@${ingestDomain}`;
   // Jedna ověřená From adresa pro všechny kanceláře. Reply-To je per tenant+klient.
   const fromEmail = Deno.env.get("POSTA_FROM_EMAIL")?.trim() ||
-    "posta@sanfolio.app";
+    "posta@inbound.sanfolio.app";
   if (!fromEmail.includes("@")) {
     return json(503, { ok: false, error: "not_configured" });
   }

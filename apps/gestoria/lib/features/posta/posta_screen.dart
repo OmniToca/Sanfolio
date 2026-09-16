@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gestoria_auth/gestoria_auth.dart';
 import 'package:go_router/go_router.dart';
@@ -9,6 +10,7 @@ import '../../core/modules/feature_gate.dart';
 import '../../core/modules/module_catalog.dart';
 import '../../core/presentation/widgets/app_widgets.dart';
 import '../../core/theme/app_theme.dart';
+import 'posta_address.dart';
 import 'posta_providers.dart';
 import 'posta_timeline.dart';
 
@@ -490,15 +492,72 @@ class _PostaDetailPane extends ConsumerWidget {
                         ),
                 ),
             const SizedBox(height: 24),
-            Text(
-              msg.bodyText?.isNotEmpty == true
-                  ? msg.bodyText!
-                  : 'posta.noBody'.tr(),
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
+            _PostaBody(text: msg.bodyText),
           ],
         );
       },
+    );
+  }
+}
+
+/// Tělo mailu jde označit a zkopírovat; URL jsou tlačítka (Flutter Text nejde klikat).
+class _PostaBody extends StatelessWidget {
+  const _PostaBody({required this.text});
+
+  final String? text;
+
+  @override
+  Widget build(BuildContext context) {
+    final body = text?.trim() ?? '';
+    if (body.isEmpty) {
+      return Text('posta.noBody'.tr());
+    }
+    final urls = extractHttpUrls(body);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: SelectableText(
+                body,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ),
+            IconButton(
+              tooltip: 'posta.copyBody'.tr(),
+              icon: const Icon(Icons.copy),
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: body));
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('posta.copiedBody'.tr())),
+                );
+              },
+            ),
+          ],
+        ),
+        if (urls.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Text(
+            'posta.links'.tr(),
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+          const SizedBox(height: 4),
+          for (final url in urls)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  onPressed: () => launchUrl(Uri.parse(url)),
+                  child: Text(url, textAlign: TextAlign.left),
+                ),
+              ),
+            ),
+        ],
+      ],
     );
   }
 }

@@ -35,7 +35,7 @@ DNS u Webglobe (Netlify už má `sanfolio.app` + `www`):
 | `@` (když Webglobe ALIAS neumí) | A | `75.2.60.5` |
 | `www` | CNAME | `sanfolio-os.netlify.app` |
 | `@` na `sanfolio.com` | URL redirect | `https://sanfolio.app` |
-| `inbound` | MX | až Resend/Postmark (catch-all → webhook `posta-inbound`) |
+| `inbound` | MX 10 | hodnota z Resend (typicky `inbound-smtp.resend.com`) — **jen host `inbound`**, ne `@` |
 | `@` | TXT SPF / DKIM | Resend, až budeme posílat z `posta@sanfolio.app` |
 
 Bez MX na `inbound` Pošta zůstane prázdná. Bez ověřené From adresy v Resendu výzva otevře Gmail.
