@@ -11,7 +11,7 @@ Stručně:
 5. Moduly + sloty. Žádný JSON page-builder.
 6. Tenant si přizpůsobí lhůty v nastavení, ne forkem kódu.
 7. AI: search / open / prefill / extract. Uživatel ukládá, maže, odesílá, podává.
-8. Aditivní vývoj. Flutter web online-only. Jarka = první kancelář, ne strop.
+8. Aditivní vývoj. Flutter web online-only. Stavíme pro jednu kancelář i pro deset. Jarka = první kancelář, ne strop. Nápady → priorita → `docs/vyvoj.md`, postupně. Nečekat na druhého klienta.
 9. Před kódem: `docs/ai_context/slovnik_modulu.md`. Po SQL: `docs/database_schema.md`.
 
 Start: [README.md](README.md), [docs/README.md](docs/README.md).

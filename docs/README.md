@@ -8,13 +8,14 @@ Pořadí čtení pro další vývoj. Tyto soubory jsou smlouva produktu. Kód se
 2. Zapnutá služba = **blok**. Vypnutá se nehlídá a nechybí.
 3. AI **hledá, otevírá, předvyplňuje**. Ukládá / maže / odesílá / podává jen člověk.
 4. Mazání je **100 % soft-delete**. Audit je **append-only**, včetně otevření karty.
-5. První deska = složka koupě v prohlížeči. Jarka je první kancelář, ne strop. WhatsApp API, portál, podání AEAT a fakturace jsou **další moduly**. Modelo 210 se teď počítá. Policie / magistrát / závěť: tenký spis, dokud kancelář nechce plnou desku.
+5. První deska = složka koupě + inbox v prohlížeči. Stavíme pro jednu kancelář i pro deset; Jarka je první, ne strop a ne důvod čekat. WhatsApp API, portál a podání AEAT jsou na [seznamu vývoje](vyvoj.md). Modelo 210 se počítá. Kniha faktur (`facturacion`) a příchozí Pošta jsou v kódu. Policie / magistrát / závěť: tenký spis, dokud kancelář nechce plnou desku.
 
 ## Soubory
 
 | # | Soubor | Hotovo když |
 | --- | --- | --- |
 | 1 | [product_bible.md](product_bible.md) | Entity a hranice rozsahu jsou jednoznačné |
+| 1a | [vyvoj.md](vyvoj.md) | Prioritní seznam: co teď, co ve frontě, jak se řadí nápady |
 | 2 | [folder_template.md](folder_template.md) | Každá služba na desce má stav, pole a dokumenty |
 | 3 | [search_spec.md](search_spec.md) | `Y123**6E` najde `Y123456E` |
 | 4 | [deadline_engine.md](deadline_engine.md) | Inbox a šablony výzev mají pravidla |
@@ -29,5 +30,7 @@ Pořadí čtení pro další vývoj. Tyto soubory jsou smlouva produktu. Kód se
 | 13 | [facturacion_verifactu.md](facturacion_verifactu.md) | Modul knihy vs. SIF adapter; due diligence API |
 | 14 | [roadmap_facturacion.md](roadmap_facturacion.md) | Napojení Verifacti (`GET /verifactu/declaracion`, Emitir, Ověřit) |
 | 15 | [audit_verifacti.md](audit_verifacti.md) | Mezery `sif-emit` vs. Verifacti docs; pořadí sandbox → produkce |
+| 16 | [ai_context/slovnik_modulu.md](ai_context/slovnik_modulu.md) | Živý seznam modulů / RPC / providerů |
+| 17 | [rano_v_kancelari.md](rano_v_kancelari.md) | Jedna strana pro staff: co kliknout ráno |
 
 Impuestos v katalogu: **IBI/SUMA**, **modelo 210** (výpočet IRNR, ne podání AEAT), **renta/IRPF** (zatím plazo + checklist).

@@ -39,6 +39,8 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `pending_extract_queue` | SQL RPC | extract_document bez `extracted`, dokud gestor |
 | `ofertas` | `features/ofertas`, FeatureGate | slot `carpeta.blocks` + `settings.section`; žádná ikona v railu |
 | `office_offers` | SQL | tarify kanceláře (luz/gaz/seguro) v cents; soft-delete |
+| `overpaying_suministro` | SQL RPC + `/preplatek` | inbox `inbox.feed`; jen Guardar + office_offers; AI neodesílá |
+| `season_210` / `after_notary` | SQL RPC + `/kampane` | jeden banner `inbox.feed`; 210 bez podání a koupě po escritura; AI neodesílá |
 | `ai_get_cliente` | SQL RPC | snapshot karty + díry + doklady + titular finca (složka, salePrice, cuota); žádný save |
 | `query_suministro` / `query_plazos_office` / `query_escritura` | SQL RPC | office-wide čtení desky; escritura i notář / strana v `inmueble_titulares` / catastral |
 | `ai-assistant` | Edge Function | whitelist tools; žádný save/send |

@@ -146,19 +146,12 @@ Anonymizace je jediný povolený „tvrdý“ úklid PII: RPC `anonymize_cliente
 ## 9. RLS náčrt
 
 ```sql
--- example
+-- Skutečné policies (0001): tenant_id přes can_access_tenant.
+-- deleted_at se v RLS NEFILTRUJE — owner musí vidět koš (Ver eliminados).
+-- App SELECT doplní .isFilter('deleted_at', null), ne policy.
 CREATE POLICY clientes_tenant_select ON clientes
   FOR SELECT TO authenticated
-  USING (
-    deleted_at IS NULL
-    AND tenant_id IN (SELECT auth_tenant_ids())
-    OR auth_is_support_user() AND current_impersonation_tenant() = tenant_id
-  );
-
-CREATE POLICY clientes_tenant_update ON clientes
-  FOR UPDATE TO authenticated
-  USING (tenant_id IN (SELECT auth_tenant_ids()))
-  WITH CHECK (tenant_id IN (SELECT auth_tenant_ids()));
+  USING (public.can_access_tenant(tenant_id));
 ```
 
 INSERT musí `tenant_id` = membership, ne z body libovolně — trigger `_stamp_tenant`.

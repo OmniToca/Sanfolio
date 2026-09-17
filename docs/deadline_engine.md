@@ -14,7 +14,9 @@ Po naplnění složky systém **šilhá dopředu**: inbox ráno, návrh výzvy k
 | Záloha | `saldo <= 0` a spis otevřený, nebo spis `hecho` a `facturado = 0` |
 | Zastaralý spis | `en_curso` bez `updated_at` novějšího než N dní (`tenant_settings.stale_expediente_days`, default 14, 0 = vypnuto) |
 
-Každý řádek inboxu: klient, inmueble, bloque/expediente, due_on, akce (`abrir`, `borrador_mensaje`).
+Každý řádek inboxu: klient, inmueble, bloque/expediente, due_on, akce (`abrir`, `borrador_mensaje`). Filtr v UI má i `due_soon`.
+
+Nad řádky slot `inbox.feed`: přepisy, `/kampane` (210 + po notáři), přeplatky. Pošta je `/posta` v railu, ne banner.
 
 ## 2. Odvozená pravidla (MVP)
 

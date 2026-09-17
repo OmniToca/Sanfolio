@@ -213,6 +213,7 @@ final inboxFeedProvider = FutureProvider<List<InboxRow>>((ref) async {
 const inboxFilterKeys = <String>[
   'all',
   'due_today',
+  'due_soon',
   'overdue',
   'missing_document',
   'missing_data',

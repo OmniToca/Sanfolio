@@ -309,6 +309,8 @@ function extractSystemPrompt(docTipo: string, includeBody: boolean): string {
     `Return JSON only with keys you actually see: ${EXTRACT_KEY_LIST}. ` +
     "Nº de contrato / póliza → contractNo. Nº de cliente → clientNo. Nº factura → invoiceNo. " +
     "Periodo de facturación → periodFrom and periodTo (YYYY-MM-DD), not period (period is IBI year only). " +
+    "Agua (Hidraqua, Aqualia, Canal…): billing period is usually ~3 months (trimestral / TRIMESTRAL). " +
+    "Use that full Periodo de facturación, never a single month from the consumo chart or lectura table. " +
     "Fecha de emisión → issued. Importe total → amount as 188.85 (dot, no currency). " +
     "factura_recibida / supplier invoice: emisor → company + supplierNif (CIF/NIF). " +
     "Do not put the supplier tax id into nie. Titular/cliente → holder/nombre. " +

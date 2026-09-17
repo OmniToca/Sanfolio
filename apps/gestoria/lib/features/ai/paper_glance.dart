@@ -156,13 +156,26 @@ double? yearlyConsumptionOf(PaperGlance g) {
   return q * 365 / days;
 }
 
+/// Španělská obecní voda (Hidraqua, Aqualia, …) se skoro vždy fakturuje
+/// kvartálně. OCR často vezme jeden měsíc z grafu spotřeby, ne Periodo de
+/// facturación — roční odhad by šel ×4.
+const kAguaQuarterDays = 91;
+const kAguaShortPeriodDays = 45;
+
 int? periodDaysOf(PaperGlance g) {
   final from = parseOfficeDate(g.periodFrom ?? '');
   final to = parseOfficeDate(g.periodTo ?? '');
   if (from == null || to == null) return null;
   final days = to.difference(from).inDays;
   if (days <= 0) return null;
+  if (_aguaUsesQuarterFallback(g.tipo) && days < kAguaShortPeriodDays) {
+    return kAguaQuarterDays;
+  }
   return days;
+}
+
+bool _aguaUsesQuarterFallback(String tipo) {
+  return tipo == 'factura_agua' || tipo == 'recibo_agua';
 }
 
 /// „1120 kWh“, „12,5 m³“. Bez jednotky pořád číslo.

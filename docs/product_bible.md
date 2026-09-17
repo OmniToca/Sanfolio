@@ -6,7 +6,7 @@ Zdroj pravdy pro entity, role a hranice. Staff UI je vícejazyčné (`cs`/`en`/`
 
 **Sanfolio** (kód: Gestoría OS) je provozní systém španělské kanceláře — gestoría i asesoría. Jedna data o klientovi, službách, papírech a penězích. Kancelář si zapne **moduly**. Vzor rozsahu: [myUcto.cz](https://myucto.cz) pro Česko (evidence → doklady → podání → banka), tady totéž pro Španělsko.
 
-Gestorie Jarka je **první kancelář**, na které ověřujeme, že jádro drží. Není strop trhu a není definice produktu.
+Gestorie Jarka je **první kancelář**, na které denně ověřujeme, že deska drží. Není strop trhu, není definice produktu a **není podmínka další práce**. Stavíme jednu aplikaci, která musí být dobrá pro jednu kancelář i pro deset. Až bude dost dobrá, nabídneme ji dalším. Do té doby nic nečeká na „až budeme mít druhého klienta“.
 
 ### Co každá kancelář dělá
 
@@ -20,7 +20,7 @@ Než se liší (cizinci na Costa Blanca vs. laborál v Madridu), dělá totéž:
 6. **Účtuje si práci** a ví, kdo zaplatil.
 7. Časem **podává na úřady** a páruje banku — z týchž dat, ne z druhé aplikace.
 
-První vrstva v kódu je 1–5 (evidence + deska + inbox + výzvy). 6 je zatím tři čísla zálohy. 7 je horizont modulů. Žádná z těch vrstev neničí jádro.
+První vrstva v kódu je 1–5 (evidence + deska + inbox + výzvy). 6 je záloha na desce **a** kniha `facturacion`. 7 (podání AEAT XML, banka, PGC) je na [seznamu vývoje](vyvoj.md). Žádná z těch vrstev neničí jádro. Pořadí je priorita na tom seznamu, ne čekání na dalšího zákazníka.
 
 ### Jádro, které se nemění
 
@@ -31,7 +31,13 @@ První vrstva v kódu je 1–5 (evidence + deska + inbox + výzvy). 6 je zatím 
 
 ### První deska (teď)
 
-Na kartě a ve složce koupě kancelář vidí pole, zapnuté služby, chybějící papíry, termíny a výzvu klientovi. Modelo 210 se **počítá**. Podání AEAT, VeriFactu SIF a banka jsou další vrstvy. Kniha přijatých faktur je **modul** `facturacion`, ne jádro desky.
+Ráno **inbox** (`/inbox`): denní smyčka z `inbox_feed` (termíny, díry, záloha). Nad ní nejvýš tři bannery, které smyčka neumí: přepisy čekající na Guardar (`/prepis`), 210 a koupě po notáři (`/kampane`), přeplatky vs. tarify kanceláře (`/preplatek`). Pošta má **vlastní položku v railu** (`/posta`), ne druhý banner.
+
+Přes den **složka klienta** = deska koupě (tužka → bloky → šanon). Modelo 210 se **počítá** na tenkém spisu; podání AEAT ne. Kniha faktur je **modul** `facturacion` (přijaté bez AEAT; vydané přes Verifacti `sif-emit` / `sif-status`). Nabídky kanceláře (`ofertas`) žijí v Nastavení a na bloku luz/gaz/seguro, ne v railu.
+
+Rail (pořadí v kódu): Inbox → Pošta (modul messaging) → Klienti → Faktury (modul facturacion) → Nastavení. **Žádná další ikona.** Nová agenda = slot (`inbox.feed`, `carpeta.blocks`, `settings.section`) nebo složka.
+
+Staff nápověda jednou stranou: [rano_v_kancelari.md](rano_v_kancelari.md). Help center nestavíme.
 
 ### Poučení z velkých despachos (ne kopie)
 
@@ -42,7 +48,7 @@ Velké kanceláře (např. Ábaco Advisers: kontrola papírů klienta, HomeSuite
 - Kontrola papírů = stav zapnutého bloku (`missing_document` / inbox / Pedir). Není druhá tabulka „Documentos de control“ a není druhá pravda vedle složky.
 - Dědictví (defunción, declaratorio de herederos, testamento) je **jiný spis**, i když sdílí NIE a pas s koupí.
 - Do katalogu papírů patří jen to, co kancelář fakt sbírá. Cédula nebo residencia až jako zapnutý blok, ne proto, že je má cizí suite.
-- Zákaz: plocha s desítkami programů (CRM, mail, TPV, DMS, účetnictví) jako sourozenci railu. Nová agenda jde do složky / slotu.
+- Zákaz: plocha s desítkami programů (CRM, TPV, DMS, účetní deník) jako sourozenci railu. Pošta a kniha faktur jsou v railu, protože to je denní vstup (ingest / Emitir), ne druhá evidence vedle složky. 210, přepisy, nabídky a koupě po notáři **nejsou** ikony.
 
 ## 2. Slovník
 
@@ -184,7 +190,7 @@ Pravidla: [deadline_engine.md](deadline_engine.md).
 
 Žádné tiché odeslání z cronu v MVP bez šablony a bez stopy. Cron **nachystá návrh** (`status = draft`). Gestor klikne Odeslat (`sent`) nebo Zahodit (`discarded`, soft).
 
-MVP kanál: e-mail + **Copiar WhatsApp**. Do klienta jde **překlad** (`send_translated_outbound`). Originál ve spisu. WhatsApp API = v2. AI draft nachystá, odesílá gestor.
+MVP kanál: e-mail + **Copiar WhatsApp**. Do klienta jde **překlad** (`send_translated_outbound`). Originál ve spisu. WhatsApp Business API je na [seznamu vývoje](vyvoj.md). AI draft nachystá, odesílá gestor.
 
 ## 11. Provisión de fondos y factura
 
@@ -198,7 +204,7 @@ Pohyby (`provision_movements`): `ingreso` | `factura` | `ajuste`. Inbox upozorn�
 
 Vydaná z knihy (`facturas.direccion = emitida`) s `cliente_id` se **propsuje** na otevřenou zálohu složky (`provision_movements.factura_id`). Tři čísla na desce se zvednou sama. DPH, QR a AEAT zůstávají v knize. Bez karty (F2 ručně) se na složku neváže. Přijatá (`recibida`) je dodavatel na kartě, ne záloha kanceláře.
 
-Tohle je **základní** evidence peněz kanceláře. Modul `facturacion` (licence v `organization_modules`) přidává **knihu přijatých** (extract + Guardar, žádná AEAT) a **koncepty vydaných**. Emitir volá Edge `sif-emit`; **Ověřit** volá `sif-status` (`GET /verifactu/status`). Hash, QR a XML v jádru Sanfolia nestavíme. Účetní deník PGC pořád není.
+Tohle je **základní** evidence peněz kanceláře. Modul `facturacion` (licence v `organization_modules`) je **v kódu**: kniha přijatých (extract + Guardar, žádná AEAT) a vydaných. Emitir volá Edge `sif-emit`; **Ověřit** volá `sif-status`. Hash, QR a XML v jádru Sanfolia nestavíme. Účetní deník PGC pořád není.
 
 ## 12. Role
 
@@ -218,7 +224,7 @@ Support **bez** impersonace nečte klienty kanceláře.
 | `gestor` | Klienti, spisy, dokumenty, odesílání zpráv, ne správa licence |
 | `asistente` | Stejné čtení, zápis dokumentů a polí; nesmí mazat expedientes ani odesílat bez kontroly gestora (MVP: odesílat smí, mazat ne) |
 
-Portál klienta (`cliente_final`) v první desce není; model zpráv už počítá s originálem + překladem.
+Portál klienta (`cliente_final`) je na [seznamu vývoje](vyvoj.md); model zpráv už počítá s originálem + překladem.
 
 ## 13. Co se nesmí rozbít vs. co přijde jako modul
 
@@ -228,31 +234,27 @@ Portál klienta (`cliente_final`) v první desce není; model zpráv už počít
 - AI s tools `save_*` / `delete_*` / `send_*` / podání na úřad bez kliknutí člověka
 - Vlastní VeriFactu SIF (až faktury: certifikovaný poskytovatel, ne stavět SIF v jádru)
 - Volný JSON page-builder / drag-drop layout
-- Plocha s desítkami programů (CRM, mail, TPV, DMS) vedle railu; agenda patří do složky
+- Plocha s desítkami programů (CRM, TPV, DMS, deník) vedle railu; agenda patří do složky / slotu. Rail má jen Inbox, Poštu, Klienty, Faktury, Nastavení.
 - Nativní aplikace, offline, Drift, IndexedDB backlog
 - Hardcoded UI text
 
-### Teď ne (první deska musí nejdřív držet u víc kanceláří)
+### Jak stavíme (žádné „až někdy“)
 
-- Telematické podání AEAT (210, 211, 303, renta) — výpočet 210 na desce ano
-- Výpočet renta / IRPF a modelo 303
-- Párování banky a DPH 303
-- Účetní deník PGC / asientos
-- 21 EX formulářů (extranjería jako **modul**, ne jádro)
-- WhatsApp Business API (copy-to-WhatsApp ano)
-- Digitální podpis
-- Portál klienta
+- Každý nápad se **seřadí podle priority** a jde na [seznam vývoje](vyvoj.md). Pracujeme podle něj, postupně.
+- Přijde nový nápad → nejdřív priorita, pak zařazení. Nepřeskakuje frontu jen proto, že je čerstvý, a nečeká na druhého klienta.
+- Položka na seznamu je pořád **další licence v `organization_modules`**, ne přepis jádra. Defaultní pořadí vrstev jako myUcto (doklad a klient → podání a peníze → účetnictví), dokud nová položka nedostane vyšší prioritu.
+- Trvalé zákazy výše se na seznam **nedávají**. Jsou to hranice produktu, ne odklad.
 
-Tyhle věci nejsou „nikdy“. Jsou to **další licence v `organization_modules`**, až evidence, deska a inbox unesou druhou kancelář. Pořadí jako myUcto: nejdřív doklad a klient, pak podání a peníze, účetnictví poslední.
+Živý seznam (co je v kódu, co je ve frontě, jak hodnotíme prioritu): [vyvoj.md](vyvoj.md).
 
 ### Horizont modulů
 
 | Vrstva | Příklady | Stav |
 | --- | --- | --- |
-| Evidence | klient, finca, titulares, papíry, lhůty, výzvy | první deska |
-| Trámites | 210 / IBI / NIE / poder; později podání XML | výpočet a checklist teď |
-| Despacho | faktury kanceláře, inkaso, banka | záloha tři čísla teď |
-| Contabilidad | PGC, DPH 303, asientos | až despacho žije |
+| Evidence | klient, finca, titulares, papíry, lhůty, výzvy | v kódu |
+| Trámites | 210 / IBI / NIE / poder; podání XML na seznamu | výpočet 210 a checklist teď |
+| Despacho | kniha faktur + Verifacti adapter; inkaso/banka na seznamu | kniha teď; banka ve frontě |
+| Contabilidad | PGC, DPH 303, asientos | na seznamu, defaultně za despacho |
 | Vertikály | extranjería EX, tráfico, laborál | jen jako modul, ne přepis jádra |
 
 ## 14. Jazyk a stack (až kód)

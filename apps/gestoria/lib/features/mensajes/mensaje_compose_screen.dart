@@ -24,6 +24,7 @@ class MensajeComposeScreen extends ConsumerStatefulWidget {
     this.bloqueKey,
     this.fecha,
     this.documento,
+    this.inmueble,
     this.postaMessageId,
   });
 
@@ -32,6 +33,7 @@ class MensajeComposeScreen extends ConsumerStatefulWidget {
   final String? bloqueKey;
   final String? fecha;
   final String? documento;
+  final String? inmueble;
   final String? postaMessageId;
 
   @override
@@ -190,7 +192,9 @@ class _MensajeComposeScreenState extends ConsumerState<MensajeComposeScreen> {
         'documento': _documentoLabel(widget.documento),
         'fecha': widget.fecha ?? '—',
         'despacho': office.isEmpty ? '—' : office,
-        'inmueble': '—',
+        'inmueble': (widget.inmueble ?? '').trim().isEmpty
+            ? '—'
+            : widget.inmueble!.trim(),
         'campos_faltantes': '—',
       },
     );

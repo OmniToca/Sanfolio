@@ -49,9 +49,14 @@ Pořadí souborů je čtyřmístné (`0001`, `0002`, …), ne timestamp.
 | `0045_factura_emitida_form.sql` | vydaná: `tipo_factura` F1/F2, obchodní `lineas` JSONB, adresa/e-mail příjemce, notes, forma úhrady |
 | `0046_emitida_provision_link.sql` | `provision_movements.factura_id`; vydaná s kartou → pohyb `factura` na složce |
 | `0047_posta_inbound.sql` | `posta_accounts` / `posta_messages` / `posta_attachments`; ingest webhook; přiřazení ke klientovi; příloha do `documentos` až gestor |
+| `0048_posta_desk.sql` | přiřazení From na kartu; návrh bloku z odesílatele |
+| `0049_posta_office_email.sql` | `tenant_settings.office_email` — Reply-To výzvy |
 | `0050_posta_wow.sql` | `done_at`, `body_html`, podpis `office_phone`, bounce výzvy, paměť bloku odesílatele, FTS + realtime `/posta` |
 | `0051_extract_queue.sql` | `ai_drafts.documento_id`; extract bez TTL; RPC `pending_extract_queue` / `pending_extract_count` |
 | `0052_ofertas.sql` | modul `ofertas`; `office_offers` (luz/gaz/seguro, cents); kancelář vyplní tarify, ne trh |
+| `0053_overpaying.sql` | RPC `overpaying_suministro` — kdo z uložených faktur platí víc než tarif kanceláře |
+| `0054_office_packs.sql` | RPC `season_210` / `after_notary` — 210 a koupě po notáři; AI neodesílá |
+| `0055_tenant_rpc_guards.sql` | `recompute_bloque_plazos` + legal-hold helpery: `can_access_tenant` když je JWT |
 
 Edge: [`create-office`](../supabase/functions/create-office/index.ts) — založení kanceláře. [`translate-message`](../supabase/functions/translate-message/index.ts) — překlad výzvy (klíč `OPENAI_API_KEY`, jinak originál). [`plazo-reminders`](../supabase/functions/plazo-reminders/index.ts) — ranní drafty, nikdy `sent` (tajný `CRON_SECRET` nebo service_role). [`invite-staff`](../supabase/functions/invite-staff/index.ts) — owner zve gestor/asistente (max 3). [`ai-assistant`](../supabase/functions/ai-assistant/index.ts) — chat tools (search, get_cliente, query_suministro / plazos / escritura, search_document_text), žádný zápis. [`extract-document`](../supabase/functions/extract-document/index.ts) — fotka/PDF → pending `ai_drafts`, LLM na pozadí; Guardar zapíše `extracted` + `body_text`. [`sif-emit`](../supabase/functions/sif-emit/index.ts) — koncept vydané → Verifacti create; bez klíčů `sif_not_configured`; po 200 `pendiente`. [`sif-status`](../supabase/functions/sif-status/index.ts) — Ověřit u AEAT; `emitida` až přijme. Due diligence: [facturacion_verifactu.md](facturacion_verifactu.md). [`posta-inbound`](../supabase/functions/posta-inbound/index.ts) — kopie kancelářské schránky (tajný `POSTA_INBOUND_SECRET` / Svix); ukládá metadata + HTML + přílohy, nepřiřazuje blok; bounce odchozí výzvy. [`send-client-message`](../supabase/functions/send-client-message/index.ts) — výzva přes Resend po kliknutí gestora; podpis z `tenant_settings`; bez `RESEND_API_KEY` Flutter otevře Gmail.
 

@@ -5,9 +5,9 @@ alwaysApply: true
 
 # Gestoría OS
 
-SaaS pro španělské kanceláře (gestoría / asesoría). Flutter web je tenký klient. Žádný offline, žádný Drift. Jarka je první tenant, ne strop.
+SaaS pro španělské kanceláře (gestoría / asesoría). Flutter web je tenký klient. Žádný offline, žádný Drift. Stavíme jednu aplikaci pro jednu kancelář i pro deset. Jarka je první tenant, ne strop a ne důvod čekat. Fronta je seznam vývoje (`docs/vyvoj.md`), ne „až druhý klient“.
 
-Pilíře: složka klienta je pravda; zapnutá služba = blok; AI jen search/open/prefill; soft-delete; append-only audit; i18n JSON od dne 1; moduly + sloty, ne JSON layout engine. Podání AEAT, fakturace a banka až jako moduly.
+Pilíře: složka klienta je pravda; zapnutá služba = blok; AI jen search/open/prefill/extract; soft-delete; append-only audit; i18n JSON od dne 1; moduly + sloty, ne JSON layout engine. Podání AEAT XML a banka až jako další vrstvy. Fakturace je modul (kniha + Verifacti adapter). Rail: Inbox, Pošta, Klienti, Faktury, Nastavení — nic dalšího.
 
 Stack: Flutter web, Riverpod, go_router, easy_localization, Supabase (Postgres, RLS, Edge Functions). Peníze = integer cents. ID = UUID. Čas v DB = timestamptz UTC, termíny `date` v Europe/Madrid.
 

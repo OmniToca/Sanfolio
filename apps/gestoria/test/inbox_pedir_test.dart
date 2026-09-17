@@ -49,5 +49,18 @@ void main() {
     expect(matchesInboxFilter(hole, 'missing_document'), isTrue);
     expect(matchesInboxFilter(hole, 'no_channel'), isTrue);
     expect(matchesInboxFilter(today, 'no_channel'), isFalse);
+    expect(inboxFilterKeys, contains('due_soon'));
+    expect(
+      matchesInboxFilter(
+        const InboxRow(
+          clienteId: 'c',
+          clienteNombre: 'Ana',
+          bloqueKey: 'plusvalia',
+          itemKind: 'due_soon',
+        ),
+        'due_soon',
+      ),
+      isTrue,
+    );
   });
 }

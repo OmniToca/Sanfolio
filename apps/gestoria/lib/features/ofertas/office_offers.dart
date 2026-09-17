@@ -115,3 +115,94 @@ int? _intOrNull(Object? raw) {
   if (raw is int) return raw;
   return int.tryParse('$raw');
 }
+
+/// Řádek office-wide fronty: platí víc než nejlevnější tarif kanceláře.
+class OverpayRow {
+  const OverpayRow({
+    required this.clienteId,
+    required this.clienteNombre,
+    required this.bloqueKey,
+    required this.clientAnnualCents,
+    required this.offerTitle,
+    required this.offerAnnualCents,
+    required this.savingCents,
+    this.expedienteId,
+    this.offerId,
+  });
+
+  final String clienteId;
+  final String clienteNombre;
+  final String bloqueKey;
+  final String? expedienteId;
+  final int clientAnnualCents;
+  final String? offerId;
+  final String offerTitle;
+  final int offerAnnualCents;
+  final int savingCents;
+}
+
+/// Nejlevnější nabídka, u které klient přeplácí. Voda sem nepatří.
+OverpayRow? overpayOf({
+  required String clienteId,
+  required String clienteNombre,
+  required String bloqueKey,
+  required PaperStackGlance glance,
+  required List<OfficeOffer> offers,
+  String? expedienteId,
+}) {
+  final lines = compareOfficeOffers(
+    bloqueKey: bloqueKey,
+    glance: glance,
+    offers: offers,
+  );
+  for (final line in lines) {
+    final saving = line.savingCents;
+    if (saving == null || saving <= 0) continue;
+    if (line.clientAnnualCents == null || line.offerAnnualCents == null) {
+      continue;
+    }
+    return OverpayRow(
+      clienteId: clienteId,
+      clienteNombre: clienteNombre,
+      bloqueKey: bloqueKey,
+      expedienteId: expedienteId,
+      clientAnnualCents: line.clientAnnualCents!,
+      offerId: line.offer.id,
+      offerTitle: line.offer.title,
+      offerAnnualCents: line.offerAnnualCents!,
+      savingCents: saving,
+    );
+  }
+  return null;
+}
+
+OverpayRow? overpayRowFromRpc(Map raw) {
+  final clienteId = '${raw['cliente_id'] ?? ''}'.trim();
+  final bloqueKey = '${raw['bloque_key'] ?? ''}'.trim();
+  final clientAnnual = _intOrNull(raw['client_annual_cents']);
+  final offerAnnual = _intOrNull(raw['offer_annual_cents']);
+  final saving = _intOrNull(raw['saving_cents']);
+  final title = '${raw['offer_title'] ?? ''}'.trim();
+  if (clienteId.isEmpty ||
+      !offerKindForBloque(bloqueKey) ||
+      clientAnnual == null ||
+      offerAnnual == null ||
+      saving == null ||
+      saving <= 0 ||
+      title.isEmpty) {
+    return null;
+  }
+  final exp = '${raw['expediente_id'] ?? ''}'.trim();
+  final offerId = '${raw['offer_id'] ?? ''}'.trim();
+  return OverpayRow(
+    clienteId: clienteId,
+    clienteNombre: '${raw['cliente_nombre'] ?? ''}'.trim(),
+    bloqueKey: bloqueKey,
+    expedienteId: exp.isEmpty ? null : exp,
+    clientAnnualCents: clientAnnual,
+    offerId: offerId.isEmpty ? null : offerId,
+    offerTitle: title,
+    offerAnnualCents: offerAnnual,
+    savingCents: saving,
+  );
+}

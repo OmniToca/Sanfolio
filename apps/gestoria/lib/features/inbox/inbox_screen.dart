@@ -11,7 +11,8 @@ import '../../core/theme/app_theme.dart';
 import '../../core/time/office_date.dart';
 import '../mensajes/mensaje_templates.dart';
 import '../ai/extract_queue_banner.dart';
-import '../posta/posta_inbox_banner.dart';
+import '../ofertas/office_overpay_banner.dart';
+import '../packs/office_pack_banners.dart';
 import '../settings/office_settings_controller.dart';
 import 'inbox_providers.dart';
 
@@ -76,7 +77,8 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
                       ),
                       const SizedBox(height: 20),
                       const ExtractQueueBanner(),
-                      const PostaInboxBanner(),
+                      const OfficePacksInboxBanner(),
+                      const OverpayInboxBanner(),
                       if (shown.isEmpty)
                         Padding(
                           padding: const EdgeInsets.only(top: 48),

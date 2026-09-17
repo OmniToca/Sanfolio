@@ -77,11 +77,12 @@ Workflow kanceláře = zapnuté moduly + tyhle offsety + pořadí bloků. Ne BPM
 | --- | --- | --- |
 | `core` | vždy | shell, klienti, hledání, audit |
 | `carpeta_inmueble` | ano | `carpeta.blocks` (papír) |
-| `impuestos` | ano (jen plazo) | `cliente.tabs`, `inbox.feed` |
-| `messaging` | ano (e-mail + copy WhatsApp + příchozí Pošta) | `inbox.feed`, `cliente.tabs`; nav `/posta` |
+| `impuestos` | ano (checklist + výpočet 210, ne podání AEAT) | `cliente.tabs`, `inbox.feed` (`/kampane`) |
+| `messaging` | ano (e-mail + copy WhatsApp + příchozí Pošta) | `cliente.tabs`; nav `/posta` (ne inbox banner) |
 | `nie_poder` | ano jako bloky na desce | `carpeta.blocks` |
-| `ai_copilot` | kostra | pravý panel (`AiPanel`) |
-| `facturacion` | ano (kniha, ne SIF) | `cliente.tabs`, `settings.section`, nav `/facturacion`; vnitřní knihy Ventas/Compras v `facturacion_nav.dart` (ne další rail) |
+| `ai_copilot` | ano (panel + extract fronta `/prepis`) | pravý panel (`AiPanel`), `inbox.feed` |
+| `facturacion` | ano (kniha + Verifacti Emitir/Ověřit) | `settings.section`, nav `/facturacion`; vnitřní knihy Ventas/Compras v `facturacion_nav.dart` (ne druhý rail) |
+| `ofertas` | ano (tarify kanceláře, ne trh) | `carpeta.blocks`, `settings.section`, `inbox.feed` (`/preplatek`) |
 | `client_portal` | ne | — |
 | `policia` / `ayuntamiento` / `testament` | zapnuto u Jarky; tenký spis na `cliente.tabs` | `cliente.tabs` |
 
@@ -89,7 +90,7 @@ Widget modulu žije v `features/<modul>/presentation/widgets/` a registruje se v
 
 ## 6. Proč tohle přežije deset let
 
-- Nová služba = nový modul do slotu, ne přepis inboxu.
+- Nová služba = nový modul do slotu, ne nová ikona v railu a ne pátý banner v inboxu.
 - Nová kancelář v Německu = jiné `staff_locale` a `plazo_offsets`, ne fork.
 - Klientská zóna čte už uložené `translations`, nestaví se druhý messenger.
 - Až bude chtít někdo drag-drop, napojí se na existující registry ID. Do té doby ho nestavíme — to je přesně místo, kde se OmniToca a FalcoNest zamotaly.

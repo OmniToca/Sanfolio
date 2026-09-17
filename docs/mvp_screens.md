@@ -2,7 +2,7 @@
 
 Cíl: paní přestane tisknout dva listy. Ráno inbox, přes den desky klienta = papír.
 
-Všechny texty UI z i18n (`cs` default). Layout: rail vlevo (desktop) + top bar. Breakpoint ~720 px: bottom nav Inbox / Klienti / Nastavení.
+Všechny texty UI z i18n (`cs` default). Layout: rail vlevo (desktop) + top bar. Breakpoint ~720 px: bottom nav Inbox / Pošta / Klienti / Faktury / Nastavení (Pošta a Faktury jen se zapnutým modulem).
 
 ## 1. Mapa rout
 
@@ -13,14 +13,18 @@ Všechny texty UI z i18n (`cs` default). Layout: rail vlevo (desktop) + top bar.
 | `/login` | e-mail / heslo, zapomenuté heslo |
 | `/reset-password` | nové heslo z odkazu v e-mailu |
 | `/inbox` | denní smyčka |
+| `/prepis` | fronta přepisů (Guardar) |
+| `/kampane` | 210 bez podání + koupě po notáři |
+| `/preplatek` | kdo z faktur platí víc než office_offers |
+| `/posta`, `/posta/:id` | příchozí pošta |
 | `/clientes` | seznam + nové (NIE není povinné) |
 | `/clientes/:id` | deska klienta |
 | `/clientes/:id/carpeta` | dva listy (tužka); bloky kromě klienta jsou kryty |
 | `/clientes/:id/carpeta/:bloque` | šanon jednoho bloku: identita + papíry |
-| `/clientes/:id/inmuebles/:inmuebleId` | deska nemovitosti |
+| `/clientes/:id/mensaje` | compose výzvy; odeslat = překlad |
 | `/expedientes/:id` | úkon (daně, NIE, policía, ayuntamiento, testament) |
-| `/mensajes/:id` | editor draftu; odeslat = překlad |
-| `/settings` | lhůty kanceláře |
+| `/facturacion`, `/facturacion/:libro`, `/facturacion/nueva`, `/facturacion/f/:id` | kniha a koncept vydané |
+| `/settings` | lhůty kanceláře, Pošta, nabídky, tým |
 | `/impersonation/accept` | Support handoff |
 | `/payment-required` | licence |
 | `/forbidden` | |
@@ -40,8 +44,12 @@ Všechny texty UI z i18n (`cs` default). Layout: rail vlevo (desktop) + top bar.
 
 Hlavní obrazovka po loginu.
 
-Filtry: Hoy / Vencido / Falta documento / Faltan datos / Provisión.  
+Filtry: Vše / Dnes / Blíží se / Po termínu / Chybí dokument / Chybí údaje / Záloha / Zastaralý spis / Bez kanálu.  
 Řádky z [deadline_engine.md](deadline_engine.md).
+
+Bannery nad řádky (slot `inbox.feed`, ne rail): přepisy, `/kampane`, přeplatky. Pošta má `/posta` v railu.
+
+Staré URL `/sezona-210` a `/po-notari` přesměrují na `/kampane`.
 
 Každý řádek:
 
@@ -83,7 +91,7 @@ Tužka „nová koupě“: **Nuevo expediente compraventa** → vytvoří inmueb
 
 ## 5. Deska nemovitosti = dva tištěné listy
 
-Route inmueble. Vizuálně **stejné pořadí jako papír**, ne dashboard widgety.
+Route `/clientes/:id/carpeta` (ne `/inmuebles/:id`). Vizuálně **stejné pořadí jako papír**, ne dashboard widgety.
 
 ```
 CLIENTE     (snapshot, odkaz na kartu)
@@ -116,13 +124,12 @@ Jednodušší než deska koupě: checklist + plazo + dokumenty jako sloty, klien
 
 ## 7. Zpráva
 
-Z inboxu nebo AI. Tělo šablony (gestor píše ES), úprava, **Enviar email** (překlad), **Copiar WhatsApp** (překlad), **Descartar**.  
-Odeslání = člověk. Originál zůstane ve spisu.
+Z inboxu. Tělo šablony (gestor píše ES), úprava, **Enviar email** (překlad), **Copiar WhatsApp** (překlad), **Descartar**.  
+Odeslání = člověk. Originál zůstane ve spisu. Compose: `/clientes/:id/mensaje`.
 
 ## 8. AI panel
 
-Pravý dock (překryv na úzkém okně). Umí hodit fotku/PDF. Turny v `ai_messages`. Eventy `navigate` a `prefill` viz [ai_contract.md](ai_contract.md).  
-Na prefill desky zůstat na inmueble, neskákat pryč.
+Pravý dock (překryv na úzkém okně). Chat čte RPC (search, karta, dodávky, plazos, escritura, FTS). Extract je Edge `extract-document` → `ai_drafts`; Guardar je gestor. Draft výzvy je Edge `ai-draft-message` nebo compose.
 
 ## 9. Support
 
@@ -137,7 +144,7 @@ Na prefill desky zůstat na inmueble, neskákat pryč.
 - Samostatné desky policie / magistrát / testament jako dva tištěné listy (tenký spis ano)
 - Portál klienta
 - WhatsApp API tlačítko odeslat (copy ano)
-- Grafy MRR, účetní knihy, AEAT XML
+- Grafy MRR, účetní deník PGC, AEAT XML podání
 - Mapa / geo
 - Native share sheet mimo web download
 

@@ -46,6 +46,19 @@ Si ya lo tiene resuelto, ignore este mensaje o envíenos el justificante.
 {{despacho}}''',
   ),
   MensajeTemplate(
+    key: 'cambio_titular',
+    asunto: 'Cambio de titular — {{bloque}}',
+    cuerpo: '''Hola {{nombre}},
+
+Tras la compraventa de {{inmueble}} (escritura {{fecha}}) hay que
+cambiar el titular de {{bloque}}. Si nos envía la última factura o el
+número de contrato, lo tramitamos con usted. No se cambia nada hasta
+su confirmación.
+
+Gracias,
+{{despacho}}''',
+  ),
+  MensajeTemplate(
     key: 'oferta_suministro',
     asunto: 'Propuesta de cambio — {{bloque}}',
     cuerpo: '''Hola {{nombre}},

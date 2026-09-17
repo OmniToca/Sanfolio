@@ -15,6 +15,8 @@ import '../../features/clientes/clientes_screen.dart';
 import '../../features/expedientes/expediente_screen.dart';
 import '../../features/inbox/inbox_screen.dart';
 import '../../features/ai/extract_queue_screen.dart';
+import '../../features/ofertas/office_overpay_screen.dart';
+import '../../features/packs/office_pack_screens.dart';
 import '../../features/mensajes/mensaje_compose_screen.dart';
 import '../../features/facturacion/facturacion_screen.dart';
 import '../../features/facturacion/factura_emit_screen.dart';
@@ -114,6 +116,26 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
+            path: '/preplatek',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: OverpayScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/kampane',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: OfficePacksScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/sezona-210',
+            redirect: (context, state) => '/kampane',
+          ),
+          GoRoute(
+            path: '/po-notari',
+            redirect: (context, state) => '/kampane',
+          ),
+          GoRoute(
             path: '/posta/:id',
             pageBuilder: (context, state) => NoTransitionPage(
               child: PostaScreen(
@@ -161,6 +183,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 bloqueKey: state.uri.queryParameters['bloque'],
                 fecha: state.uri.queryParameters['fecha'],
                 documento: state.uri.queryParameters['documento'],
+                inmueble: state.uri.queryParameters['inmueble'],
                 postaMessageId: state.uri.queryParameters['posta'],
               ),
             ),

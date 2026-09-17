@@ -54,4 +54,60 @@ void main() {
       'valorar Barata 2.0TD',
     );
   });
+
+  test('office-wide fronta bere jen kdo z faktur přeplácí tarif kanceláře', () {
+    final glance = stackGlanceOf([
+      (
+        tipo: 'factura_luz',
+        fields: {
+          'fields.amount': '200.00',
+          'fields.consumption': '1000 kWh',
+          'fields.periodFrom': '2026-01-01',
+          'fields.periodTo': '2026-02-01',
+        },
+      ),
+    ]);
+    const cheap = OfficeOffer(
+      id: '1',
+      kind: 'luz',
+      title: 'Barata 2.0TD',
+      annualCents: 80000,
+    );
+    const dear = OfficeOffer(
+      id: '2',
+      kind: 'luz',
+      title: 'Drahá',
+      annualCents: 900000,
+    );
+    final hit = overpayOf(
+      clienteId: 'c1',
+      clienteNombre: 'Ana',
+      bloqueKey: 'luz',
+      glance: glance,
+      offers: const [cheap, dear],
+    );
+    expect(hit, isNotNull);
+    expect(hit!.offerTitle, 'Barata 2.0TD');
+    expect(hit.savingCents, greaterThan(0));
+    expect(
+      overpayOf(
+        clienteId: 'c1',
+        clienteNombre: 'Ana',
+        bloqueKey: 'luz',
+        glance: glance,
+        offers: const [dear],
+      ),
+      isNull,
+    );
+    expect(
+      overpayOf(
+        clienteId: 'c1',
+        clienteNombre: 'Ana',
+        bloqueKey: 'agua',
+        glance: glance,
+        offers: const [cheap],
+      ),
+      isNull,
+    );
+  });
 }

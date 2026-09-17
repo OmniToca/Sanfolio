@@ -11,21 +11,23 @@ Jedna funkce `ai-assistant` (Deno).
 
 ```json
 {
-  "purpose": "chat | extract_document | extract_folder_scan",
   "tenant_id": "uuid",
   "conversation_id": "uuid | null",
-  "message": "string | null",
+  "message": "string",
   "locale": "es",
-  "current_route": "/clientes/…",
-  "attachment_ids": ["uuid"]
+  "current_route": "/clientes/…"
 }
 ```
+
+Extract a draft výzvy nejsou purpose tohoto endpointu — viz 2b.
 
 Auth: JWT uživatele. Funkce ověří membership a `deleted_at IS NULL` tenantu. Support jen s živou impersonací.
 
 Model nikdy nedostane service_role do promptu. Tools volá runtime funkce podle whitelistu níže; každé tool volání = audit `ai.tool`.
 
-## 2. Povolené tools
+## 2. Povolené tools (chat `ai-assistant`)
+
+Whitelist v `supabase/functions/ai-assistant/index.ts`. Nic jiného runtime modelovi nenabídne.
 
 ### 2.1 `search_clients`
 
@@ -41,90 +43,27 @@ Model nikdy nedostane service_role do promptu. Tools volá runtime funkce podle 
 
 Volá RPC z [search_spec.md](search_spec.md). Vrací id, jméno, skóre, matched_via. Žádný update.
 
-### 2.2 `open_screen`
+### 2.2 `get_cliente`
 
-```json
-{
-  "name": "open_screen",
-  "parameters": {
-    "route": "string",
-    "cliente_id": "uuid?",
-    "inmueble_id": "uuid?",
-    "expediente_id": "uuid?",
-    "bloque_key": "string?"
-  }
-}
-```
+Read-only snapshot karty + bloky + díry + `titular_inmuebles`. Prázdná vlastní deska ≠ „dům nemáme“. PII jde do modelu — audit `ai.read.cliente`. AI neukládá.
 
-Runtime ověří, že ids patří tenantu. Odpověď klientovi: `{ "type": "navigate", "route": "/clientes/{id}/carpeta/luz" }`. Flutter GoRouter to otevře. AI **ne** fetchuje celou kartu do chatu zbytečně — na to je `get_cliente`.
+### 2.3 `query_suministro` / `query_plazos_office` / `query_escritura`
 
-Povolené routy: `/inbox`, `/clientes/:id`, `/clientes/:id/carpeta`, `/clientes/:id/carpeta/:bloque`, `/inmuebles/:id`, `/expedientes/:id`. Nic v Support app.
+Office-wide čtení desky (dodavatel, termíny, notář / catastral / strany listiny). Limitovaný RPC, ne `execute_sql`.
 
-### 2.3 `get_cliente`
+### 2.4 `search_document_text`
 
-Read-only snapshot karty + bloky + díry + `titular_inmuebles` (finca, kde je klient titular: složka, `sale_price` listiny, cuota). Prázdná vlastní deska ≠ „dům nemáme“. Open na desku složky (`/clientes/{folder_cliente_id}/carpeta`), ne na šanon `escritura` (kancelář ho často nesleduje) ani na prázdnou kartu spoluvlastníka. PII jde do modelu — audit `ai.read.cliente`. AI neukládá.
+Read-only fulltext v `documentos.body_text`. Limit 20, tenant RLS. Prázdný přepis ≠ „ve smlouvě to není“. Žádný pgvector.
 
-### 2.4 `prefill_form`
+## 2b. Samostatné Edge (ne chat tools)
 
-```json
-{
-  "name": "prefill_form",
-  "parameters": {
-    "target": "cliente | inmueble | bloque | expediente",
-    "id": "uuid?",
-    "bloque_key": "string?",
-    "fields": { "type": "object" },
-    "enable_blocks": { "type": "array", "items": { "type": "string" } }
-  }
-}
-```
+- **`extract-document`** — JWT, fotka/PDF → `ai_drafts`. Guardar ve Flutter zapíše `documentos.extracted` + `body_text`. AI sem neukládá.
+- **`ai-draft-message`** — JWT, nachystá `mensajes.status = draft`. `sent_at` zůstane null. Tool `send_message` **neexistuje**.
+- **`translate-message`** — při odeslání člověkem.
 
-Výsledek do UI: `{ "type": "prefill", "draft_id": "uuid", "fields": … }`.  
-**Žádný INSERT/UPDATE v DB.** Draft žije v `ai_drafts` (extract u souboru bez TTL, dokud Guardar/Zahodit; jinak 24 h; soft-delete). Gestor vidí diff a klikne Guardar.
-
-`enable_blocks` jen navrhne zapnutí (`agua`, `luz`, …). Guardar zapíše `bloque` + audit `bloque.enabled` jako akci uživatele, ne AI.
-
-### 2.5 `extract_document`
-
-Vstup: `attachment_id` v Storage. Vision/OCR → strukturovaný JSON podle cíle (`dni_nie`, `escritura`, `contrato_luz`, `folder_scan`). Escritura: všichni kupující i prodávající, cena, finca, právník — ne jen první compareciente.
-
-Výstup vždy končí jako `prefill` draft, ne jako uložený klient. Gestor na desce klikne Guardar → `documentos.extracted` + pole bloku. Pak `ai_get_cliente` umí říct, kdy končí pas.
-
-Příklad extract NIE:
-
-```json
-{
-  "kind": "nie",
-  "value": "Y123456E",
-  "checksum": "valid",
-  "nombre": "…",
-  "confidence": 0.92
-}
-```
-
-Maskované OCR (`Y123**6E`) se předá search, ne „oprava“ na plné číslo bez kandidáta.
-
-### 2.6 `draft_message`
-
-```json
-{
-  "name": "draft_message",
-  "parameters": {
-    "cliente_id": "uuid",
-    "template_key": "falta_documento | faltan_datos | recordatorio | vencido",
-    "bloque_key": "string?",
-    "body_override": "string?"
-  }
-}
-```
-
-Vytvoří `mensajes.status = draft` **nebo** jen vrátí text do UI (preferovat zápis draftu, ať to gestor jen odešle). `sent_at` zůstane null. Tool `send_message` **neexistuje**.
+Navigate / prefill žlutý diff dělá Flutter panel, ne tool v `ai-assistant`. Routy Support app AI neotevírá.
 
 Při odeslání člověkem: do kanálu jde překlad (`clientes.locale`), originál v `cuerpo`. AI ten krok nesmí spustit.
-
-### 2.7 `search_document_text`
-
-Read-only fulltext v `documentos.body_text` (RPC stejného jména). Limit 20, tenant RLS. Prázdný přepis ≠ „ve smlouvě to není“. `open_screen` na `/clientes/{id}/carpeta/{bloque}`. Žádný pgvector. Notář / právník / catastral / strana napříč kanceláří = `query_escritura`, ne fulltext.
 
 ## 3. Zakázané tools (nesmí být v schématu)
 
@@ -135,7 +74,7 @@ Read-only fulltext v `documentos.body_text` (RPC stejného jména). Limit 20, te
 - `impersonate`
 - cokoliv na jiný tenant
 
-Pokud model „chce uložit“, runtime odpoví: navrhnout `prefill_form` a říct uživateli, ať klikne Guardar.
+Pokud model „chce uložit“, runtime extract/draft zůstane v `ai_drafts` / `mensajes.draft` a UI řekne, ať klikne Guardar / Odeslat.
 
 ## 4. Prompt (zkráceně)
 
@@ -159,12 +98,6 @@ Turny se ukládají do `ai_conversations` + `ai_messages` (soft-delete, scoped n
 
 Office-wide otázky (dodavatel, konce seguro, notář) = read-only tools / RPC, viz [roadmap_dokumenty_ai.md](roadmap_dokumenty_ai.md). Žádný `execute_sql`. Vektory až po FTS.
 
-Side-effects:
-
-| Event | Klient |
-| --- | --- |
-| `navigate` | `context.go(route)` |
-| `prefill` | otevři formulář, vyplň, badge „Propuesta IA“ |
-| `draft_message` | otevři editor zprávy |
+Prefill žlutý diff a compose výzvy spouští Flutter (Guardar / Nachystat výzvu), ne chat tool.
 
 Guardar / Eliminar / Enviar jsou běžné use-casy mimo AI.

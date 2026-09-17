@@ -1,14 +1,14 @@
 # Sanfolio (Gestoría OS)
 
-Provozní systém španělské kanceláře. Evidence klienta a služeb, doklady, termíny, výzvy; další moduly (podání, faktury, banka) až jádro drží. První kancelář je Gestorie Jarka — odrazový můstek, ne strop.
+Provozní systém španělské kanceláře. Evidence klienta a služeb, doklady, termíny, výzvy, kniha faktur, příchozí pošta. Stavíme jednu aplikaci pro jednu kancelář i pro deset; nabízet dál až když je produkt dost dobrý. Fronta (AEAT, banka, portál, …) je [seznam vývoje](docs/vyvoj.md), ne čekání na druhého zákazníka. První kancelář je Gestorie Jarka — ověření, ne strop.
 
-**Teď:** Auth + Support + převtělení. Napoj hosted Supabase (EU) a `config.json`.
+**Teď:** staff app kanceláře (inbox, složka, Pošta, kniha faktur, AI přepis) + Support s převtělením. Hosted Supabase (EU) + `config.json`.
 
-## Spuštění (až máš projekt)
+## Spuštění
 
 1. Zkopíruj [`config.example.json`](config.example.json) → `config.json` (je v gitignore).
-2. `supabase link` + `supabase db push` (`0001`–`0004`).
-3. Deploy Edge Function `create-office` (secret `GESTORIA_BASE_URL`).
+2. `supabase link` + `supabase db push` (migrace `0001`–`0055`).
+3. Deploy Edge Functions podle potřeby: `create-office` (secret `GESTORIA_BASE_URL`), `extract-document`, `ai-assistant`, `ai-draft-message`, `translate-message`, `invite-staff`, `plazo-reminders`, `posta-inbound`, `send-client-message`, `sif-emit`, `sif-status`.
 4. Auth → Redirect URLs: kancelář i Support (Netlify + `localhost:5555` / `5556`).
 5. Zaregistruj se na Support, v SQL: `UPDATE profiles SET is_support = true WHERE email = '…';`
 
@@ -60,5 +60,6 @@ cd apps/support && flutter run -d chrome --web-port=5556 --dart-define-from-file
 | [docs/mvp_screens.md](docs/mvp_screens.md) | Obrazovky MVP |
 | [docs/design_partner_sanon.md](docs/design_partner_sanon.md) | Partner a co je potvrzené |
 | [docs/partner/](docs/partner/README.md) | Dotazník + **odpovědi Gestorie Jarka** |
+| [docs/rano_v_kancelari.md](docs/rano_v_kancelari.md) | Jedna strana pro staff |
 
-Stack (až se bude stavět): Flutter web + Supabase. Online-only, bez nativní appky.
+Stack: Flutter web + Supabase. Online-only, bez nativní appky.

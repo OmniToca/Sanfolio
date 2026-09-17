@@ -211,6 +211,36 @@ void main() {
     expect(glance.effectiveUnitCents, 17);
     expect(glance.annualCentsEstimate, isNotNull);
     expect(glance.yearlyConsumption, greaterThan(1000));
+    // Elektřina zůstává u skutečných dní, ne u kvartálu vody.
+    expect(periodDaysOf(glance.latest!), 27);
+  });
+
+  test('voda s měsícem z grafu se anualizuje jako španělský kvartál', () {
+    final glance = stackGlanceOf([
+      (
+        tipo: 'factura_agua',
+        fields: {
+          'fields.amount': '122.48',
+          'fields.consumption': '38 m³',
+          'fields.periodFrom': '2026-02-01',
+          'fields.periodTo': '2026-02-28',
+        },
+      ),
+    ]);
+    expect(periodDaysOf(glance.latest!), kAguaQuarterDays);
+    expect(glance.annualCentsEstimate, (12248 * 365 / kAguaQuarterDays).round());
+    expect(glance.annualCentsEstimate, lessThan(60000));
+    final trueQuarter = stackGlanceOf([
+      (
+        tipo: 'factura_agua',
+        fields: {
+          'fields.amount': '122.48',
+          'fields.periodFrom': '2025-11-21',
+          'fields.periodTo': '2026-02-20',
+        },
+      ),
+    ]);
+    expect(periodDaysOf(trueQuarter.latest!), 91);
   });
 
   test('póliza nese prémii, smlouva bez částky ne', () {

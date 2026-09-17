@@ -109,9 +109,9 @@ Stejný tvar, jiný katalog dokumentu a volitelné pole sítě.
 | `gaz` | `contrato_gaz` / `factura_gaz` | **stačí jeden** |
 | `comunidad` | `certificado_comunidad` (správce, účet, papír) | všechny |
 
-Přepis dokladu a tužka na desce se neslévají. Faktura má v `documentos.extracted` číslo, datum vystavení, období od–do, spotřebu, částku. Na blok jdou jen identita (compañía, contrato, CUPS / číslo klienta, titular). `fields.period` je rok IBI, ne období faktury. Stoh `/clientes/:id/carpeta/:bloque` ukáže součet kladných faktur, poslední období, **efektivní €/kWh (m³)** a hrubý roční odhad z poslední faktury s obdobím — ne OCR dump. Dobropis (zápor) do součtu ne. Vodu a komunitu kancelář nesrovnává s nabídkami (často jedna síť).
+Přepis dokladu a tužka na desce se neslévají. Faktura má v `documentos.extracted` číslo, datum vystavení, období od–do, spotřebu, částku. Na blok jdou jen identita (compañía, contrato, CUPS / číslo klienta, titular). `fields.period` je rok IBI, ne období faktury. Stoh `/clientes/:id/carpeta/:bloque` ukáže součet kladných faktur, poslední období, **efektivní €/kWh (m³)** a hrubý roční odhad z poslední faktury s obdobím — ne OCR dump. Dobropis (zápor) do součtu ne. Vodu a komunitu kancelář nesrovnává s nabídkami (často jedna síť). Obecní voda ve Španělsku je skoro vždy **trimestral**; když OCR uloží jen jeden měsíc, roční odhad se počítá z 91 dní, ne z 28.
 
-Modul `ofertas` na bloku `luz` / `gaz` ukáže „u vás teď ~X €/rok · nabídka Y ~Z €/rok“ z `office_offers`. Tlačítko Nachystat výzvu otevře compose; AI nic neodešle ani nepřepne smlouvu.
+Modul `ofertas` na bloku `luz` / `gaz` ukáže „u vás teď ~X €/rok · nabídka Y ~Z €/rok“ z `office_offers`. Tlačítko Nachystat výzvu otevře compose; AI nic neodešle ani nepřepne smlouvu. Inbox `/preplatek` seřadí klienty, kteří z **uložených** faktur platí víc než tarif kanceláře. Inbox `/kampane` seřadí otevřené 210 bez podání a koupě s `escritura_fecha`, kde ještě běží plusvalía, díra na dodávce, nebo čerstvá koupě (90 dní) bez 210.
 
 Plazo: v MVP žádné, pokud kancelář nedoplní datum obnovy. Stav po kompletnosti = `done`.
 
@@ -211,6 +211,8 @@ Plazo: `poder_caducidad`. Offset z `tenant_settings.poder_warn_days`. Propadlý 
 Další pole podle druhu (jinak by se míchal nájem s imputací): valor catastral a sazba 1,1/2 %; nájemné a výdaje; cena prodeje a modelo 211. Peníze v centech. Formule `irnr-210-2026.1` v `modelo_210.dart`.
 
 Gestor uloží číslo. Systém **nepodává** na AEAT. Za správnost kliknutí Uložit ručí člověk.
+
+Inbox `/kampane` seřadí otevřené 210 **bez data podání**: období, termín, chybějící papíry. Nachystat výzvu otevře compose.
 
 Dokumenty: povinné sloty (`escritura_o_nota_simple`, `recibo_ibi`, `certificado_catastral`); DNI volitelně. Spis se naváže na `inmuebles`.  
 Plazo: z `tenant_settings` podle `periodicidad`.

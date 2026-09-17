@@ -4,7 +4,7 @@
 
 **Gestorie Jarka** (Costa Blanca / Alicante, SUMA). Petr s nimi mluví česky.
 
-Další kancelář se nehledá, dokud tahle denně nepoužije desku místo tiskárny.
+Jarka ověřuje, že deska nahradí tiskárnu. Produkt stavíme tak, aby obstál u jedné kanceláře i u deseti. Dalším kancelářím ho nabídneme, až bude dost dobrý — vývoj na druhého zákazníka nečeká. Seznam: [vyvoj.md](vyvoj.md).
 
 ## 2. Co je potvrzené
 

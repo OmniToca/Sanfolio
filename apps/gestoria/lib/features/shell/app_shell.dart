@@ -42,7 +42,13 @@ class AppShell extends ConsumerWidget {
         final i = paths.indexOf('/facturacion');
         return i < 0 ? 0 : i;
       }
-      if (loc.startsWith('/prepis')) return paths.indexOf('/inbox');
+      if (loc.startsWith('/prepis') ||
+          loc.startsWith('/preplatek') ||
+          loc.startsWith('/kampane') ||
+          loc.startsWith('/sezona-210') ||
+          loc.startsWith('/po-notari')) {
+        return paths.indexOf('/inbox');
+      }
       if (loc.startsWith('/clientes')) return paths.indexOf('/clientes');
       if (loc.startsWith('/posta')) {
         final i = paths.indexOf('/posta');
