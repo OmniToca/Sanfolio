@@ -41,6 +41,8 @@ Stejné bloky energií lze zapnout i u `suministros_seguros`, pokud kancelář �
 
 Compraventa se **čte v čase**, i když je seznam bloků rovný. Před notářem: identita (`cliente_snapshot`, `nie_tramite`, `poder`), IBI (`suma`), dodávky, komunita, případně cédula / residencia až budou v katalogu. U notáře: `escritura`. Po: `plusvalia` (a 210 na tenkém spisu), přepis energií. Kontrola chybějícího papíru je stav bloku, ne druhá evidence. Proč: [product_bible.md](product_bible.md) (poučení z velkých despachos).
 
+Tisk z desky (`folder.print`) je zpátky na ty dva listy: HTML A4 v prohlížeči, stejné časové pořadí. `tenant_settings.slot_order` řadí jen obrazovku, ne výtisk. PDF uloží gestor z dialogu tisku.
+
 | Šablona | Bloky v pořadí papíru |
 | --- | --- |
 | `compraventa` | `cliente_snapshot`, `escritura`, `agua`, `luz`, `gaz`, `comunidad`, `suma`, `plusvalia`, `seguro`, `provision_factura`, `alarma`, `nie_tramite`, `poder` |
@@ -111,7 +113,7 @@ Stejný tvar, jiný katalog dokumentu a volitelné pole sítě.
 
 Přepis dokladu a tužka na desce se neslévají. Faktura má v `documentos.extracted` číslo, datum vystavení, období od–do, spotřebu, částku. Na blok jdou jen identita (compañía, contrato, CUPS / číslo klienta, titular). `fields.period` je rok IBI, ne období faktury. Stoh `/clientes/:id/carpeta/:bloque` ukáže součet kladných faktur, poslední období, **efektivní €/kWh (m³)** a hrubý roční odhad z poslední faktury s obdobím — ne OCR dump. Dobropis (zápor) do součtu ne. Vodu a komunitu kancelář nesrovnává s nabídkami (často jedna síť). Obecní voda ve Španělsku je skoro vždy **trimestral**; když OCR uloží jen jeden měsíc, roční odhad se počítá z 91 dní, ne z 28.
 
-Modul `ofertas` na bloku `luz` / `gaz` ukáže „u vás teď ~X €/rok · nabídka Y ~Z €/rok“ z `office_offers`. Tlačítko Nachystat výzvu otevře compose; AI nic neodešle ani nepřepne smlouvu. Inbox `/preplatek` seřadí klienty, kteří z **uložených** faktur platí víc než tarif kanceláře. Inbox `/kampane` seřadí otevřené 210 bez podání a koupě s `escritura_fecha`, kde ještě běží plusvalía, díra na dodávce, nebo čerstvá koupě (90 dní) bez 210.
+Modul `ofertas` na bloku `luz` / `gaz` ukáže „u vás teď ~X €/rok · nabídka Y ~Z €/rok“ z `office_offers`. Tlačítko Nachystat výzvu otevře compose; AI nic neodešle ani nepřepne smlouvu. Inbox `/preplatek` seřadí klienty, kteří z **uložených** faktur platí víc než tarif kanceláře. Inbox `/kampane` seřadí otevřené 210 bez podání a koupě s `escritura_fecha`, kde ještě běží plusvalía, díra na dodávce, nebo čerstvá koupě (90 dní) bez 210. Tam je i IBI/SUMA (chybí `recibo_ibi` nebo plazo v okně z Nastavení) a kampaň expirací (DNI / pas / poder / seguro, stejné okno jako chip na kartě). Hromadný Pedir nachystá drafty; odesílá gestor. Inbox `/kanal` seřadí karty, na které Pedir bez kanálu nedosáhne.
 
 Plazo: v MVP žádné, pokud kancelář nedoplní datum obnovy. Stav po kompletnosti = `done`.
 
@@ -212,7 +214,7 @@ Další pole podle druhu (jinak by se míchal nájem s imputací): valor catastr
 
 Gestor uloží číslo. Systém **nepodává** na AEAT. Za správnost kliknutí Uložit ručí člověk.
 
-Inbox `/kampane` seřadí otevřené 210 **bez data podání**: období, termín, chybějící papíry. Nachystat výzvu otevře compose.
+Inbox `/kampane` seřadí otevřené 210 **bez data podání**: období, termín, chybějící papíry. Nachystat výzvu otevře compose. Hromadný Pedir nachystá drafty najednou; odesílá gestor.
 
 Dokumenty: povinné sloty (`escritura_o_nota_simple`, `recibo_ibi`, `certificado_catastral`); DNI volitelně. Spis se naváže na `inmuebles`.  
 Plazo: z `tenant_settings` podle `periodicidad`.
@@ -272,4 +274,4 @@ Moduly `policia`, `ayuntamiento`, `testament` jsou zapnuté. **Tenký spis** (ja
 | `ayuntamiento` | totéž + navázání inmueble | `justificante_cita` (+ DNI volitelně) | totéž |
 | `testament` | `tramiteStatus`, `appointment`, `notary`, `date`, `notes` + inmueble | `copia_escritura` nebo `justificante_cita` (`any`) | totéž |
 
-Stroj stavů stejný. Žádný EX formulář. Daň se počítá jen na modelo 210, ne tady.
+Stroj stavů stejný. Žádný EX formulář. Daň se počítá jen na modelo 210, ne tady. Office-wide přehled cit dne je `/citas` (slot `inbox.feed`), ne nová ikona v railu.

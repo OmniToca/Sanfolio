@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gestoria_auth/gestoria_auth.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/auth/staff_role.dart';
 import '../../core/presentation/widgets/app_widgets.dart';
 import '../../core/theme/app_theme.dart';
 import '../settings/office_settings_controller.dart';
@@ -39,6 +40,9 @@ class _ClientesScreenState extends ConsumerState<ClientesScreen> {
     final showDeleted = canRestoreDeleted(
       ref.watch(authControllerProvider).valueOrNull ?? AuthSnapshot.signedOut,
     );
+    final canMerge = canMergeClientes(
+      ref.watch(authControllerProvider).valueOrNull ?? AuthSnapshot.signedOut,
+    );
     final wide = MediaQuery.sizeOf(context).width >= 720;
     final rows = list.valueOrNull ?? const <ClienteRow>[];
     return Scaffold(
@@ -58,6 +62,31 @@ class _ClientesScreenState extends ConsumerState<ClientesScreen> {
                       namedArgs: {'count': '${rows.length}'},
                     ),
                     actions: [
+                      if (wide)
+                        OutlinedButton.icon(
+                          onPressed: () => context.go('/clientes/import'),
+                          icon: const Icon(Icons.upload_file, size: 18),
+                          label: Text('clients.import'.tr()),
+                        )
+                      else
+                        IconButton.outlined(
+                          tooltip: 'clients.import'.tr(),
+                          onPressed: () => context.go('/clientes/import'),
+                          icon: const Icon(Icons.upload_file),
+                        ),
+                      if (canMerge)
+                        if (wide)
+                          OutlinedButton.icon(
+                            onPressed: () => context.go('/clientes/sloucit'),
+                            icon: const Icon(Icons.merge_type, size: 18),
+                            label: Text('clients.merge'.tr()),
+                          )
+                        else
+                          IconButton.outlined(
+                            tooltip: 'clients.merge'.tr(),
+                            onPressed: () => context.go('/clientes/sloucit'),
+                            icon: const Icon(Icons.merge_type),
+                          ),
                       if (wide)
                         FilledButton.icon(
                           onPressed: () => _createCliente(context, ref),
@@ -176,7 +205,9 @@ class _ClientesScreenState extends ConsumerState<ClientesScreen> {
                                           style: Theme.of(context)
                                               .textTheme
                                               .bodySmall
-                                              ?.copyWith(color: AppTheme.pencil),
+                                              ?.copyWith(
+                                                color: AppTheme.pencil,
+                                              ),
                                         ),
                                       ],
                                       if (row.subtitle.isNotEmpty) ...[

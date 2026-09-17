@@ -2,8 +2,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gestoria_auth/gestoria_auth.dart';
 
 import '../../core/time/office_date.dart';
-import '../mensajes/mensaje_providers.dart';
 import '../mensajes/mensaje_templates.dart';
+import 'pedir.dart';
+
+export 'pedir.dart';
 
 class InboxRow {
   const InboxRow({
@@ -53,19 +55,6 @@ class InboxRow {
       now: now,
     );
   }
-}
-
-/// Čistá pravidla výzvy — cron i inbox používají stejný interval z tenant_settings.
-bool canPedirAlCliente({
-  required DateTime? lastRequestedAt,
-  required int nudgeIntervalDays,
-  DateTime? now,
-}) {
-  if (lastRequestedAt == null) return true;
-  final days = nudgeIntervalDays < 0 ? 0 : nudgeIntervalDays;
-  final n = (now ?? DateTime.now()).toUtc();
-  final next = lastRequestedAt.toUtc().add(Duration(days: days));
-  return !n.isBefore(next);
 }
 
 String inboxFechaIso(DateTime? dueOn) {
@@ -125,41 +114,32 @@ Future<void> pedirAlCliente({
   required String tenantId,
   required InboxRow row,
   required String despacho,
+  int nudgeIntervalDays = 0,
 }) async {
-  final client = trySupabaseClient();
-  if (client == null) throw StateError('not configured');
-  final bloqueId = row.bloqueId;
-  if (bloqueId != null && bloqueId.isNotEmpty) {
-    await client.from('bloques').update({
-      'last_requested_at': DateTime.now().toUtc().toIso8601String(),
-    }).eq('id', bloqueId).eq('tenant_id', tenantId);
-  }
-  final tplKey = templateKeyForInboxKind(row.itemKind);
-  final fecha = inboxFechaIso(row.dueOn);
-  final filled = filledTemplate(
-    key: tplKey,
-    vars: {
-      'nombre': row.clienteNombre,
-      'bloque': row.bloqueKey,
-      'documento': row.bloqueKey,
-      'fecha': fecha.isEmpty ? '—' : fecha,
-      'despacho': despacho,
-      'inmueble': '—',
-      'campos_faltantes': '—',
-    },
-  );
-  await recordMensaje(
+  final result = await writePedirDrafts(
     tenantId: tenantId,
+    requests: [pedirRequestFromInbox(row)],
+    despacho: despacho,
+    nudgeIntervalDays: nudgeIntervalDays,
+  );
+  if (result.drafted != 1) {
+    throw StateError('pedir skipped');
+  }
+}
+
+PedirDraftRequest pedirRequestFromInbox(InboxRow row) {
+  final fecha = inboxFechaIso(row.dueOn);
+  return PedirDraftRequest(
     clienteId: row.clienteId,
-    canal: row.hasEmail ? 'email' : 'whatsapp',
-    asunto: filled.asunto,
-    cuerpoOriginal: filled.cuerpo,
-    localeOriginal: 'es',
-    outboundLocale: 'es',
-    outboundBody: filled.cuerpo,
-    status: 'draft',
-    templateKey: tplKey,
-    bloqueId: bloqueId,
+    clienteNombre: row.clienteNombre,
+    templateKey: templateKeyForInboxKind(row.itemKind),
+    bloqueKey: row.bloqueKey,
+    bloqueId: row.bloqueId,
+    lastRequestedAt: row.lastRequestedAt,
+    hasEmail: row.hasEmail,
+    hasTel: row.hasTel,
+    fecha: fecha.isEmpty ? '—' : fecha,
+    documento: row.bloqueKey,
   );
 }
 

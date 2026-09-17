@@ -1,4 +1,1 @@
-/// Testy a VM: tisk jen v prohlížeči.
-void printHtmlDocument(String html) {
-  assert(html.isNotEmpty);
-}
+export '../../core/print/office_print_stub.dart';

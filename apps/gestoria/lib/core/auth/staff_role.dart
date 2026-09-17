@@ -29,3 +29,6 @@ bool canSoftDeleteExpediente(AuthSnapshot snap) {
   final role = currentOfficeRole(snap);
   return role == 'owner' || role == 'gestor';
 }
+
+/// Sloučení duplicit po CSV. Stejná role jako schovat spis.
+bool canMergeClientes(AuthSnapshot snap) => canSoftDeleteExpediente(snap);

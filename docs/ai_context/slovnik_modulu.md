@@ -6,6 +6,7 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | --- | --- | --- |
 | `core` | shell, clientes, search | vždy zapnuto |
 | `carpeta_inmueble` | `features/carpeta` | deska 1:1 s tiskem, slot `carpeta.blocks`; klik na blok → `/carpeta/:key` |
+| `carpeta_print` | `carpeta_print.dart`, `printHtmlDocument` | dva A4 z desky; čas papíru, ne slot_order; PDF z dialogu prohlížeče |
 | `impuestos` | `features/expedientes` | tenké 210 / renta; 210 počítá IRNR, AEAT nepodává |
 | `modelo_210.dart` | `features/expedientes` | IRNR formule `irnr-210-2026.1`; imputace / nájem / prodej; gestor ukládá |
 | `policia` / `ayuntamiento` / `testament` | `features/expedientes` | tenký spis na kartě (FeatureGate); cita → inbox |
@@ -23,6 +24,7 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `factura_emit_screen` | `features/facturacion` | plný koncept vydané: klient ze seznamu nebo ručně, řádky, F1/F2 |
 | `facturacion_nav` | `features/facturacion` | vnitřní knihy Ventas/Compras; nová agenda sem, ne do railu |
 | `factura_detail_screen` | `features/facturacion` | náhled (karty + tabulka řádků) + Imprimir A4 (španělský papír, QR, blob URL) |
+| `printHtmlDocument` | `core/print/office_print.dart` | blob URL + `window.print()`; Safari nesnese about:srcdoc |
 | `AiPanel` / `aiChatProvider` | `features/ai/ai_panel.dart` | trvalý chat; zápis `ai_conversations` + `ai_messages` |
 | `AiPanel` / `aiChatProvider` | `features/ai/ai_panel.dart` | trvalý chat; zápis `ai_conversations` + `ai_messages` |
 | `extract-document` | Edge Function | fotka/PDF → text LLM nebo vision → `ai_drafts`; compraventa: všichni kupující/prodávající, cena, finca, právník; Guardar je gestor |
@@ -41,6 +43,15 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `office_offers` | SQL | tarify kanceláře (luz/gaz/seguro) v cents; soft-delete |
 | `overpaying_suministro` | SQL RPC + `/preplatek` | inbox `inbox.feed`; jen Guardar + office_offers; AI neodesílá |
 | `season_210` / `after_notary` | SQL RPC + `/kampane` | jeden banner `inbox.feed`; 210 bez podání a koupě po escritura; AI neodesílá |
+| `expiring_items` | SQL RPC + `/kampane` | DNI / pas / poder / seguro končí; stejný chip jako karta; AI neodesílá |
+| `import_carpeta_compraventa` | SQL RPC + `/clientes/import` | CSV dávka `open_carpeta`; duplicitní NIE přeskočí; AI nezakládá |
+| `provision_owing` | SQL RPC + `/dluh` | inbox `inbox.feed`; remaining <= 0 s pohyby; AI neodesílá |
+| `office_citas` | SQL RPC + `/citas` | inbox `inbox.feed`; policie / magistrát / NIE / notář v jednom dni; AI neodesílá |
+| `cliente_channel_flags` | SQL | e-mail/tel karty **nebo** živého kontaktu; `inbox_feed` i Pedir |
+| `reach_gaps` | SQL RPC + `/kanal` | banner `inbox.feed`; locale jen cs/en/es/de/fr; AI neodesílá |
+| `copy_channel_from_contact` | SQL RPC | prázdný e-mail/tel/locale z kontaktu; platný locale se nepřepíše |
+| `suggest_cliente_duplicates` / `merge_clientes` | SQL RPC + `/clientes/sloucit` | e-mail/tel/jméno; dvě živá NIE ne; owner/gestor; soft-delete |
+| `season_ibi` | SQL RPC + `/kampane` | SUMA bez recibo nebo plazo v `ibi_warn_days`; prázdné bez splatnosti |
 | `ai_get_cliente` | SQL RPC | snapshot karty + díry + doklady + titular finca (složka, salePrice, cuota); žádný save |
 | `query_suministro` / `query_plazos_office` / `query_escritura` | SQL RPC | office-wide čtení desky; escritura i notář / strana v `inmueble_titulares` / catastral |
 | `ai-assistant` | Edge Function | whitelist tools; žádný save/send |
@@ -70,7 +81,8 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `OfficeSettingsController` | `office_settings_controller.dart` | `tenant_settings` (název + lhůty z DB) |
 | `FeatureGate` | `core/modules/feature_gate.dart` | schová UI bez licence |
 | `inbox_feed` | SQL RPC | dnešní smyčka (plazos + díry + Pedir) |
-| `pedirAlCliente` | `inbox_providers.dart` | razítko `last_requested_at` + draft; odesílá gestor |
+| `pedirAlCliente` | `inbox_providers.dart` / `pedir.dart` | razítko `last_requested_at` + draft; odesílá gestor |
+| `writePedirDrafts` | `pedir.dart` | hromadný Pedir z `/kampane`; kanál i z kontaktu, nudge; AI neodesílá |
 | `ClienteCardController` | `cliente_card_controller.dart` | karta + DNI/pasaporte |
 | `run_plazo_reminders` | SQL + Edge `plazo-reminders` | 07:00 Madrid drafty; nikdy neodesílá |
 | `cents` | `core/money/cents.dart` | integer cents |

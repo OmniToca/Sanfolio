@@ -29,6 +29,9 @@ void main() {
     expect(canSoftDeleteExpediente(owner), isTrue);
     expect(canSoftDeleteExpediente(gestor), isTrue);
     expect(canSoftDeleteExpediente(asistente), isFalse);
+    expect(canMergeClientes(owner), isTrue);
+    expect(canMergeClientes(gestor), isTrue);
+    expect(canMergeClientes(asistente), isFalse);
   });
 
   test('audit karty vidí jen owner, ne gestor ani asistente', () {

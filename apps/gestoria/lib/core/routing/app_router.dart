@@ -12,12 +12,17 @@ import '../../features/auth/payment_required_screen.dart';
 import '../../features/carpeta/carpeta_screen.dart';
 import '../../features/carpeta/stoh_screen.dart';
 import '../../features/clientes/cliente_card_screen.dart';
+import '../../features/clientes/cliente_import_screen.dart';
+import '../../features/clientes/cliente_merge_screen.dart';
 import '../../features/clientes/clientes_screen.dart';
+import '../../features/clientes/reach_gaps_screen.dart';
 import '../../features/expedientes/expediente_screen.dart';
 import '../../features/inbox/inbox_screen.dart';
 import '../../features/ai/extract_queue_screen.dart';
 import '../../features/ofertas/office_overpay_screen.dart';
 import '../../features/packs/office_pack_screens.dart';
+import '../../features/provision/owing_screen.dart';
+import '../../features/citas/office_citas_screen.dart';
 import '../../features/mensajes/mensaje_compose_screen.dart';
 import '../../features/facturacion/facturacion_screen.dart';
 import '../../features/facturacion/factura_emit_screen.dart';
@@ -123,6 +128,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
+            path: '/dluh',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: OwingScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/citas',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: OfficeCitasScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/kanal',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: ReachGapsScreen(),
+            ),
+          ),
+          GoRoute(
             path: '/kampane',
             pageBuilder: (context, state) => const NoTransitionPage(
               child: OfficePacksScreen(),
@@ -154,6 +177,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: '/clientes',
             pageBuilder: (context, state) => const NoTransitionPage(
               child: ClientesScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/clientes/import',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: ClienteImportScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/clientes/sloucit',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: ClienteMergeScreen(),
             ),
           ),
           GoRoute(

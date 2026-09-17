@@ -13,6 +13,9 @@ import '../mensajes/mensaje_templates.dart';
 import '../ai/extract_queue_banner.dart';
 import '../ofertas/office_overpay_banner.dart';
 import '../packs/office_pack_banners.dart';
+import '../provision/owing_banner.dart';
+import '../citas/office_citas_banner.dart';
+import '../clientes/reach_gaps_banner.dart';
 import '../settings/office_settings_controller.dart';
 import 'inbox_providers.dart';
 
@@ -79,6 +82,9 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
                       const ExtractQueueBanner(),
                       const OfficePacksInboxBanner(),
                       const OverpayInboxBanner(),
+                      const OwingInboxBanner(),
+                      const CitasInboxBanner(),
+                      const ReachGapsInboxBanner(),
                       if (shown.isEmpty)
                         Padding(
                           padding: const EdgeInsets.only(top: 48),
@@ -199,11 +205,14 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
     }
     final despacho =
         ref.read(officeSettingsProvider).valueOrNull?.displayName ?? '';
+    final nudgeDays =
+        ref.read(officeSettingsProvider).valueOrNull?.nudgeIntervalDays ?? 7;
     try {
       await pedirAlCliente(
         tenantId: tenantId,
         row: row,
         despacho: despacho.isEmpty ? '—' : despacho,
+        nudgeIntervalDays: nudgeDays,
       );
       ref.invalidate(inboxFeedProvider);
     } on Object {

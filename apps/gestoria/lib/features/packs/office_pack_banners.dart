@@ -22,7 +22,11 @@ class OfficePacksInboxBanner extends ConsumerWidget {
         seasonOn ? (ref.watch(season210CountProvider).valueOrNull ?? 0) : 0;
     final notary =
         notaryOn ? (ref.watch(afterNotaryCountProvider).valueOrNull ?? 0) : 0;
-    final n = season + notary;
+    final expiry = ref.watch(expiringCountProvider).valueOrNull ?? 0;
+    final ibiOn = cfg?.isOn(GestoriaModule.carpetaInmueble) ?? false;
+    final ibi =
+        ibiOn ? (ref.watch(seasonIbiCountProvider).valueOrNull ?? 0) : 0;
+    final n = season + notary + expiry + ibi;
     if (n <= 0) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),

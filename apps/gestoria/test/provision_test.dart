@@ -11,6 +11,10 @@ void main() {
     expect(provisionReceivedCents(rows), 95000);
     expect(provisionInvoicedCents(rows), 40000);
     expect(provisionRemainingCents(rows), 55000);
+    expect(
+      provisionOwesOffice(receivedCents: 95000, invoicedCents: 40000),
+      isFalse,
+    );
   });
 
   test('pohyb z knihy má facturaId, součet se nemění', () {

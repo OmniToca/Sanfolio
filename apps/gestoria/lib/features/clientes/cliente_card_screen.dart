@@ -26,6 +26,8 @@ import 'cliente_card_controller.dart';
 import 'cliente_card_hold.dart';
 import 'cliente_card_widgets.dart';
 import 'clientes_providers.dart';
+import 'reach_gaps.dart';
+import 'reach_gaps_providers.dart';
 import '../expedientes/expediente_catalog.dart';
 import '../expedientes/expediente_controller.dart';
 import '../facturacion/cliente_facturas_section.dart';
@@ -561,9 +563,28 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
           const SizedBox(height: 12),
           Align(
             alignment: Alignment.centerLeft,
-            child: OutlinedButton(
-              onPressed: _busy ? null : _addContact,
-              child: Text('clients.contactAdd'.tr()),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton(
+                  onPressed: _busy ? null : _addContact,
+                  child: Text('clients.contactAdd'.tr()),
+                ),
+                if (canCopyChannelFromContacts(
+                  cardEmail: card.email,
+                  cardTel: card.tel,
+                  cardLocale: card.locale,
+                  contacts: [
+                    for (final c in card.contacts)
+                      (email: c.email, tel: c.tel, locale: c.locale),
+                  ],
+                ))
+                  FilledButton(
+                    onPressed: _busy ? null : _copyChannelFromContact,
+                    child: Text('clients.reachCopy'.tr()),
+                  ),
+              ],
             ),
           ),
         ],
@@ -1739,6 +1760,28 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
           );
     } on Object {
       if (mounted) _toast('clients.saveError'.tr());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _copyChannelFromContact() async {
+    setState(() => _busy = true);
+    try {
+      final copied = await copyChannelFromContact(widget.clienteId);
+      _filledFor = '';
+      ref.invalidate(clienteCardProvider(widget.clienteId));
+      ref.invalidate(reachGapsCountProvider);
+      ref.invalidate(reachGapsListProvider);
+      ref.invalidate(inboxFeedProvider);
+      if (!mounted) return;
+      if (!copied.email && !copied.tel && !copied.locale) {
+        _toast('clients.reachCopyNone'.tr());
+        return;
+      }
+      _toast('clients.reachCopied'.tr());
+    } on Object {
+      if (mounted) _toast('clients.reachCopyError'.tr());
     } finally {
       if (mounted) setState(() => _busy = false);
     }

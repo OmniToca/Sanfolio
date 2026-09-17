@@ -31,9 +31,9 @@ První vrstva v kódu je 1–5 (evidence + deska + inbox + výzvy). 6 je záloha
 
 ### První deska (teď)
 
-Ráno **inbox** (`/inbox`): denní smyčka z `inbox_feed` (termíny, díry, záloha). Nad ní nejvýš tři bannery, které smyčka neumí: přepisy čekající na Guardar (`/prepis`), 210 a koupě po notáři (`/kampane`), přeplatky vs. tarify kanceláře (`/preplatek`). Pošta má **vlastní položku v railu** (`/posta`), ne druhý banner.
+Ráno **inbox** (`/inbox`): denní smyčka z `inbox_feed` (termíny, díry, záloha). Nad ní bannery, které smyčka neumí (prázdné se schovají, **žádná ikona v railu**): přepisy čekající na Guardar (`/prepis`), kampaně (`/kampane`: 210, koupě po notáři, IBI/SUMA, expirace DNI/pas/poder/seguro), karty bez kanálu (`/kanal`), přeplatky vs. tarify kanceláře (`/preplatek`), dlužné zálohy (`/dluh`), city dne (`/citas`). Pošta má **vlastní položku v railu** (`/posta`), ne banner.
 
-Nový klient: jméno → `/stoh` (stoh skenů ze šanonu). AI navrhne blok, Guardar zařadí a zapne službu. Stejný sklad je kdykoli ze složky. AI neukládá.
+Nový klient: jméno → `/stoh` (stoh skenů ze šanonu), nebo CSV na `/clientes/import` (duplicitní NIE přeskočí, stoh se samo neotevře). AI navrhne blok, Guardar zařadí a zapne službu. Stejný sklad je kdykoli ze složky. AI neukládá.
 
 Přes den **složka klienta** = deska koupě (tužka → bloky → šanon). Modelo 210 se **počítá** na tenkém spisu; podání AEAT ne. Kniha faktur je **modul** `facturacion` (přijaté bez AEAT; vydané přes Verifacti `sif-emit` / `sif-status`). Nabídky kanceláře (`ofertas`) žijí v Nastavení a na bloku luz/gaz/seguro, ne v railu.
 
@@ -46,7 +46,7 @@ Staff nápověda jednou stranou: [rano_v_kancelari.md](rano_v_kancelari.md). Hel
 Velké kanceláře (např. Ábaco Advisers: kontrola papírů klienta, HomeSuite s Conveyancing / CRM / mailem / TPV / DMS) ukazují, čím kancelář žije: **honí pojmenované papíry**, ne jednu kupní smlouvu. Sanfolio si bere princip. Jejich plochu, fialovou tabulku ani šestnáct ikon nekopírujeme.
 
 - Úkon se jmenuje podle papírů, které kancelář sbírá (NIE, poder, IBI, dodávky, escritura, případně cédula / residencia), ne podle produktu „Conveyancing“.
-- `compraventa` má **tři časy na stejné desce**: před notářem (identita, poder, cédula, IBI, dodávky, komunita) → notář (`escritura`) → po (plusvalía, 210, přepis). Escritura je jeden blok, ne celý úkon. Šablona: [folder_template.md](folder_template.md).
+- `compraventa` má **tři časy na stejné desce**: před notářem (identita, poder, cédula, IBI, dodávky, komunita) → notář (`escritura`) → po (plusvalía, 210, přepis). Escritura je jeden blok, ne celý úkon. Šablona: [folder_template.md](folder_template.md). Tisk z desky vrátí ty dva listy A4 v prohlížeči (PDF z dialogu tisku).
 - Kontrola papírů = stav zapnutého bloku (`missing_document` / inbox / Pedir). Není druhá tabulka „Documentos de control“ a není druhá pravda vedle složky.
 - Dědictví (defunción, declaratorio de herederos, testamento) je **jiný spis**, i když sdílí NIE a pas s koupí.
 - Do katalogu papírů patří jen to, co kancelář fakt sbírá. Cédula nebo residencia až jako zapnutý blok, ne proto, že je má cizí suite.

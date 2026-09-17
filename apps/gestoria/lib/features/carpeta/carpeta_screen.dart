@@ -28,6 +28,7 @@ import '../clientes/cliente_audit.dart';
 import '../settings/office_settings_controller.dart';
 import 'bloque_template.dart';
 import 'carpeta_controller.dart';
+import 'carpeta_print_open.dart';
 import 'carpeta_routes.dart';
 import 'carpeta_titulares.dart';
 
@@ -90,8 +91,9 @@ class CarpetaScreen extends ConsumerWidget {
       ),
       data: (view) {
         final modules = ref.watch(tenantConfigProvider).valueOrNull;
+        final settings = ref.watch(officeSettingsProvider).valueOrNull;
         final order = slotKeys(
-          ref.watch(officeSettingsProvider).valueOrNull?.slotOrder,
+          settings?.slotOrder,
           carpetaBlocksSlot,
         );
         final templates = applySlotOrder(
@@ -121,6 +123,15 @@ class CarpetaScreen extends ConsumerWidget {
                   ),
                   icon: const Icon(Icons.layers_outlined, size: 18),
                   label: Text('stoh.attach'.tr()),
+                ),
+              ),
+              IconButton(
+                tooltip: 'folder.print'.tr(),
+                icon: const Icon(Icons.print_outlined),
+                onPressed: () => openCarpetaPrint(
+                  view: view,
+                  templates: templates,
+                  officeName: (settings?.displayName ?? '').trim(),
                 ),
               ),
               FeatureGate(

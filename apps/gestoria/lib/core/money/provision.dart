@@ -36,3 +36,12 @@ int provisionInvoicedCents(Iterable<ProvisionMovement> rows) {
 int provisionRemainingCents(Iterable<ProvisionMovement> rows) {
   return provisionReceivedCents(rows) - provisionInvoicedCents(rows);
 }
+
+/// Kanceláři dluží, když zbývá nula nebo míň a na složce už jsou pohyby.
+bool provisionOwesOffice({
+  required int receivedCents,
+  required int invoicedCents,
+}) {
+  if (receivedCents == 0 && invoicedCents == 0) return false;
+  return receivedCents - invoicedCents <= 0;
+}

@@ -183,12 +183,11 @@ class _MensajeComposeScreenState extends ConsumerState<MensajeComposeScreen> {
     _tpl = key;
     final office =
         ref.read(officeSettingsProvider).valueOrNull?.displayName ?? '';
-    final bloqueKey = widget.bloqueKey ?? '';
     final filled = filledTemplate(
       key: key,
       vars: {
         'nombre': row.nombre.isEmpty ? 'cliente' : row.nombre,
-        'bloque': bloqueKey.isEmpty ? '—' : 'blocks.$bloqueKey'.tr(),
+        'bloque': _bloqueLabel(widget.bloqueKey),
         'documento': _documentoLabel(widget.documento),
         'fecha': widget.fecha ?? '—',
         'despacho': office.isEmpty ? '—' : office,
@@ -376,5 +375,13 @@ String _documentoLabel(String? raw) {
   if (v.isEmpty) return '—';
   if (!v.contains(' ') && v.contains('_')) return 'docs.$v'.tr();
   return v;
+}
+
+/// DNI/pas nejsou blok desky — stejný slovník jako kampaň expirací.
+String _bloqueLabel(String? raw) {
+  final v = raw?.trim() ?? '';
+  if (v.isEmpty) return '—';
+  if (v == 'dni_nie' || v == 'pasaporte') return 'docs.$v'.tr();
+  return 'blocks.$v'.tr();
 }
 

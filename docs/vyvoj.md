@@ -37,6 +37,15 @@ Každá položka ve frontě musí obstát u **jedné** kanceláře i u **deseti*
 - Kampaně 210 / po notáři, fronta přepisů, přeplatky vs. tarify, nabídky kanceláře
 - Tenký spis policie / magistrát / závěť
 - Stoh papírů: multi-upload na klienta bez bloku, návrh zařazení, Guardar zapne blok
+- Tisk / PDF desky: dva A4 z prohlížeče, pořadí času papíru (ne slot_order)
+- Hromadný Pedir: z kampaně nachystá drafty najednou; odesílá gestor
+- Kampaň expirací: DNI / pas / poder / seguro v okně warn_days; `/kampane`, ne nový banner
+- Import klientů (CSV): `/clientes/import`, duplicitní NIE přeskočí, stoh se samo neotevře
+- Kdo dluží: `/dluh`, záloha `remaining <= 0` s pohyby, banner `inbox.feed`
+- Přehled cit: `/citas`, policie / magistrát / NIE / notář v jednom dni, banner `inbox.feed`
+- Sin canal + locale: `/kanal`, Pedir bere i druhý kontakt, doplnění prázdných polí karty
+- Sloučení duplicit: `/clientes/sloucit` po CSV; dvě živá NIE ne; soft-delete druhé karty
+- Kampaň IBI/SUMA: `/kampane`, okno z `ibi_due_*` / `ibi_warn_days`, chybí `recibo_ibi`
 
 ## Fronta
 
@@ -57,13 +66,6 @@ Pořadí = aktuální priorita. Čísla se mění, když přijde lepší nápad.
 
 Nápady, které sedí na desku a nejsou AEAT. Až dostanou prioritu, jdou nahoru do tabulky — ne na konec „až někdy“.
 
-| Nápad | Proč | Poznámka |
-| --- | --- | --- |
-| Import klientů (CSV) | Jarka ~500 + 400 karet; druhá kancelář se jinak přepisuje | i18n, soft-delete, žádný fork |
-| Tisk / PDF desky | dva listy z prohlížeče, ať tiskárna opravdu zmizí | stejná šablona jako `folder_template` |
-| Kdo dluží kanceláři | seznam záloh `saldo <= 0`, stejný vzor jako `/preplatek` | data už jsou |
-| Kampaň expirací | DNI / pas / poder / seguro končí | chip na kartě už je; inbox jako 210 |
-| Hromadný Pedir | z kampaně nachystat drafty najednou | odesílá gestor, AI ne |
-| Přehled cit | policie / magistrát / notář v jednom dni | slot, ne nová ikona v railu |
+Zatím žádný nápad bez čísla.
 
 Hotovou položku přesunout nahoru do „V kódu“. Novou položku vložit tam, kam patří podle priority — ne na konec „až někdy“.

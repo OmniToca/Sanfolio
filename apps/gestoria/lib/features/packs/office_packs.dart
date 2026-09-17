@@ -74,6 +74,18 @@ bool afterNotaryStillOpen({
   return recentEscritura && tax210Needed;
 }
 
+/// IBI v kampani: kancelář má splatnost a zbývá recibo nebo termín v okně.
+bool seasonIbiOpen({
+  required String bloqueStatus,
+  required bool dueConfigured,
+  required bool inWarnWindow,
+  required bool missingRecibo,
+}) {
+  if (!dueConfigured) return false;
+  if (bloqueStatus == 'off' || bloqueStatus == 'done') return false;
+  return missingRecibo || inWarnWindow;
+}
+
 String? firstSupplyTask(Iterable<String> tasks) {
   for (final k in const ['agua', 'luz', 'gaz', 'comunidad']) {
     if (tasks.contains(k)) return k;

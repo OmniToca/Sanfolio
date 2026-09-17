@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gestoria_auth/gestoria_auth.dart';
 
 import 'office_packs.dart';
+import 'expiring_campaign.dart';
 
 /// Počet otevřených 210 bez podání — slot `inbox.feed`.
 final season210CountProvider = FutureProvider<int>((ref) async {
@@ -32,6 +33,38 @@ final afterNotaryListProvider = FutureProvider<List<AfterNotaryRow>>((ref) async
   final out = <AfterNotaryRow>[];
   for (final raw in rows) {
     final row = afterNotaryRowFromRpc(raw);
+    if (row != null) out.add(row);
+  }
+  return out;
+});
+
+/// Počet DNI / pas / poder / seguro v okně warn_days — slot `inbox.feed`.
+final expiringCountProvider = FutureProvider<int>((ref) async {
+  return _count(ref, 'expiring_items_count');
+});
+
+final expiringListProvider = FutureProvider<List<ExpiringRow>>((ref) async {
+  ref.watch(authControllerProvider);
+  final rows = await _rpc(ref, 'expiring_items');
+  final out = <ExpiringRow>[];
+  for (final raw in rows) {
+    final row = expiringRowFromRpc(raw);
+    if (row != null) out.add(row);
+  }
+  return out;
+});
+
+/// Počet IBI/SUMA v okně warn_days nebo bez recibo — `/kampane`.
+final seasonIbiCountProvider = FutureProvider<int>((ref) async {
+  return _count(ref, 'season_ibi_count');
+});
+
+final seasonIbiListProvider = FutureProvider<List<Season210Row>>((ref) async {
+  ref.watch(authControllerProvider);
+  final rows = await _rpc(ref, 'season_ibi');
+  final out = <Season210Row>[];
+  for (final raw in rows) {
+    final row = season210RowFromRpc(raw);
     if (row != null) out.add(row);
   }
   return out;

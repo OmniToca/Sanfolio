@@ -16,7 +16,7 @@ Po naplnění složky systém **šilhá dopředu**: inbox ráno, návrh výzvy k
 
 Každý řádek inboxu: klient, inmueble, bloque/expediente, due_on, akce (`abrir`, `borrador_mensaje`). Filtr v UI má i `due_soon`.
 
-Nad řádky slot `inbox.feed`: přepisy, `/kampane` (210 + po notáři), přeplatky. Pošta je `/posta` v railu, ne banner.
+Nad řádky slot `inbox.feed`: přepisy, `/kampane` (210 + po notáři + IBI + expirace), `/kanal`, přeplatky, dlužné zálohy `/dluh`, city dne `/citas`. Pošta je `/posta` v railu, ne banner.
 
 ## 2. Odvozená pravidla (MVP)
 
@@ -63,7 +63,9 @@ Cron **nevytváří** nový draft každý den. Draft „faltan documentos“ vzn
 - když blok poprvé spadne do `missing_document` / `missing_data`, nebo
 - když gestor v inboxu klikne „Pedir al cliente“.
 
-Po kliknutí **Pedir al cliente**: `last_requested_at` + `mensajes` status `draft`. Gestor odesílá z compose. AI nesmí odeslat. Další Pedir až po `tenant_settings.nudge_interval_days` (default 7). Klient bez e-mailu i telefonu = `sin_canal`, draft nevznikne.
+Po kliknutí **Pedir al cliente**: `last_requested_at` + `mensajes` status `draft`. Gestor odesílá z compose. AI nesmí odeslat. Další Pedir až po `tenant_settings.nudge_interval_days` (default 7). Klient bez e-mailu i telefonu **na kartě i u živého kontaktu** = `sin_canal`, draft nevznikne.
+
+Hromadný Pedir na `/kampane` (210, po notáři, IBI, expirace) použije stejná pravidla najednou. Nic se neodešle.
 
 ## 5. Šablony ES (MVP)
 

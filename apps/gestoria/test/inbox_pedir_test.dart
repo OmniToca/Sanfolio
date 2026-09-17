@@ -63,4 +63,51 @@ void main() {
       isTrue,
     );
   });
+
+  test('hromadný Pedir počítá drafty, sin_canal a čerstvé Pedir', () {
+    final last = DateTime.utc(2026, 9, 10, 10);
+    final plan = planPedirDrafts(
+      [
+        const PedirDraftRequest(
+          clienteId: 'a',
+          clienteNombre: 'Ana',
+          templateKey: 'recordatorio',
+          bloqueKey: 'modelo_210',
+          hasEmail: true,
+        ),
+        const PedirDraftRequest(
+          clienteId: 'b',
+          clienteNombre: 'Bea',
+          templateKey: 'falta_documento',
+          bloqueKey: 'modelo_210',
+          hasEmail: false,
+          hasTel: false,
+        ),
+        PedirDraftRequest(
+          clienteId: 'c',
+          clienteNombre: 'Cira',
+          templateKey: 'recordatorio',
+          bloqueKey: 'plusvalia',
+          hasEmail: true,
+          lastRequestedAt: last,
+        ),
+      ],
+      nudgeIntervalDays: 7,
+      now: DateTime.utc(2026, 9, 12, 10),
+    );
+    expect(plan.toDraft.map((r) => r.clienteId), ['a']);
+    expect(plan.noChannel, 1);
+    expect(plan.askedRecently, 1);
+    expect(
+      pedirRequestFromInbox(
+        const InboxRow(
+          clienteId: 'c',
+          clienteNombre: 'Ana',
+          bloqueKey: 'escritura',
+          itemKind: 'missing_document',
+        ),
+      ).templateKey,
+      'falta_documento',
+    );
+  });
 }

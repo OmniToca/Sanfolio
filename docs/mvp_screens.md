@@ -14,10 +14,15 @@ Všechny texty UI z i18n (`cs` default). Layout: rail vlevo (desktop) + top bar.
 | `/reset-password` | nové heslo z odkazu v e-mailu |
 | `/inbox` | denní smyčka |
 | `/prepis` | fronta přepisů (Guardar) |
-| `/kampane` | 210 bez podání + koupě po notáři |
+| `/kampane` | 210 bez podání + koupě po notáři + IBI/SUMA + expirace DNI/pas/poder/seguro |
+| `/kanal` | karty bez e-mailu/telefonu/locale; doplnění z druhého kontaktu |
 | `/preplatek` | kdo z faktur platí víc než office_offers |
+| `/dluh` | zálohy remaining <= 0 s pohyby |
+| `/citas` | policie / magistrát / NIE / notář v jednom dni |
 | `/posta`, `/posta/:id` | příchozí pošta |
 | `/clientes` | seznam + nové (NIE není povinné) |
+| `/clientes/import` | CSV import; duplicitní NIE přeskočí |
+| `/clientes/sloucit` | návrh duplicit po CSV; soft-merge; dvě živá NIE ne |
 | `/clientes/:id` | deska klienta |
 | `/clientes/:id/stoh` | stoh skenů ze šanonu; Guardar zařadí na blok |
 | `/clientes/:id/carpeta` | dva listy (tužka); bloky kromě klienta jsou kryty |
@@ -48,7 +53,9 @@ Hlavní obrazovka po loginu.
 Filtry: Vše / Dnes / Blíží se / Po termínu / Chybí dokument / Chybí údaje / Záloha / Zastaralý spis / Bez kanálu.  
 Řádky z [deadline_engine.md](deadline_engine.md).
 
-Bannery nad řádky (slot `inbox.feed`, ne rail): přepisy, `/kampane`, přeplatky. Pošta má `/posta` v railu.
+Bannery nad řádky (slot `inbox.feed`, ne rail): přepisy, `/kampane`, `/kanal`, přeplatky, dlužné zálohy `/dluh`, city `/citas`. Prázdné se schovají. Pošta má `/posta` v railu.
+
+Na `/kampane` Hromadný Pedir nachystá drafty (210 / po notáři / IBI / expirace). Odesílá gestor, AI ne. Stejný interval `nudge_interval_days` a `sin_canal` jako inbox Pedir. Pedir bere i e-mail/telefon druhého kontaktu. Expirace berou `poder_warn_days` / `seguro_warn_days` — stejné okno jako chip na kartě. IBI bere `ibi_due_month`/`ibi_due_day` a `ibi_warn_days` — bez splatnosti v nastavení je seznam prázdný.
 
 Staré URL `/sezona-210` a `/po-notari` přesměrují na `/kampane`.
 
@@ -69,7 +76,7 @@ Prázdný stav: „No hay plazos para hoy. Puedes abrir un cliente o escanear un
 - FAB / button **Nuevo cliente**
 - Soft-deleted skrytí; owner toggle „Ver eliminados“
 
-Nuevo cliente: jméno stačí. Po založení `/stoh` (přeskočit = deska). NIE, e-mail, tel, dirección, IBAN volitelné (IBAN povinný až u inkasa). Druhý kontakt + locale. Filtr aktivní / neaktivní.
+Nuevo cliente: jméno stačí. Po založení `/stoh` (přeskočit = deska). NIE, e-mail, tel, dirección, IBAN volitelné (IBAN povinný až u inkasa). Druhý kontakt + locale. Filtr aktivní / neaktivní. Owner/gestor sloučí duplicity na `/clientes/sloucit` (dvě živá NIE ne).
 
 ## 4. Karta klienta (`/clientes/:id`)
 
@@ -116,6 +123,8 @@ Každý blok na **deskách**:
 - kryt (dodavatel / CUPS, počet papírů) — klik otevře šanon
 
 Uvnitř `/carpeta/:bloque`: pole identity, dropzóna, stoh dokladů (faktury s obdobím a částkou). To zabíjí tiskárnu, aniž by deska byla SAP.
+
+Tisk z AppBar (`folder.print`) otevře dva A4 v prohlížeči — list 1 před notářem, list 2 notář a po. Pořadí je čas papíru z [folder_template.md](folder_template.md), ne `slot_order` na obrazovce. PDF uloží gestor z dialogu tisku; server PDF negeneruje.
 
 AI prefill zvýrazní žlutě změněná pole do Guardar / Descartar.
 
