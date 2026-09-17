@@ -6,6 +6,19 @@ String carpetaRoute(String clienteId, {String? expedienteId}) {
   return '$base?exp=$exp';
 }
 
+String carpetaStohRoute(
+  String clienteId, {
+  String? expedienteId,
+  bool afterCreate = false,
+}) {
+  final q = <String>[];
+  final exp = expedienteId?.trim();
+  if (exp != null && exp.isNotEmpty) q.add('exp=$exp');
+  if (afterCreate) q.add('new=1');
+  final suffix = q.isEmpty ? '' : '?${q.join('&')}';
+  return '/clientes/$clienteId/stoh$suffix';
+}
+
 String carpetaBloqueRoute(
   String clienteId,
   String bloqueKey, {

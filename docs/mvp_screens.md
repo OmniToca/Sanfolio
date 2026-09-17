@@ -19,6 +19,7 @@ Všechny texty UI z i18n (`cs` default). Layout: rail vlevo (desktop) + top bar.
 | `/posta`, `/posta/:id` | příchozí pošta |
 | `/clientes` | seznam + nové (NIE není povinné) |
 | `/clientes/:id` | deska klienta |
+| `/clientes/:id/stoh` | stoh skenů ze šanonu; Guardar zařadí na blok |
 | `/clientes/:id/carpeta` | dva listy (tužka); bloky kromě klienta jsou kryty |
 | `/clientes/:id/carpeta/:bloque` | šanon jednoho bloku: identita + papíry |
 | `/clientes/:id/mensaje` | compose výzvy; odeslat = překlad |
@@ -68,7 +69,7 @@ Prázdný stav: „No hay plazos para hoy. Puedes abrir un cliente o escanear un
 - FAB / button **Nuevo cliente**
 - Soft-deleted skrytí; owner toggle „Ver eliminados“
 
-Nuevo cliente: jméno stačí. NIE, e-mail, tel, dirección, IBAN volitelné (IBAN povinný až u inkasa). Druhý kontakt + locale. Filtr aktivní / neaktivní.
+Nuevo cliente: jméno stačí. Po založení `/stoh` (přeskočit = deska). NIE, e-mail, tel, dirección, IBAN volitelné (IBAN povinný až u inkasa). Druhý kontakt + locale. Filtr aktivní / neaktivní.
 
 ## 4. Karta klienta (`/clientes/:id`)
 

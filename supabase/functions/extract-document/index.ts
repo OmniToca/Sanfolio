@@ -45,6 +45,7 @@ Deno.serve(async (req) => {
     mime?: unknown;
     doc_tipo?: unknown;
     bloque_key?: unknown;
+    classify?: unknown;
   };
   const tenantId = typeof body.tenant_id === "string" ? body.tenant_id.trim() : "";
   const clienteId = typeof body.cliente_id === "string" ? body.cliente_id.trim() : "";
@@ -53,8 +54,11 @@ Deno.serve(async (req) => {
     : "";
   const mime = typeof body.mime === "string" ? body.mime.trim() : "";
   const docTipo = typeof body.doc_tipo === "string" ? body.doc_tipo.trim() : "";
+  const classify = body.classify === true || body.classify === "true";
   const bloqueKey = typeof body.bloque_key === "string" && body.bloque_key.trim()
     ? body.bloque_key.trim()
+    : classify
+    ? ""
     : "cliente_snapshot";
   if (!tenantId || !clienteId || !storagePath) {
     return json(400, { ok: false, error: "tenant_id, cliente_id, storage_path required" });
@@ -81,7 +85,7 @@ Deno.serve(async (req) => {
       created_by: userData.user.id,
       purpose: "extract_document",
       target: "documento",
-      bloque_key: bloqueKey,
+      bloque_key: bloqueKey || null,
       fields: { extract_status: "pending" },
       storage_path: storagePath,
       expires_at: null,
@@ -116,6 +120,7 @@ Deno.serve(async (req) => {
     mime,
     docTipo,
     bloqueKey,
+    classify,
   });
   keepAlive(work);
 
@@ -148,9 +153,10 @@ async function finishExtract(args: {
   draftId: string;
   storagePath: string;
   mime: string;
-  docTipo: string;
-  bloqueKey: string;
-}) {
+    docTipo: string;
+    bloqueKey: string;
+    classify: boolean;
+  }) {
   try {
     const hint = await loadClienteHint(args.userClient, args.clienteId);
     const docTipo = guessTipoFromPath(args.storagePath, args.docTipo);
@@ -198,6 +204,7 @@ async function finishExtract(args: {
         args.mime || guessMime(args.storagePath),
         docTipo,
         isPdf,
+        args.classify,
       );
       if (vision) {
         const body = fields.body_text;
@@ -211,6 +218,7 @@ async function finishExtract(args: {
         fields.body_text,
         docTipo,
         hint,
+        args.classify,
       );
       if (llm) {
         const body = fields.body_text;
@@ -221,7 +229,23 @@ async function finishExtract(args: {
     if (fields.body_text) {
       fields = alignDeedFields(fields, fields.body_text, hint);
     }
-    const extracted = Object.keys(fields).length > 0;
+    if (args.classify) {
+      const guess = classifyStohPaper(
+        args.storagePath,
+        fields.body_text ?? "",
+        fields,
+      );
+      if (guess.bloque) fields.proposed_bloque_key = guess.bloque;
+      if (guess.tipo) fields.proposed_tipo = guess.tipo;
+      if (guess.bloque) {
+        await args.userClient.from("ai_drafts").update({
+          bloque_key: guess.bloque,
+          updated_at: new Date().toISOString(),
+        }).eq("id", args.draftId);
+      }
+    }
+    const extracted = Object.keys(fields).length > 0 &&
+      !(Object.keys(fields).length === 1 && fields.extract_status);
     await markDraft(
       args.userClient,
       args.draftId,
@@ -302,11 +326,19 @@ const FIELD_MAP: Record<string, string> = {
 
 const EXTRACT_KEY_LIST = Object.keys(FIELD_MAP).join(",");
 
-function extractSystemPrompt(docTipo: string, includeBody: boolean): string {
+function extractSystemPrompt(
+  docTipo: string,
+  includeBody: boolean,
+  classify = false,
+): string {
   return (
     `Extract fields from a Spanish gestoría document (declared type: ${docTipo || "unknown"}). ` +
     "It may be a factura even if the type says contrato. Keep official terms (NIE, CUPS, escritura). " +
-    `Return JSON only with keys you actually see: ${EXTRACT_KEY_LIST}. ` +
+    `Return JSON only with keys you actually see: ${EXTRACT_KEY_LIST}` +
+    (classify
+      ? ", proposedBloque, proposedTipo"
+      : "") +
+    ". " +
     "Nº de contrato / póliza → contractNo. Nº de cliente → clientNo. Nº factura → invoiceNo. " +
     "Periodo de facturación → periodFrom and periodTo (YYYY-MM-DD), not period (period is IBI year only). " +
     "Agua (Hidraqua, Aqualia, Canal…): billing period is usually ~3 months (trimestral / TRIMESTRAL). " +
@@ -328,6 +360,11 @@ function extractSystemPrompt(docTipo: string, includeBody: boolean): string {
     "parcela, registry (Registro de la Propiedad + finca), cadastral, address of the URBANA. " +
     "protocol is the number at the very top (DOS MIL CIENTO DIECISÉIS = 2116), not a later year or poder. " +
     "Do not put passport numbers into tel." +
+    (classify
+      ? " proposedBloque = one of cliente_snapshot,escritura,agua,luz,gaz,comunidad,suma,plusvalia,seguro,alarma,nie_tramite,poder (omit if unsure). " +
+        "proposedTipo = dni_nie,pasaporte,copia_escritura,contrato_agua,factura_agua,recibo_agua,contrato_luz,factura_luz,contrato_gaz,factura_gaz,certificado_comunidad,recibo_ibi,declaracion_plusvalia,poliza_seguro,contrato_alarma,copia_poder,other (omit if unsure). " +
+        "Hidraqua/Aqualia → agua. CUPS/kWh/Iberdrola → luz. Escritura/notario → escritura. DNI/NIE card → cliente_snapshot."
+      : "") +
     (includeBody
       ? " body_text = readable text with --- Strana n --- page marks, max 20000 chars."
       : " Do not return body_text.")
@@ -432,6 +469,7 @@ async function llmExtractFromText(
   text: string,
   docTipo: string,
   hint: { nombre: string; nie: string },
+  classify = false,
 ): Promise<Record<string, string> | null> {
   const clipped = escrituraLlmFocus(text).slice(0, 24000);
   const who = [
@@ -449,7 +487,7 @@ async function llmExtractFromText(
       temperature: 0,
       response_format: { type: "json_object" },
       messages: [
-        { role: "system", content: extractSystemPrompt(docTipo, false) },
+        { role: "system", content: extractSystemPrompt(docTipo, false, classify) },
         {
           role: "user",
           content: who ? `${who}\n\n${clipped}` : clipped,
@@ -473,7 +511,12 @@ function parseLlmJson(raw: string): Record<string, string> | null {
   if (!jsonMatch) return null;
   try {
     const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
-    return mapLlmFields(parsed);
+    const mapped = mapLlmFields(parsed);
+    const bloque = str(parsed.proposedBloque ?? parsed.proposed_bloque_key);
+    const tipo = str(parsed.proposedTipo ?? parsed.proposed_tipo);
+    if (bloque) mapped.proposed_bloque_key = bloque;
+    if (tipo) mapped.proposed_tipo = tipo;
+    return mapped;
   } catch {
     return null;
   }
@@ -485,6 +528,7 @@ async function visionExtract(
   mime: string,
   docTipo: string,
   isPdf = false,
+  classify = false,
 ): Promise<Record<string, string> | null> {
   const b64 = bytesToB64(bytes);
   const userContent = isPdf
@@ -517,7 +561,7 @@ async function visionExtract(
       messages: [
         {
           role: "system",
-          content: extractSystemPrompt(docTipo, true),
+          content: extractSystemPrompt(docTipo, true, classify),
         },
         {
           role: "user",
@@ -593,6 +637,89 @@ function guessTipoFromPath(path: string, declared: string): string {
   const name = path.split("/").pop() ?? "";
   if (/escritur|compravent|smlouv|notari/i.test(name)) return "copia_escritura";
   return declared;
+}
+
+const STOH_BLOQUES = new Set([
+  "cliente_snapshot",
+  "escritura",
+  "agua",
+  "luz",
+  "gaz",
+  "comunidad",
+  "suma",
+  "plusvalia",
+  "seguro",
+  "alarma",
+  "nie_tramite",
+  "poder",
+]);
+
+function classifyStohPaper(
+  path: string,
+  bodyText: string,
+  fields: Record<string, string>,
+): { bloque: string; tipo: string } {
+  const fromLlmBloque = STOH_BLOQUES.has(fields.proposed_bloque_key ?? "")
+    ? fields.proposed_bloque_key
+    : "";
+  if (fromLlmBloque) {
+    return {
+      bloque: fromLlmBloque,
+      tipo: fields.proposed_tipo || "other",
+    };
+  }
+  const name = (path.split("/").pop() ?? "").toLowerCase();
+  const body = bodyText.toLowerCase();
+  const hay = `${name}\n${body}`;
+  const cups = (fields["fields.cups"] ?? "").trim();
+  const company = (fields["fields.company"] ?? "").toLowerCase();
+  if (/pasaport|passport/.test(hay)) {
+    return { bloque: "cliente_snapshot", tipo: "pasaporte" };
+  }
+  if (/\bdni\b|\bnie\b/.test(name) && !/escritur|factura|contrato/.test(name)) {
+    return { bloque: "cliente_snapshot", tipo: "dni_nie" };
+  }
+  if (/escritur|compravent|notari|protocolo/.test(hay)) {
+    return { bloque: "escritura", tipo: "copia_escritura" };
+  }
+  if (/plusval/.test(hay)) {
+    return { bloque: "plusvalia", tipo: "declaracion_plusvalia" };
+  }
+  if (/\bibi\b|\bsuma\b|catastral/.test(hay) && !/escritur/.test(hay)) {
+    return { bloque: "suma", tipo: "recibo_ibi" };
+  }
+  if (/comunidad|administrador de fincas/.test(hay)) {
+    return { bloque: "comunidad", tipo: "certificado_comunidad" };
+  }
+  if (/p[oó]liza|seguro/.test(hay) && !/factura/.test(name)) {
+    return { bloque: "seguro", tipo: "poliza_seguro" };
+  }
+  if (/\bpoder\b|apoderad/.test(hay)) {
+    return { bloque: "poder", tipo: "copia_poder" };
+  }
+  if (/alarma/.test(hay)) return { bloque: "alarma", tipo: "contrato_alarma" };
+  const aguaCo = /hidraqua|aqualia|\bagua\b|canal de isabel/;
+  const looksFactura = /factura|recibo|invoice/.test(hay);
+  const looksContrato = /contrato/.test(hay);
+  if (aguaCo.test(hay) || aguaCo.test(company)) {
+    return {
+      bloque: "agua",
+      tipo: looksContrato && !looksFactura ? "contrato_agua" : "factura_agua",
+    };
+  }
+  if (cups || /iberdrola|endesa|holaluz|\bcups\b|\bkwh\b|\bluz\b/.test(hay)) {
+    return {
+      bloque: "luz",
+      tipo: looksContrato && !looksFactura ? "contrato_luz" : "factura_luz",
+    };
+  }
+  if (/\bgaz\b|\bgas natural\b|\bgas\b/.test(hay) || /gas/.test(company)) {
+    return {
+      bloque: "gaz",
+      tipo: looksContrato && !looksFactura ? "contrato_gaz" : "factura_gaz",
+    };
+  }
+  return { bloque: "", tipo: "other" };
 }
 
 async function loadClienteHint(

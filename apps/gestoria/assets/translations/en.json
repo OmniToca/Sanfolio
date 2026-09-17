@@ -165,6 +165,27 @@
     "failed": "The transcript failed. You can discard the proposal.",
     "unnamed": "Client"
   },
+  "stoh": {
+    "title": "Paper stack",
+    "subtitle": "Upload scans from the paper folder. The system suggests a block; you save.",
+    "attach": "Upload stack",
+    "skip": "Skip, open the desk",
+    "empty": "No scan yet. Attach PDFs or photos at once.",
+    "hint": "Up to 40 files. One file is one paper (PDFs are not split).",
+    "pending": "Sorting…",
+    "failed": "Could not read it. Place it yourself, or discard the file.",
+    "bloque": "Block",
+    "tipo": "Paper type",
+    "unknown": "Unknown — pick one",
+    "guardar": "File on the desk",
+    "discardFile": "Discard file",
+    "saved": "The paper is on the desk.",
+    "saveError": "Could not file the paper.",
+    "discarded": "The file is hidden.",
+    "tooMany": "At most 40 files at once.",
+    "uploading": "Uploading {done}/{total}…",
+    "newHint": "1. You have the name. 2. Upload the folder. 3. Confirm where each paper belongs."
+  },
   "ofertas": {
     "settingsTitle": "Office offers",
     "settingsHint": "2–5 tariffs you actually switch. This is not a market comparator.",

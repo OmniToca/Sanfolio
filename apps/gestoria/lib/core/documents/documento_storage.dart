@@ -8,12 +8,14 @@ import 'office_file_pick.dart';
 
 /// Jedna cesta originálu: `{tenant}/{cliente}/{bloque}/{soubor}`.
 /// Bez bloque (karta) zůstane `{tenant}/{cliente}/{soubor}`.
+/// Stoh: `{tenant}/{cliente}/stoh/{soubor}` — ještě bez bloku.
 /// PROČ ne `card/` vs `ai/`: stejný sken se jinak uložil dvakrát.
 String documentoStoragePath({
   required String tenantId,
   required String clienteId,
   required String originalName,
   String? bloqueId,
+  bool stoh = false,
 }) {
   // `#` `?` `%` v URL rozbijí Storage. Mezery Safari taky občas spolkne.
   final safe = originalName.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
@@ -22,9 +24,11 @@ String documentoStoragePath({
   // dart2js: `1 << 32` je 0 (shift jen 32 bitů) → nextInt hodí RangeError.
   final rand =
       Random.secure().nextInt(0x7fffffff).toRadixString(16).padLeft(8, '0');
-  final folder = (bloqueId == null || bloqueId.isEmpty)
-      ? '$tenantId/$clienteId'
-      : '$tenantId/$clienteId/$bloqueId';
+  final folder = stoh
+      ? '$tenantId/$clienteId/stoh'
+      : (bloqueId == null || bloqueId.isEmpty)
+          ? '$tenantId/$clienteId'
+          : '$tenantId/$clienteId/$bloqueId';
   return '$folder/${ts}_${rand}_$name';
 }
 

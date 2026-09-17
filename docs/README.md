@@ -8,7 +8,7 @@ Pořadí čtení pro další vývoj. Tyto soubory jsou smlouva produktu. Kód se
 2. Zapnutá služba = **blok**. Vypnutá se nehlídá a nechybí.
 3. AI **hledá, otevírá, předvyplňuje**. Ukládá / maže / odesílá / podává jen člověk.
 4. Mazání je **100 % soft-delete**. Audit je **append-only**, včetně otevření karty.
-5. První deska = složka koupě + inbox v prohlížeči. Stavíme pro jednu kancelář i pro deset; Jarka je první, ne strop a ne důvod čekat. WhatsApp API, portál a podání AEAT jsou na [seznamu vývoje](vyvoj.md). Modelo 210 se počítá. Kniha faktur (`facturacion`) a příchozí Pošta jsou v kódu. Policie / magistrát / závěť: tenký spis, dokud kancelář nechce plnou desku.
+5. První deska = složka koupě + inbox v prohlížeči. Nový klient jde na stoh papírů (`/stoh`). Stavíme pro jednu kancelář i pro deset; Jarka je první, ne strop a ne důvod čekat. WhatsApp API, portál a podání AEAT jsou na [seznamu vývoje](vyvoj.md). Modelo 210 se počítá. Kniha faktur (`facturacion`) a příchozí Pošta jsou v kódu. Policie / magistrát / závěť: tenký spis, dokud kancelář nechce plnou desku.
 
 ## Soubory
 

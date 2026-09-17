@@ -10,6 +10,7 @@ import '../../features/auth/login_screen.dart';
 import '../../features/auth/reset_password_screen.dart';
 import '../../features/auth/payment_required_screen.dart';
 import '../../features/carpeta/carpeta_screen.dart';
+import '../../features/carpeta/stoh_screen.dart';
 import '../../features/clientes/cliente_card_screen.dart';
 import '../../features/clientes/clientes_screen.dart';
 import '../../features/expedientes/expediente_screen.dart';
@@ -153,6 +154,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: '/clientes',
             pageBuilder: (context, state) => const NoTransitionPage(
               child: ClientesScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/clientes/:id/stoh',
+            pageBuilder: (context, state) => NoTransitionPage(
+              child: StohScreen(
+                clienteId: state.pathParameters['id']!,
+                expedienteId: state.uri.queryParameters['exp'],
+                afterCreate: state.uri.queryParameters['new'] == '1',
+              ),
             ),
           ),
           GoRoute(

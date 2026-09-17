@@ -6,11 +6,15 @@ import 'office_file_pick.dart';
 class OfficeFileHitLayer extends StatelessWidget {
   const OfficeFileHitLayer({
     super.key,
-    required this.onPicked,
+    this.onPicked,
+    this.onPickedMany,
+    this.multiple = false,
     required this.onError,
   });
 
-  final void Function(PickedOfficeFile file) onPicked;
+  final void Function(PickedOfficeFile file)? onPicked;
+  final void Function(List<PickedOfficeFile> files)? onPickedMany;
+  final bool multiple;
   final void Function(String i18nKey, String code) onError;
 
   @override
@@ -19,8 +23,13 @@ class OfficeFileHitLayer extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: () async {
         try {
+          if (multiple) {
+            final picked = await pickOfficeFiles();
+            if (picked.isNotEmpty) onPickedMany?.call(picked);
+            return;
+          }
           final picked = await pickOfficeFile();
-          if (picked != null) onPicked(picked);
+          if (picked != null) onPicked?.call(picked);
         } on OfficeFilePickException catch (e) {
           onError(officePickErrorI18n(e.code), e.code.name);
         } on Object {

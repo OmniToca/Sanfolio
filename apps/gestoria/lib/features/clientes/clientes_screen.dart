@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/presentation/widgets/app_widgets.dart';
 import '../../core/theme/app_theme.dart';
 import '../settings/office_settings_controller.dart';
+import '../carpeta/carpeta_routes.dart';
 import 'clientes_providers.dart';
 
 class ClientesScreen extends ConsumerStatefulWidget {
@@ -306,7 +307,9 @@ Future<void> _createCliente(BuildContext context, WidgetRef ref) async {
       tel: telVal.isEmpty ? null : telVal,
     );
     ref.invalidate(clientesListProvider);
-    if (context.mounted) context.go('/clientes/$id/carpeta');
+    if (context.mounted) {
+      context.go(carpetaStohRoute(id, afterCreate: true));
+    }
   } on Object {
     if (context.mounted) {
       ScaffoldMessenger.of(

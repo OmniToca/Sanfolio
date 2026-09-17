@@ -132,6 +132,7 @@ Future<AiPrefillDraft?> extractDocumentDraft({
   required String mime,
   String? docTipo,
   String bloqueKey = 'cliente_snapshot',
+  bool classify = false,
 }) async {
   final client = trySupabaseClient();
   if (client == null) return null;
@@ -143,7 +144,8 @@ Future<AiPrefillDraft?> extractDocumentDraft({
       'storage_path': storagePath,
       'mime': mime,
       if (docTipo != null && docTipo.isNotEmpty) 'doc_tipo': docTipo,
-      'bloque_key': bloqueKey,
+      if (!classify) 'bloque_key': bloqueKey,
+      if (classify) 'classify': true,
     },
   );
   final data = response.data;
@@ -170,6 +172,7 @@ void startExtractInBackground({
   required String mime,
   String? docTipo,
   String bloqueKey = 'cliente_snapshot',
+  bool classify = false,
   void Function(AiPrefillDraft? draft)? onDone,
 }) {
   unawaited(() async {
@@ -182,6 +185,7 @@ void startExtractInBackground({
         mime: mime,
         docTipo: docTipo,
         bloqueKey: bloqueKey,
+        classify: classify,
       );
     } on Object {
       draft = null;

@@ -165,6 +165,27 @@
     "failed": "Die Abschrift ist fehlgeschlagen. Sie können den Vorschlag verwerfen.",
     "unnamed": "Mandant"
   },
+  "stoh": {
+    "title": "Papierstapel",
+    "subtitle": "Scans aus der Papierakte hochladen. Das System schlägt den Block vor; Sie speichern.",
+    "attach": "Stapel hochladen",
+    "skip": "Überspringen, Akte öffnen",
+    "empty": "Noch kein Scan. PDF oder Fotos auf einmal anhängen.",
+    "hint": "Bis 40 Dateien. Eine Datei = ein Papier (PDF wird nicht geteilt).",
+    "pending": "Wird sortiert…",
+    "failed": "Nicht lesbar. Selbst zuordnen oder Datei verwerfen.",
+    "bloque": "Block",
+    "tipo": "Papierart",
+    "unknown": "Unklar — bitte wählen",
+    "guardar": "Auf die Akte legen",
+    "discardFile": "Datei verwerfen",
+    "saved": "Das Papier liegt auf der Akte.",
+    "saveError": "Zuordnung fehlgeschlagen.",
+    "discarded": "Die Datei ist verborgen.",
+    "tooMany": "Höchstens 40 Dateien auf einmal.",
+    "uploading": "Lade {done}/{total} hoch…",
+    "newHint": "1. Der Name steht. 2. Die Akte hochladen. 3. Bestätigen, wohin jedes Papier gehört."
+  },
   "ofertas": {
     "settingsTitle": "Büro-Angebote",
     "settingsHint": "2–5 Tarife, die Sie wirklich umschreiben. Kein Marktvergleich.",

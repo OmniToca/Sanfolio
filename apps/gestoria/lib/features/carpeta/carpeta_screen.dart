@@ -113,6 +113,16 @@ class CarpetaScreen extends ConsumerWidget {
               onPressed: () => context.go('/clientes/$clienteId'),
             ),
             actions: [
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: TextButton.icon(
+                  onPressed: () => context.go(
+                    carpetaStohRoute(clienteId, expedienteId: expedienteId),
+                  ),
+                  icon: const Icon(Icons.layers_outlined, size: 18),
+                  label: Text('stoh.attach'.tr()),
+                ),
+              ),
               FeatureGate(
                 module: GestoriaModule.messaging,
                 child: Padding(

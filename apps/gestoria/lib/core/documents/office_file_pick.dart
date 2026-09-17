@@ -18,6 +18,9 @@ const officeFileExtensions = <String>[
 /// 32 MB = limit bucketu po 0030. Větší facturas PDF dřív tichý fail.
 const officeFileMaxBytes = 33554432;
 
+/// Stoh ze šanonu. Víc by extract na pozadí neusnesl najednou.
+const officeFileBatchMax = 40;
+
 class PickedOfficeFile {
   const PickedOfficeFile({
     required this.bytes,
@@ -100,6 +103,17 @@ Future<PickedOfficeFile?> pickOfficeFile() async {
   final raw = await office_dialog.openOfficeFileDialog();
   if (raw == null) return null;
   return officeFileFromBytes(raw.bytes, raw.name);
+}
+
+/// Více souborů ze šanonu. Prázdné = zrušeno. Nad [officeFileBatchMax] ořízne.
+Future<List<PickedOfficeFile>> pickOfficeFiles() async {
+  final raw = await office_dialog.openOfficeFilesDialog();
+  if (raw == null || raw.isEmpty) return const [];
+  final out = <PickedOfficeFile>[];
+  for (final f in raw.take(officeFileBatchMax)) {
+    out.add(officeFileFromBytes(f.bytes, f.name));
+  }
+  return out;
 }
 
 Future<PickedOfficeFile> officeFileFromPicked(PlatformFile file) async {

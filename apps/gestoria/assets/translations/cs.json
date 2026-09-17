@@ -165,6 +165,27 @@
     "failed": "Přepis se nepodařil. Můžete návrh zahodit.",
     "unnamed": "Klient"
   },
+  "stoh": {
+    "title": "Stoh papírů",
+    "subtitle": "Nahrajte skeny ze šanonu. Systém navrhne blok, uložíte vy.",
+    "attach": "Nahrát stoh",
+    "skip": "Přeskočit, otevřít desku",
+    "empty": "Zatím žádný sken. Přiložte PDF nebo fotky najednou.",
+    "hint": "Až 40 souborů. Jeden soubor = jeden papír (PDF se nedělí).",
+    "pending": "Třídím…",
+    "failed": "Nepřečetlo se. Zařaďte ručně, nebo soubor zahoďte.",
+    "bloque": "Blok",
+    "tipo": "Typ papíru",
+    "unknown": "Nevím — vyberte",
+    "guardar": "Zařadit na desku",
+    "discardFile": "Zahodit soubor",
+    "saved": "Papír je na desce.",
+    "saveError": "Zařazení se nepodařilo.",
+    "discarded": "Soubor je schovaný.",
+    "tooMany": "Najednou nejvýš 40 souborů.",
+    "uploading": "Nahrávám {done}/{total}…",
+    "newHint": "1. Jméno máte. 2. Nahrajte šanon. 3. Potvrďte, kam který papír patří."
+  },
   "ofertas": {
     "settingsTitle": "Nabídky kanceláře",
     "settingsHint": "2–5 tarifů, se kterými umíte přepsat. Není to srovnávač trhu.",

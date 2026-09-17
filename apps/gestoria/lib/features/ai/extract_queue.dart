@@ -46,6 +46,8 @@ Map<String, String> extractProposalFields(Map<String, String> fields) {
     for (final e in fields.entries)
       if (e.key != kExtractStatus &&
           e.key != 'body_text' &&
+          e.key != kProposedBloqueKey &&
+          e.key != kProposedTipo &&
           e.value.trim().isNotEmpty)
         e.key: e.value.trim(),
   };

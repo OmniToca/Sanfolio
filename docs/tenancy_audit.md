@@ -9,7 +9,7 @@ Vzory z OmniToca (Support ≠ Cloud, impersonace s důvodem) a LeoDejvIT (soft-d
 | `www` | veřejnost | statický web | žádné JWT |
 | `support` | náš tým | Flutter web | `is_support`, žádní klienti bez impersonace |
 | `gestoria` | kancelář | Flutter web | RLS na `tenant_id` |
-| `cliente` | klienti kanceláře | později | v MVP se nestaví |
+| `cliente` | klienti kanceláře | portál #1 na `docs/vyvoj.md` | zatím se nestaví; RLS oddělená od staff |
 
 Cross-app URL: `GESTORIA_BASE_URL`, `SUPPORT_APP_URL`. Release zakazuje localhost. Handoff **vždy** nese `refresh_token` v hash (dvě origin = dvě localStorage). Produkční build na Netlify: env `SUPABASE_*`; URL default `$URL` (viz root `netlify.toml`). Vlastní doména: `GESTORIA_BASE_URL=https://sanfolio.app`.
 

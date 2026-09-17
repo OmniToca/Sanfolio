@@ -57,7 +57,7 @@ Read-only fulltext v `documentos.body_text`. Limit 20, tenant RLS. Prázdný př
 
 ## 2b. Samostatné Edge (ne chat tools)
 
-- **`extract-document`** — JWT, fotka/PDF → `ai_drafts`. Guardar ve Flutter zapíše `documentos.extracted` + `body_text`. AI sem neukládá.
+- **`extract-document`** — JWT, fotka/PDF → `ai_drafts`. `classify: true` u stohu navrhne blok a tipo. Guardar ve Flutter zapíše `documentos.extracted` + `body_text` a zařadí na blok. AI sem neukládá.
 - **`ai-draft-message`** — JWT, nachystá `mensajes.status = draft`. `sent_at` zůstane null. Tool `send_message` **neexistuje**.
 - **`translate-message`** — při odeslání člověkem.
 

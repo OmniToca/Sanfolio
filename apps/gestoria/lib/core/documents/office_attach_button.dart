@@ -11,7 +11,9 @@ class OfficeAttachButton extends StatelessWidget {
   const OfficeAttachButton({
     super.key,
     required this.label,
-    required this.onPicked,
+    this.onPicked,
+    this.onPickedMany,
+    this.multiple = false,
     this.icon = Icons.attach_file,
     this.outlined = false,
     this.enabled = true,
@@ -21,7 +23,9 @@ class OfficeAttachButton extends StatelessWidget {
   final IconData? icon;
   final bool outlined;
   final bool enabled;
-  final void Function(PickedOfficeFile file) onPicked;
+  final bool multiple;
+  final void Function(PickedOfficeFile file)? onPicked;
+  final void Function(List<PickedOfficeFile> files)? onPickedMany;
 
   @override
   Widget build(BuildContext context) {
@@ -49,6 +53,8 @@ class OfficeAttachButton extends StatelessWidget {
           Positioned.fill(
             child: OfficeFileHitLayer(
               onPicked: onPicked,
+              onPickedMany: onPickedMany,
+              multiple: multiple,
               onError: (key, code) => showOfficeFileError(
                 context,
                 key,

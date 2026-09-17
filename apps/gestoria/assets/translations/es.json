@@ -165,6 +165,27 @@
     "failed": "La transcripción falló. Puede descartar la propuesta.",
     "unnamed": "Cliente"
   },
+  "stoh": {
+    "title": "Montón de papeles",
+    "subtitle": "Suba los escaneos del archivador. El sistema propone el bloque; guarda usted.",
+    "attach": "Subir montón",
+    "skip": "Saltar, abrir el tablero",
+    "empty": "Aún no hay escaneo. Adjunte PDF o fotos de una vez.",
+    "hint": "Hasta 40 archivos. Un archivo = un papel (el PDF no se parte).",
+    "pending": "Clasificando…",
+    "failed": "No se pudo leer. Clasifíquelo a mano o descarte el archivo.",
+    "bloque": "Bloque",
+    "tipo": "Tipo de papel",
+    "unknown": "No sé — elija",
+    "guardar": "Archivar en el tablero",
+    "discardFile": "Descartar archivo",
+    "saved": "El papel está en el tablero.",
+    "saveError": "No se pudo archivar.",
+    "discarded": "El archivo está oculto.",
+    "tooMany": "Como máximo 40 archivos de una vez.",
+    "uploading": "Subiendo {done}/{total}…",
+    "newHint": "1. Ya tiene el nombre. 2. Suba el archivador. 3. Confirme a qué bloque va cada papel."
+  },
   "ofertas": {
     "settingsTitle": "Ofertas del despacho",
     "settingsHint": "2–5 tarifas con las que sí tramitan el cambio. No es un comparador de mercado.",

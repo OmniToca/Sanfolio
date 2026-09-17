@@ -85,6 +85,8 @@ String compactTel(String raw) {
 }
 
 const kExtractStatus = 'extract_status';
+const kProposedBloqueKey = 'proposed_bloque_key';
+const kProposedTipo = 'proposed_tipo';
 
 bool isExtractPending(Map<String, String> fields) =>
     (fields[kExtractStatus] ?? '') == 'pending';
@@ -139,6 +141,8 @@ class DocumentoTranscript {
 DocumentoTranscript splitDocumentoTranscript(Map<String, String> raw) {
   final fields = Map<String, String>.from(sanitizeExtractedFields(raw));
   fields.remove(kExtractStatus);
+  fields.remove(kProposedBloqueKey);
+  fields.remove(kProposedTipo);
   final body = fields.remove('body_text')?.trim();
   return DocumentoTranscript(
     fields: fields,

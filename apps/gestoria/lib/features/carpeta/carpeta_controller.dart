@@ -12,13 +12,16 @@ import '../../core/identity/nie_persist.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/money/cents.dart';
 import '../../core/money/provision.dart';
+import '../ai/ai_providers.dart';
 import '../ai/documento_fields.dart';
 import '../ai/escritura_parties.dart';
+import '../ai/extract_queue.dart';
 import '../ai/extract_text.dart';
 import '../clientes/cliente_audit.dart';
 import '../clientes/clientes_providers.dart';
 import '../facturacion/facturacion_providers.dart';
 import 'bloque_template.dart';
+import 'stoh.dart';
 
 enum BloqueUiStatus { off, missingData, missingDocument, watching, done }
 
@@ -171,6 +174,7 @@ class CarpetaView {
     this.inmuebleDireccion,
     this.movements = const [],
     this.titulares = const [],
+    this.stohDocuments = const [],
   });
 
   final String clienteId;
@@ -183,6 +187,8 @@ class CarpetaView {
   final Map<String, BloqueState> bloques;
   final List<ProvisionMovement> movements;
   final List<InmuebleTitular> titulares;
+  /// Skeny ze šanonu bez bloku. DNI na kartě sem nepatří.
+  final List<CarpetaDocumento> stohDocuments;
 
   CarpetaView withBloque(String key, BloqueState bloque) {
     return CarpetaView(
@@ -196,6 +202,7 @@ class CarpetaView {
       bloques: {...bloques, key: bloque},
       movements: movements,
       titulares: titulares,
+      stohDocuments: stohDocuments,
     );
   }
 
@@ -211,6 +218,7 @@ class CarpetaView {
       bloques: bloques,
       movements: next,
       titulares: titulares,
+      stohDocuments: stohDocuments,
     );
   }
 
@@ -226,6 +234,23 @@ class CarpetaView {
       bloques: bloques,
       movements: movements,
       titulares: next,
+      stohDocuments: stohDocuments,
+    );
+  }
+
+  CarpetaView withStoh(List<CarpetaDocumento> next) {
+    return CarpetaView(
+      clienteId: clienteId,
+      tenantId: tenantId,
+      nombre: nombre,
+      expedienteId: expedienteId,
+      expedienteEstado: expedienteEstado,
+      inmuebleId: inmuebleId,
+      inmuebleDireccion: inmuebleDireccion,
+      bloques: bloques,
+      movements: movements,
+      titulares: titulares,
+      stohDocuments: next,
     );
   }
 }
@@ -342,23 +367,25 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
         .eq('cliente_id', clienteId)
         .isFilter('deleted_at', null);
     final docsByBloque = <String, List<CarpetaDocumento>>{};
+    final stohDocs = <CarpetaDocumento>[];
     for (final raw in docsRows as List) {
       if (raw is! Map) continue;
+      final t = transcriptFromDocumentoRow(raw);
+      final doc = CarpetaDocumento(
+        id: '${raw['id']}',
+        tipo: '${raw['tipo']}',
+        storagePath: '${raw['storage_path']}',
+        originalName: '${raw['original_name'] ?? raw['tipo']}',
+        extracted: t.fields,
+        bodyText: t.bodyText,
+        storagePurged: storagePurgedFromRow(raw),
+      );
+      if (isStohStoragePath(doc.storagePath)) {
+        stohDocs.add(doc);
+        continue;
+      }
       final bid = '${raw['bloque_id']}';
-      docsByBloque.putIfAbsent(bid, () => []).add(
-            () {
-              final t = transcriptFromDocumentoRow(raw);
-              return CarpetaDocumento(
-                id: '${raw['id']}',
-                tipo: '${raw['tipo']}',
-                storagePath: '${raw['storage_path']}',
-                originalName: '${raw['original_name'] ?? raw['tipo']}',
-                extracted: t.fields,
-                bodyText: t.bodyText,
-                storagePurged: storagePurgedFromRow(raw),
-              );
-            }(),
-          );
+      docsByBloque.putIfAbsent(bid, () => []).add(doc);
     }
 
     final bloques = <String, BloqueState>{
@@ -441,6 +468,7 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
       bloques: bloques,
       movements: movements,
       titulares: liveTitulares,
+      stohDocuments: stohDocs,
     );
   }
 
@@ -643,6 +671,128 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
     state = AsyncData(view.withBloque(templateKey, next));
     await _persistBloque(templateKey);
     return doc;
+  }
+
+  /// Šanon bez bloku. Extract s classify. Guardar teprve zařadí.
+  Future<CarpetaDocumento?> attachStohDocument({
+    required Uint8List bytes,
+    required String originalName,
+  }) async {
+    final view = state.valueOrNull;
+    final auth = ref.read(authControllerProvider).valueOrNull;
+    if (view == null || trySupabaseClient() == null) {
+      throw OfficeUploadException('not_configured');
+    }
+    final path = documentoStoragePath(
+      tenantId: view.tenantId,
+      clienteId: view.clienteId,
+      originalName: originalName,
+      stoh: true,
+    );
+    await uploadDocumentoBytes(
+      path: path,
+      bytes: bytes,
+      originalName: originalName,
+    );
+    final id = await insertDocumentoRow(
+      tenantId: view.tenantId,
+      clienteId: view.clienteId,
+      tipo: 'other',
+      storagePath: path,
+      originalName: originalName,
+      createdBy: auth?.profile?.id,
+    );
+    final doc = CarpetaDocumento(
+      id: id,
+      tipo: 'other',
+      storagePath: path,
+      originalName: originalName,
+    );
+    state = AsyncData(view.withStoh([...view.stohDocuments, doc]));
+    return doc;
+  }
+
+  /// Člověk zařadí papír na blok. AI sem nesmí.
+  Future<bool> guardarStohDocumento({
+    required String documentId,
+    required String bloqueKey,
+    required String tipo,
+    Map<String, String> fields = const {},
+    String? draftId,
+  }) async {
+    final view = state.valueOrNull;
+    final client = trySupabaseClient();
+    if (view == null || client == null) return false;
+    CarpetaDocumento? doc;
+    for (final d in view.stohDocuments) {
+      if (d.id == documentId) {
+        doc = d;
+        break;
+      }
+    }
+    if (doc == null) return false;
+    final current = _bloqueLive(bloqueKey);
+    final plan = planStohGuardar(
+      selectedBloqueKey: bloqueKey,
+      selectedTipo: tipo,
+      bloqueCurrentlyEnabled: current.enabled,
+    );
+    if (plan == null || current.id == null) return false;
+    if (plan.enableBloque) {
+      await setEnabled(plan.bloqueKey, true);
+    }
+    final live = _bloqueLive(plan.bloqueKey);
+    final bloqueId = live.id;
+    if (bloqueId == null) return false;
+    await client.from('documentos').update({
+      'bloque_id': bloqueId,
+      'tipo': plan.tipo,
+    }).eq('id', documentId);
+    final placed = doc.copyWith(tipo: plan.tipo);
+    final after = (state.valueOrNull ?? view)
+        .withBloque(
+          plan.bloqueKey,
+          live.copyWith(
+            enabled: true,
+            documents: [...live.documents, placed],
+          ),
+        )
+        .withStoh([
+          for (final d in (state.valueOrNull ?? view).stohDocuments)
+            if (d.id != documentId) d,
+        ]);
+    state = AsyncData(after);
+    final proposal = extractProposalFields(fields);
+    if (proposal.isNotEmpty) {
+      await saveDocumentoExtracted(
+        templateKey: plan.bloqueKey,
+        documentId: documentId,
+        fields: fields,
+      );
+    } else {
+      await _persistBloque(plan.bloqueKey);
+    }
+    await discardAiDraft(draftId);
+    return true;
+  }
+
+  Future<void> discardStohDocumento({
+    required String documentId,
+    String? draftId,
+  }) async {
+    final view = state.valueOrNull;
+    final client = trySupabaseClient();
+    if (view == null || client == null) return;
+    await client.from('documentos').update({
+      'deleted_at': DateTime.now().toUtc().toIso8601String(),
+    }).eq('id', documentId);
+    await discardAiDraft(draftId);
+    state = AsyncData(
+      view.withStoh([
+        for (final d in view.stohDocuments)
+          if (d.id != documentId) d,
+      ]),
+    );
   }
 
   /// Gestor ukládá návrh z dokladu. AI sem nesmí.

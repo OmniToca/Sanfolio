@@ -33,6 +33,8 @@ První vrstva v kódu je 1–5 (evidence + deska + inbox + výzvy). 6 je záloha
 
 Ráno **inbox** (`/inbox`): denní smyčka z `inbox_feed` (termíny, díry, záloha). Nad ní nejvýš tři bannery, které smyčka neumí: přepisy čekající na Guardar (`/prepis`), 210 a koupě po notáři (`/kampane`), přeplatky vs. tarify kanceláře (`/preplatek`). Pošta má **vlastní položku v railu** (`/posta`), ne druhý banner.
 
+Nový klient: jméno → `/stoh` (stoh skenů ze šanonu). AI navrhne blok, Guardar zařadí a zapne službu. Stejný sklad je kdykoli ze složky. AI neukládá.
+
 Přes den **složka klienta** = deska koupě (tužka → bloky → šanon). Modelo 210 se **počítá** na tenkém spisu; podání AEAT ne. Kniha faktur je **modul** `facturacion` (přijaté bez AEAT; vydané přes Verifacti `sif-emit` / `sif-status`). Nabídky kanceláře (`ofertas`) žijí v Nastavení a na bloku luz/gaz/seguro, ne v railu.
 
 Rail (pořadí v kódu): Inbox → Pošta (modul messaging) → Klienti → Faktury (modul facturacion) → Nastavení. **Žádná další ikona.** Nová agenda = slot (`inbox.feed`, `carpeta.blocks`, `settings.section`) nebo složka.
@@ -172,7 +174,7 @@ Každý dokument má:
 
 Chybějící dokument = `required_doc_types` a režim `all` (každý typ) nebo `any` (stačí jeden — voda/luz/gaz: faktura bez smlouvy).
 
-AI může navrhnout `tipo` a pole z OCR. Zařazení potvrdí gestor.
+AI může navrhnout `tipo` a blok (stoh) i pole z OCR. Zařazení potvrdí gestor.
 
 Dokument = **originál ve Storage** + **přepis v DB** (pole po Guardar, později text PDF). Chat kanceláře čte pole a `plazos`, ne binárku. Fáze: [roadmap_dokumenty_ai.md](roadmap_dokumenty_ai.md).
 

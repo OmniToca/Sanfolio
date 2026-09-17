@@ -46,7 +46,9 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `ai-assistant` | Edge Function | whitelist tools; žádný save/send |
 | `roadmap_dokumenty_ai` | `docs/roadmap_dokumenty_ai.md` | Fáze A–G + FTS v `body_text`; vektory později |
 | `ai-draft-message` | Edge Function | díry složky → `mensajes.draft`; odesílá gestor |
-| `client_portal` | není | v2, čte `mensajes.translations` |
+| `stoh` | `features/carpeta/stoh_*.dart`, `/stoh` | sken bez bloku; classify; Guardar zapne blok; AI neukládá |
+| `pickOfficeFiles` | `office_file_pick.dart` | multi-select šanonu, max 40 |
+| `client_portal` | není | #1 na `docs/vyvoj.md`; čte `mensajes.translations`; klient nenahrazuje Guardar |
 | `gestoria_auth` | `packages/gestoria_auth` | login, PortalUrls, hash `setSession` |
 | `AuthController` | `gestoria_auth` | session, profil, impersonace, změna hesla |
 | `OfficeAccountSection` | `office_account_section.dart` | odhlášení a změna hesla v Nastavení; AI sem nesahá |

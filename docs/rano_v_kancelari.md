@@ -6,7 +6,7 @@ Jedna strana pro staff. Není to help center. Texty v appce jsou z i18n (`cs` / 
 
 1. **Dnes** (`/inbox`) — termíny a díry. Pedir nachystá výzvu, Odeslat jste vy.
 2. **Pošta** (`/posta`) — příchozí mail. Přiřadit klienta, uložit přílohu na desku.
-3. **Klienti** — složka. Klik na blok otevře šanon.
+3. **Klienti** — složka. Nový klient jde na stoh papírů, pak deska. Klik na blok otevře šanon.
 4. **Faktury** — kniha Ventas / Compras, když má kancelář modul.
 5. **Nastavení** — lhůty, Pošta ingest, tarify nabídek.
 

@@ -12,11 +12,15 @@ import 'office_file_pick.dart';
 class OfficeFileHitLayer extends StatefulWidget {
   const OfficeFileHitLayer({
     super.key,
-    required this.onPicked,
+    this.onPicked,
+    this.onPickedMany,
+    this.multiple = false,
     required this.onError,
   });
 
-  final void Function(PickedOfficeFile file) onPicked;
+  final void Function(PickedOfficeFile file)? onPicked;
+  final void Function(List<PickedOfficeFile> files)? onPickedMany;
+  final bool multiple;
   final void Function(String i18nKey, String code) onError;
 
   @override
@@ -46,7 +50,7 @@ class _OfficeFileHitLayerState extends State<OfficeFileHitLayer> {
     input
       ..type = 'file'
       ..accept = '.pdf,.jpg,.jpeg,.png,.webp,.heic'
-      ..multiple = false;
+      ..multiple = widget.multiple;
     final s = input.style;
     s.setProperty('opacity', '0');
     s.setProperty('width', '100%');
@@ -64,9 +68,21 @@ class _OfficeFileHitLayerState extends State<OfficeFileHitLayer> {
       'change',
       (web.Event _) {
         final files = input.files;
-        final file =
-            files != null && files.length > 0 ? files.item(0) : null;
         input.value = '';
+        if (files == null || files.length == 0) return;
+        if (widget.multiple) {
+          final batch = <web.File>[];
+          final n = files.length;
+          final cap = n > officeFileBatchMax ? officeFileBatchMax : n;
+          for (var i = 0; i < cap; i++) {
+            final file = files.item(i);
+            if (file != null) batch.add(file);
+          }
+          if (batch.isEmpty) return;
+          unawaited(_zone.run(() => _readMany(batch)));
+          return;
+        }
+        final file = files.item(0);
         if (file == null) return;
         unawaited(_zone.run(() => _read(file)));
       }.toJS,
@@ -81,7 +97,33 @@ class _OfficeFileHitLayerState extends State<OfficeFileHitLayer> {
       // `await` JS Promise skončí mimo zónu — Riverpod musí běžet uvnitř.
       _zone.run(() {
         if (!mounted) return;
-        widget.onPicked(picked);
+        widget.onPicked?.call(picked);
+      });
+    } on OfficeFilePickException catch (e) {
+      _zone.run(() {
+        if (!mounted) return;
+        widget.onError(officePickErrorI18n(e.code), e.code.name);
+      });
+    } on Object catch (e) {
+      _zone.run(() {
+        if (!mounted) return;
+        widget.onError('folder.fileEmpty', _shortError(e));
+      });
+    }
+  }
+
+  Future<void> _readMany(List<web.File> files) async {
+    final out = <PickedOfficeFile>[];
+    try {
+      for (final file in files) {
+        final buffer = await file.arrayBuffer().toDart;
+        final bytes = Uint8List.fromList(buffer.toDart.asUint8List());
+        out.add(officeFileFromBytes(bytes, file.name));
+      }
+      _zone.run(() {
+        if (!mounted) return;
+        if (out.isEmpty) return;
+        widget.onPickedMany?.call(out);
       });
     } on OfficeFilePickException catch (e) {
       _zone.run(() {

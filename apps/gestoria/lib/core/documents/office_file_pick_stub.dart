@@ -18,3 +18,25 @@ Future<RawOfficeFile?> openOfficeFileDialog() async {
   }
   return RawOfficeFile(bytes: Uint8List.fromList(bytes), name: file.name);
 }
+
+Future<List<RawOfficeFile>?> openOfficeFilesDialog() async {
+  final picked = await FilePicker.platform.pickFiles(
+    withData: true,
+    type: FileType.any,
+    allowMultiple: true,
+  );
+  if (picked == null || picked.files.isEmpty) return null;
+  final out = <RawOfficeFile>[];
+  for (final file in picked.files) {
+    final bytes = file.bytes;
+    out.add(
+      RawOfficeFile(
+        bytes: bytes == null || bytes.isEmpty
+            ? Uint8List(0)
+            : Uint8List.fromList(bytes),
+        name: file.name,
+      ),
+    );
+  }
+  return out;
+}

@@ -258,6 +258,10 @@ Výpočet renta / IRPF a XML AEAT = mimo rozsah. 210 na desce počítá IRNR; re
 
 Nový typ se přidává jen migrací katalogu, ne volným stringem v UI (kromě `otro` + `titulo_libre`).
 
+## 5b. Stoh ze šanonu
+
+Po založení klienta (a kdykoli ze složky) jde `/clientes/:id/stoh`. Soubory padají na `documentos` **bez** `bloque_id` (`{tenant}/{cliente}/stoh/…`). Extract s `classify` navrhne `proposed_bloque_key` + `proposed_tipo`. Guardar přiřadí blok, zapne ho když byl `off`, zapíše `extracted`. AI neukládá. Jeden soubor = jeden papír (PDF se nedělí). `/prepis` bere jen extract, který už blok má.
+
 ## 6. Další služby (Gestorie Jarka je dělá)
 
 Moduly `policia`, `ayuntamiento`, `testament` jsou zapnuté. **Tenký spis** (jako NIE extras): stav úkonu + cita + papír. Ne dva tištěné listy — kancelář je zatím nemá.
