@@ -46,6 +46,18 @@ Si ya lo tiene resuelto, ignore este mensaje o envíenos el justificante.
 {{despacho}}''',
   ),
   MensajeTemplate(
+    key: 'oferta_suministro',
+    asunto: 'Propuesta de cambio — {{bloque}}',
+    cuerpo: '''Hola {{nombre}},
+
+Según sus facturas actuales de {{bloque}}, le proponemos valorar
+{{documento}}. Si está de acuerdo, respondemos y tramitamos el cambio
+con usted. No se cambia nada hasta su confirmación.
+
+Gracias,
+{{despacho}}''',
+  ),
+  MensajeTemplate(
     key: 'vencido',
     asunto: 'Plazo vencido — {{bloque}}',
     cuerpo: '''Hola {{nombre}},

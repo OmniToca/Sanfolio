@@ -34,7 +34,11 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `ClienteCardSection` | `cliente_card_widgets.dart` | obal sekcí karty; audit a locale mimo obří screen |
 | `trashVisibleOnCard` | karta klienta | koš schovaných s originálem z karty i ze složky; vysypané zmizí |
 | `pickOfficeFile` | `office_file_pick.dart` | web: `<input>` overlay na tlačítku (Safari); raw POST do Storage, ne multipart |
-| `paper_glance` | `features/ai/paper_glance.dart` | součet faktur a krátký řádek na šanonu |
+| `paper_glance` | `features/ai/paper_glance.dart` | součet faktur, efektivní €/kWh (m³), roční odhad, prémie pólizy |
+| `extract_queue` | `features/ai/extract_queue*.dart`, `/prepis` | slot `inbox.feed`; Guardar/Zahodit; AI neukládá |
+| `pending_extract_queue` | SQL RPC | extract_document bez `extracted`, dokud gestor |
+| `ofertas` | `features/ofertas`, FeatureGate | slot `carpeta.blocks` + `settings.section`; žádná ikona v railu |
+| `office_offers` | SQL | tarify kanceláře (luz/gaz/seguro) v cents; soft-delete |
 | `ai_get_cliente` | SQL RPC | snapshot karty + díry + doklady + titular finca (složka, salePrice, cuota); žádný save |
 | `query_suministro` / `query_plazos_office` / `query_escritura` | SQL RPC | office-wide čtení desky; escritura i notář / strana v `inmueble_titulares` / catastral |
 | `ai-assistant` | Edge Function | whitelist tools; žádný save/send |

@@ -187,9 +187,7 @@ class _MensajeComposeScreenState extends ConsumerState<MensajeComposeScreen> {
       vars: {
         'nombre': row.nombre.isEmpty ? 'cliente' : row.nombre,
         'bloque': bloqueKey.isEmpty ? '—' : 'blocks.$bloqueKey'.tr(),
-        'documento': widget.documento?.trim().isNotEmpty == true
-            ? 'docs.${widget.documento}'.tr()
-            : '—',
+        'documento': _documentoLabel(widget.documento),
         'fecha': widget.fecha ?? '—',
         'despacho': office.isEmpty ? '—' : office,
         'inmueble': '—',
@@ -366,5 +364,13 @@ class _ReplyToHint extends ConsumerWidget {
       ],
     );
   }
+}
+
+/// Typ dokladu jde z i18n. Název nabídky kanceláře zůstane jak je.
+String _documentoLabel(String? raw) {
+  final v = raw?.trim() ?? '';
+  if (v.isEmpty) return '—';
+  if (!v.contains(' ') && v.contains('_')) return 'docs.$v'.tr();
+  return v;
 }
 

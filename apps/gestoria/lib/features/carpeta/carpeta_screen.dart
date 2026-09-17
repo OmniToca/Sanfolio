@@ -17,8 +17,10 @@ import '../../core/theme/app_theme.dart';
 import '../ai/ai_providers.dart';
 import '../ai/documento_fields.dart';
 import '../ai/escritura_parties.dart';
+import '../ai/extract_queue_providers.dart';
 import '../ai/extract_text.dart';
 import '../ai/paper_glance.dart';
+import '../ofertas/office_offer_compare.dart';
 import '../expedientes/expediente_controller.dart';
 import '../expedientes/expediente_estado.dart';
 import '../inbox/inbox_providers.dart';
@@ -623,13 +625,27 @@ class BloqueScreen extends ConsumerWidget {
                     constraints: const BoxConstraints(
                       maxWidth: AppTheme.contentWide,
                     ),
-                    child: _BloqueCard(
-                      target: _target,
-                      template: bloque,
-                      state: state,
-                      movements: view.movements,
-                      clienteNombre: view.nombre,
-                      clienteNie: view.bloques['cliente_snapshot']?.values['fields.nie'],
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        OfficeOfferCompareCard(
+                          clienteId: clienteId,
+                          bloqueKey: bloqueKey,
+                          glance: stackGlanceOf([
+                            for (final d in state.documents)
+                              (tipo: d.tipo, fields: d.extracted),
+                          ]),
+                        ),
+                        _BloqueCard(
+                          target: _target,
+                          template: bloque,
+                          state: state,
+                          movements: view.movements,
+                          clienteNombre: view.nombre,
+                          clienteNie: view.bloques['cliente_snapshot']
+                              ?.values['fields.nie'],
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -817,6 +833,7 @@ class _BloqueCardState extends ConsumerState<_BloqueCard> {
                   ),
                 ),
                 _PaperStackOverview(
+                  bloqueKey: template.key,
                   papers: [
                     for (final d in papers)
                       (tipo: d.tipo, fields: d.extracted),
@@ -894,9 +911,11 @@ class _BloqueCardState extends ConsumerState<_BloqueCard> {
           ref.read(aiPrefillProvider.notifier).state = draft;
         }
         ref.invalidate(liveAiDraftsProvider(clienteId));
+        invalidateExtractQueue(ref);
       },
     );
     ref.invalidate(liveAiDraftsProvider(clienteId));
+    invalidateExtractQueue(ref);
   }
 
   Future<void> _openDoc(
@@ -1233,6 +1252,7 @@ class _AiPrefillBar extends ConsumerWidget {
                   await discardAiDraft(proposal.draftId);
                   ref.read(aiPrefillProvider.notifier).state = null;
                   ref.invalidate(liveAiDraftsProvider(clienteId));
+                  invalidateExtractQueue(ref);
                 },
                 child: Text('ai.apply'.tr()),
               ),
@@ -1241,6 +1261,7 @@ class _AiPrefillBar extends ConsumerWidget {
                   await discardAiDraft(proposal.draftId);
                   ref.read(aiPrefillProvider.notifier).state = null;
                   ref.invalidate(liveAiDraftsProvider(clienteId));
+                  invalidateExtractQueue(ref);
                 },
                 child: Text('ai.discard'.tr()),
               ),
@@ -1253,16 +1274,20 @@ class _AiPrefillBar extends ConsumerWidget {
 }
 
 class _PaperStackOverview extends StatelessWidget {
-  const _PaperStackOverview({required this.papers});
+  const _PaperStackOverview({required this.papers, this.bloqueKey = ''});
 
   final List<({String tipo, Map<String, String> fields})> papers;
+  final String bloqueKey;
 
   @override
   Widget build(BuildContext context) {
     final glance = stackGlanceOf(papers);
-    if (glance.invoiceCount == 0) return const SizedBox.shrink();
+    if (glance.invoiceCount == 0 && glance.policyPremiumCents == null) {
+      return const SizedBox.shrink();
+    }
     final last = glance.latest;
     final period = last == null ? '' : _officePeriod(context, last);
+    final measure = supplyMeasureKey(bloqueKey).tr();
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: DecoratedBox(
@@ -1275,15 +1300,16 @@ class _PaperStackOverview extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'folder.stackPaid'.tr(
-                  namedArgs: {
-                    'count': '${glance.invoiceCount}',
-                    'total': formatCents(glance.paidCents),
-                  },
+              if (glance.invoiceCount > 0)
+                Text(
+                  'folder.stackPaid'.tr(
+                    namedArgs: {
+                      'count': '${glance.invoiceCount}',
+                      'total': formatCents(glance.paidCents),
+                    },
+                  ),
+                  style: Theme.of(context).textTheme.titleLarge,
                 ),
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
               if (last != null && period.isNotEmpty) ...[
                 const SizedBox(height: 4),
                 Text(
@@ -1291,6 +1317,47 @@ class _PaperStackOverview extends StatelessWidget {
                     namedArgs: {
                       'period': period,
                       'amount': formatCents(last.amountCents ?? 0),
+                    },
+                  ),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppTheme.pencil,
+                      ),
+                ),
+              ],
+              if (glance.effectiveUnitCents != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  'folder.stackUnit'.tr(
+                    namedArgs: {
+                      'unit': formatCents(glance.effectiveUnitCents!),
+                      'measure': measure,
+                    },
+                  ),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppTheme.pencil,
+                      ),
+                ),
+              ],
+              if (glance.annualCentsEstimate != null &&
+                  glance.invoiceCount > 0) ...[
+                const SizedBox(height: 4),
+                Text(
+                  'folder.stackYear'.tr(
+                    namedArgs: {
+                      'amount': formatCents(glance.annualCentsEstimate!),
+                    },
+                  ),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppTheme.pencil,
+                      ),
+                ),
+              ],
+              if (glance.policyPremiumCents != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  'folder.stackPremium'.tr(
+                    namedArgs: {
+                      'amount': formatCents(glance.policyPremiumCents!),
                     },
                   ),
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -1503,6 +1570,7 @@ class _DocumentoFormState extends ConsumerState<_DocumentoForm> {
                                     widget.target.clienteId,
                                   ),
                                 );
+                                invalidateExtractQueue(ref);
                               },
                             );
                           },
@@ -1605,6 +1673,7 @@ class _DocumentoFormState extends ConsumerState<_DocumentoForm> {
                       ref.invalidate(
                         liveAiDraftsProvider(widget.target.clienteId),
                       );
+                      invalidateExtractQueue(ref);
                       final notice = applyExtractNotice(
                         mismatch: mismatch,
                         skippedDeedParties: skippedParties,

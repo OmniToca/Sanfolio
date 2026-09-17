@@ -14,6 +14,7 @@ import '../../features/clientes/cliente_card_screen.dart';
 import '../../features/clientes/clientes_screen.dart';
 import '../../features/expedientes/expediente_screen.dart';
 import '../../features/inbox/inbox_screen.dart';
+import '../../features/ai/extract_queue_screen.dart';
 import '../../features/mensajes/mensaje_compose_screen.dart';
 import '../../features/facturacion/facturacion_screen.dart';
 import '../../features/facturacion/factura_emit_screen.dart';
@@ -104,6 +105,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: '/inbox',
             pageBuilder: (context, state) => const NoTransitionPage(
               child: InboxScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/prepis',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: ExtractQueueScreen(),
             ),
           ),
           GoRoute(

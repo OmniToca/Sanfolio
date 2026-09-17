@@ -80,7 +80,7 @@ Read-only snapshot karty + bloky + díry + `titular_inmuebles` (finca, kde je kl
 ```
 
 Výsledek do UI: `{ "type": "prefill", "draft_id": "uuid", "fields": … }`.  
-**Žádný INSERT/UPDATE v DB.** Draft žije v `ai_drafts` (TTL 24 h, soft-delete). Gestor vidí diff a klikne Guardar.
+**Žádný INSERT/UPDATE v DB.** Draft žije v `ai_drafts` (extract u souboru bez TTL, dokud Guardar/Zahodit; jinak 24 h; soft-delete). Gestor vidí diff a klikne Guardar.
 
 `enable_blocks` jen navrhne zapnutí (`agua`, `luz`, …). Guardar zapíše `bloque` + audit `bloque.enabled` jako akci uživatele, ne AI.
 

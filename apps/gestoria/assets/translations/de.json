@@ -150,6 +150,48 @@
       "stale_expediente": "Stehende Akte"
     }
   },
+  "prepis": {
+    "badge": "{count} Abschriften warten",
+    "open": "Warteschlange öffnen",
+    "title": "Abschriften",
+    "subtitle": "Vorschlag aus dem Papier. Sie speichern — nichts schreibt sich selbst.",
+    "empty": "Keine Abschrift wartet. Neue PDFs aus der Post landen hier nach dem Lesen.",
+    "loadError": "Die Abschriften-Warteschlange konnte nicht geladen werden.",
+    "saveError": "Der Vorschlag konnte nicht auf den Schreibtisch gespeichert werden.",
+    "saved": "Die Abschrift liegt auf dem Schreibtisch.",
+    "discarded": "Vorschlag verworfen.",
+    "original": "Original",
+    "pending": "Dokument wird gelesen…",
+    "failed": "Die Abschrift ist fehlgeschlagen. Sie können den Vorschlag verwerfen.",
+    "unnamed": "Mandant"
+  },
+  "ofertas": {
+    "settingsTitle": "Büro-Angebote",
+    "settingsHint": "2–5 Tarife, die Sie wirklich umschreiben. Kein Marktvergleich.",
+    "add": "Angebot hinzufügen",
+    "save": "Speichern",
+    "remove": "Ausblenden",
+    "title": "Name",
+    "partner": "Partner",
+    "unit": "€ / kWh (oder m³)",
+    "annual": "Jahresschätzung €",
+    "notes": "Notiz",
+    "year": "Jahr",
+    "empty": "Noch kein Angebot. Tragen Sie die Tarife ein, die das Büro wirklich wechselt.",
+    "loadError": "Angebote konnten nicht geladen werden.",
+    "saveError": "Das Angebot konnte nicht gespeichert werden. Name und Preis ausfüllen.",
+    "compareTitle": "Büro-Angebote",
+    "compare": "Sie zahlen jetzt ~{current} €/Jahr · Angebot {name} ~{offer} €/Jahr",
+    "compareUnit": "Sie zahlen {current} €/{measure} · {name} {offer} €/{measure}",
+    "noPrice": "Aus den Rechnungen lässt sich noch nicht berechnen, was der Mandant zahlt.",
+    "noOffers": "Das Büro hat für diesen Block noch kein Angebot.",
+    "draft": "Aufforderung vorbereiten",
+    "kind": {
+      "luz": "Strom",
+      "gaz": "Gas",
+      "seguro": "Versicherung"
+    }
+  },
   "clients": {
     "title": "Mandanten",
     "onShelf": "{count} Mappen",
@@ -294,7 +336,8 @@
       "falta_documento": "Dokument fehlt",
       "faltan_datos": "Angaben fehlen",
       "recordatorio": "Frist-Erinnerung",
-      "vencido": "Überfällig"
+      "vencido": "Überfällig",
+      "oferta_suministro": "Angebot zum Wechsel"
     },
     "history": "Nachrichten in der Akte",
     "historyEmpty": "Noch kein Entwurf und kein Versand.",
@@ -463,6 +506,11 @@
     "money": "{amount} €",
     "stackPaid": "{count} Rechnungen · {total} €",
     "stackLast": "Zuletzt {period} · {amount} €",
+    "stackUnit": "Effektiv {unit} €/{measure}",
+    "stackYear": "Etwa {amount} €/Jahr",
+    "stackPremium": "Prämie ~{amount} €/Jahr",
+    "measureKwh": "kWh",
+    "measureM3": "m³",
     "paperDetails": "Angaben auf dem Papier",
     "paperDetailsHide": "Weniger",
     "docsMissing": "Fehlt: {types}",

@@ -150,6 +150,48 @@
       "stale_expediente": "Expediente parado"
     }
   },
+  "prepis": {
+    "badge": "{count} transcripciones pendientes",
+    "open": "Abrir cola",
+    "title": "Transcripciones",
+    "subtitle": "Propuesta del documento. La guarda usted — nada se escribe solo.",
+    "empty": "No hay transcripción pendiente. Los PDF del correo llegan aquí tras leerse.",
+    "loadError": "No se pudo cargar la cola de transcripciones.",
+    "saveError": "No se pudo guardar la propuesta en la carpeta.",
+    "saved": "La transcripción está en el escritorio.",
+    "discarded": "Propuesta descartada.",
+    "original": "Original",
+    "pending": "Leyendo el documento…",
+    "failed": "La transcripción falló. Puede descartar la propuesta.",
+    "unnamed": "Cliente"
+  },
+  "ofertas": {
+    "settingsTitle": "Ofertas del despacho",
+    "settingsHint": "2–5 tarifas con las que sí tramitan el cambio. No es un comparador de mercado.",
+    "add": "Añadir oferta",
+    "save": "Guardar",
+    "remove": "Ocultar",
+    "title": "Nombre",
+    "partner": "Partner",
+    "unit": "€ / kWh (o m³)",
+    "annual": "Estimación anual €",
+    "notes": "Nota",
+    "year": "año",
+    "empty": "Aún no hay oferta. Añada las tarifas que el despacho realmente cambia.",
+    "loadError": "No se pudieron cargar las ofertas.",
+    "saveError": "No se pudo guardar la oferta. Rellene nombre y precio.",
+    "compareTitle": "Ofertas del despacho",
+    "compare": "Ahora pagan ~{current} €/año · oferta {name} ~{offer} €/año",
+    "compareUnit": "Ahora {current} €/{measure} · {name} {offer} €/{measure}",
+    "noPrice": "En las facturas aún no hay con qué calcular lo que paga el cliente.",
+    "noOffers": "El despacho aún no tiene oferta para este bloque.",
+    "draft": "Preparar el aviso",
+    "kind": {
+      "luz": "Electricidad",
+      "gaz": "Gas",
+      "seguro": "Seguro"
+    }
+  },
   "clients": {
     "title": "Clientes",
     "onShelf": "{count} carpetas",
@@ -294,7 +336,8 @@
       "falta_documento": "Falta documento",
       "faltan_datos": "Faltan datos",
       "recordatorio": "Recordatorio",
-      "vencido": "Vencido"
+      "vencido": "Vencido",
+      "oferta_suministro": "Oferta de cambio"
     },
     "history": "Mensajes del expediente",
     "historyEmpty": "Aún no hay borrador ni envío.",
@@ -463,6 +506,11 @@
     "money": "{amount} €",
     "stackPaid": "{count} facturas · {total} €",
     "stackLast": "Última {period} · {amount} €",
+    "stackUnit": "Efectivo {unit} €/{measure}",
+    "stackYear": "Unos {amount} €/año",
+    "stackPremium": "Prima ~{amount} €/año",
+    "measureKwh": "kWh",
+    "measureM3": "m³",
     "paperDetails": "Datos del papel",
     "paperDetailsHide": "Menos",
     "docsMissing": "Falta: {types}",

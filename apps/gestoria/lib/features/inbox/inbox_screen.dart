@@ -10,6 +10,7 @@ import '../../core/presentation/widgets/app_widgets.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/time/office_date.dart';
 import '../mensajes/mensaje_templates.dart';
+import '../ai/extract_queue_banner.dart';
 import '../posta/posta_inbox_banner.dart';
 import '../settings/office_settings_controller.dart';
 import 'inbox_providers.dart';
@@ -74,6 +75,7 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
                         ],
                       ),
                       const SizedBox(height: 20),
+                      const ExtractQueueBanner(),
                       const PostaInboxBanner(),
                       if (shown.isEmpty)
                         Padding(

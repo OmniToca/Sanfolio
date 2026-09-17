@@ -150,6 +150,48 @@
       "stale_expediente": "Stale file"
     }
   },
+  "prepis": {
+    "badge": "{count} transcripts waiting",
+    "open": "Open queue",
+    "title": "Transcripts",
+    "subtitle": "A proposal from the paper. You save it — nothing writes itself.",
+    "empty": "No transcript is waiting. New PDFs from mail land here after reading.",
+    "loadError": "Could not load the transcript queue.",
+    "saveError": "Could not save the proposal to the folder.",
+    "saved": "The transcript is on the desk.",
+    "discarded": "Proposal discarded.",
+    "original": "Original",
+    "pending": "Reading the document…",
+    "failed": "The transcript failed. You can discard the proposal.",
+    "unnamed": "Client"
+  },
+  "ofertas": {
+    "settingsTitle": "Office offers",
+    "settingsHint": "2–5 tariffs you actually switch. This is not a market comparator.",
+    "add": "Add offer",
+    "save": "Save",
+    "remove": "Hide",
+    "title": "Name",
+    "partner": "Partner",
+    "unit": "€ / kWh (or m³)",
+    "annual": "Yearly estimate €",
+    "notes": "Note",
+    "year": "year",
+    "empty": "No offer yet. Add the tariffs the office actually switches.",
+    "loadError": "Could not load offers.",
+    "saveError": "Could not save the offer. Fill in a name and a price.",
+    "compareTitle": "Office offers",
+    "compare": "You pay ~{current} €/year now · offer {name} ~{offer} €/year",
+    "compareUnit": "You pay {current} €/{measure} · {name} {offer} €/{measure}",
+    "noPrice": "Invoices do not yet show what the client pays.",
+    "noOffers": "The office has no offer for this block yet.",
+    "draft": "Prepare the request",
+    "kind": {
+      "luz": "Electricity",
+      "gaz": "Gas",
+      "seguro": "Insurance"
+    }
+  },
   "clients": {
     "title": "Clients",
     "onShelf": "{count} folders",
@@ -294,7 +336,8 @@
       "falta_documento": "Missing document",
       "faltan_datos": "Missing data",
       "recordatorio": "Deadline reminder",
-      "vencido": "Overdue"
+      "vencido": "Overdue",
+      "oferta_suministro": "Supply switch offer"
     },
     "history": "Messages on file",
     "historyEmpty": "No draft or sent request yet.",
@@ -463,6 +506,11 @@
     "money": "{amount} €",
     "stackPaid": "{count} invoices · {total} €",
     "stackLast": "Latest {period} · {amount} €",
+    "stackUnit": "Effective {unit} €/{measure}",
+    "stackYear": "About {amount} €/year",
+    "stackPremium": "Premium ~{amount} €/year",
+    "measureKwh": "kWh",
+    "measureM3": "m³",
     "paperDetails": "Fields on the paper",
     "paperDetailsHide": "Less",
     "docsMissing": "Missing: {types}",

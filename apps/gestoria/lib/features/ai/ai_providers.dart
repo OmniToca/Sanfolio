@@ -41,7 +41,7 @@ class AiPrefillDraft {
 /// Paměť aktuálního návrhu. Zdroj pravdy TTL je `ai_drafts`.
 final aiPrefillProvider = StateProvider<AiPrefillDraft?>((ref) => null);
 
-/// Živé návrhy z DB (24 h). AI sem zapisuje, desku ne.
+/// Živé návrhy z DB. Extract u souboru nemá TTL, dokud Guardar / Zahodit.
 final FutureProviderFamily<List<AiPrefillDraft>, String> liveAiDraftsProvider =
     FutureProvider.family<List<AiPrefillDraft>, String>((ref, clienteId) async {
       ref.watch(authControllerProvider);
@@ -51,13 +51,14 @@ final FutureProviderFamily<List<AiPrefillDraft>, String> liveAiDraftsProvider =
           .valueOrNull
           ?.currentTenantId;
       if (client == null || tenantId == null) return const [];
+      final now = DateTime.now().toUtc().toIso8601String();
       final rows = await client
           .from('ai_drafts')
           .select('id, bloque_key, fields, storage_path, expires_at')
           .eq('tenant_id', tenantId)
           .eq('cliente_id', clienteId)
           .isFilter('deleted_at', null)
-          .gt('expires_at', DateTime.now().toUtc().toIso8601String())
+          .or('expires_at.is.null,expires_at.gt."$now"')
           .order('created_at', ascending: false);
       final out = <AiPrefillDraft>[];
       if (rows is! List) return out;

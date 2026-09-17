@@ -11,6 +11,7 @@ enum GestoriaModule {
   ayuntamiento,
   testament,
   clientPortal,
+  ofertas,
 }
 
 extension GestoriaModuleKey on GestoriaModule {
@@ -26,6 +27,7 @@ extension GestoriaModuleKey on GestoriaModule {
         GestoriaModule.ayuntamiento => 'ayuntamiento',
         GestoriaModule.testament => 'testament',
         GestoriaModule.clientPortal => 'client_portal',
+        GestoriaModule.ofertas => 'ofertas',
       };
 
   static GestoriaModule? fromKey(String key) {

@@ -109,7 +109,9 @@ Stejný tvar, jiný katalog dokumentu a volitelné pole sítě.
 | `gaz` | `contrato_gaz` / `factura_gaz` | **stačí jeden** |
 | `comunidad` | `certificado_comunidad` (správce, účet, papír) | všechny |
 
-Přepis dokladu a tužka na desce se neslévají. Faktura má v `documentos.extracted` číslo, datum vystavení, období od–do, spotřebu, částku. Na blok jdou jen identita (compañía, contrato, CUPS / číslo klienta, titular). `fields.period` je rok IBI, ne období faktury. Stoh `/clientes/:id/carpeta/:bloque` ukáže součet kladných faktur, poslední období a krátký řádek (období · spotřeba · eura) — ne OCR dump. Dobropis (zápor) do součtu ne.
+Přepis dokladu a tužka na desce se neslévají. Faktura má v `documentos.extracted` číslo, datum vystavení, období od–do, spotřebu, částku. Na blok jdou jen identita (compañía, contrato, CUPS / číslo klienta, titular). `fields.period` je rok IBI, ne období faktury. Stoh `/clientes/:id/carpeta/:bloque` ukáže součet kladných faktur, poslední období, **efektivní €/kWh (m³)** a hrubý roční odhad z poslední faktury s obdobím — ne OCR dump. Dobropis (zápor) do součtu ne. Vodu a komunitu kancelář nesrovnává s nabídkami (často jedna síť).
+
+Modul `ofertas` na bloku `luz` / `gaz` ukáže „u vás teď ~X €/rok · nabídka Y ~Z €/rok“ z `office_offers`. Tlačítko Nachystat výzvu otevře compose; AI nic neodešle ani nepřepne smlouvu.
 
 Plazo: v MVP žádné, pokud kancelář nedoplní datum obnovy. Stav po kompletnosti = `done`.
 
@@ -150,6 +152,7 @@ Plazo: `plusvalia_plazo` = `escritura_fecha` + `tenant_settings.plusvalia_days` 
 | `fecha_vencimiento` | ano |
 
 Dokument: `poliza_seguro`.  
+Na dokladu po Guardar i `fields.amount` (prémie) a volitelně období krytí. Na desku jdou dál jen compañía / póliza / vencimiento. Modul `ofertas` srovná prémii s `office_offers.kind=seguro`.  
 Plazo: `seguro_renovacion` = `fecha_vencimiento`. Offset z `tenant_settings.seguro_warn_days`.
 
 ### 3.7 `provision_factura` — PROVISION DE FONDOS Y FACTURA

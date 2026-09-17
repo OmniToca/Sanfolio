@@ -150,6 +150,48 @@
       "stale_expediente": "Dossier figé"
     }
   },
+  "prepis": {
+    "badge": "{count} retranscriptions en attente",
+    "open": "Ouvrir la file",
+    "title": "Retranscriptions",
+    "subtitle": "Proposition du document. Vous enregistrez — rien ne s’écrit tout seul.",
+    "empty": "Aucune retranscription n’attend. Les PDF du courrier arrivent ici après lecture.",
+    "loadError": "Impossible de charger la file des retranscriptions.",
+    "saveError": "Impossible d’enregistrer la proposition sur le bureau.",
+    "saved": "La retranscription est sur le bureau.",
+    "discarded": "Proposition écartée.",
+    "original": "Original",
+    "pending": "Lecture du document…",
+    "failed": "La retranscription a échoué. Vous pouvez écarter la proposition.",
+    "unnamed": "Client"
+  },
+  "ofertas": {
+    "settingsTitle": "Offres du cabinet",
+    "settingsHint": "2–5 tarifs que vous changez vraiment. Ce n’est pas un comparateur.",
+    "add": "Ajouter une offre",
+    "save": "Enregistrer",
+    "remove": "Masquer",
+    "title": "Nom",
+    "partner": "Partenaire",
+    "unit": "€ / kWh (ou m³)",
+    "annual": "Estimation annuelle €",
+    "notes": "Note",
+    "year": "an",
+    "empty": "Pas encore d’offre. Ajoutez les tarifs que le cabinet change vraiment.",
+    "loadError": "Impossible de charger les offres.",
+    "saveError": "Impossible d’enregistrer l’offre. Indiquez un nom et un prix.",
+    "compareTitle": "Offres du cabinet",
+    "compare": "Vous payez ~{current} €/an · offre {name} ~{offer} €/an",
+    "compareUnit": "Vous payez {current} €/{measure} · {name} {offer} €/{measure}",
+    "noPrice": "Les factures ne permettent pas encore de calculer ce que paie le client.",
+    "noOffers": "Le cabinet n’a pas encore d’offre pour ce bloc.",
+    "draft": "Préparer la demande",
+    "kind": {
+      "luz": "Électricité",
+      "gaz": "Gaz",
+      "seguro": "Assurance"
+    }
+  },
   "clients": {
     "title": "Clients",
     "onShelf": "{count} dossiers",
@@ -294,7 +336,8 @@
       "falta_documento": "Document manquant",
       "faltan_datos": "Données manquantes",
       "recordatorio": "Rappel d’échéance",
-      "vencido": "En retard"
+      "vencido": "En retard",
+      "oferta_suministro": "Offre de changement"
     },
     "history": "Messages du dossier",
     "historyEmpty": "Pas encore de brouillon ni d’envoi.",
@@ -463,6 +506,11 @@
     "money": "{amount} €",
     "stackPaid": "{count} factures · {total} €",
     "stackLast": "Dernière {period} · {amount} €",
+    "stackUnit": "Effectif {unit} €/{measure}",
+    "stackYear": "Environ {amount} €/an",
+    "stackPremium": "Prime ~{amount} €/an",
+    "measureKwh": "kWh",
+    "measureM3": "m³",
     "paperDetails": "Données du papier",
     "paperDetailsHide": "Moins",
     "docsMissing": "Manque : {types}",

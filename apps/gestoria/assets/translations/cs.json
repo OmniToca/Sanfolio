@@ -150,6 +150,48 @@
       "stale_expediente": "Zastaralý spis"
     }
   },
+  "prepis": {
+    "badge": "{count} přepisů čeká",
+    "open": "Otevřít frontu",
+    "title": "Přepisy",
+    "subtitle": "Návrh z dokladu. Uložíte vy — nic se samo nezapíše.",
+    "empty": "Žádný přepis nečeká. Nové PDF z pošty sem spadnou po načtení.",
+    "loadError": "Frontu přepisů se nepodařilo načíst.",
+    "saveError": "Návrh se nepodařilo uložit na desku.",
+    "saved": "Přepis je na desce.",
+    "discarded": "Návrh zahozen.",
+    "original": "Originál",
+    "pending": "Načítám údaje…",
+    "failed": "Přepis se nepodařil. Můžete návrh zahodit.",
+    "unnamed": "Klient"
+  },
+  "ofertas": {
+    "settingsTitle": "Nabídky kanceláře",
+    "settingsHint": "2–5 tarifů, se kterými umíte přepsat. Není to srovnávač trhu.",
+    "add": "Přidat nabídku",
+    "save": "Uložit",
+    "remove": "Schovat",
+    "title": "Název",
+    "partner": "Partner",
+    "unit": "€ / kWh (nebo m³)",
+    "annual": "Roční odhad €",
+    "notes": "Poznámka",
+    "year": "rok",
+    "empty": "Zatím žádná nabídka. Doplňte tarify, které kancelář skutečně přepisuje.",
+    "loadError": "Nabídky se nepodařilo načíst.",
+    "saveError": "Nabídku se nepodařilo uložit. Vyplňte název a cenu.",
+    "compareTitle": "Nabídky kanceláře",
+    "compare": "U vás teď ~{current} €/rok · nabídka {name} ~{offer} €/rok",
+    "compareUnit": "U vás {current} €/{measure} · {name} {offer} €/{measure}",
+    "noPrice": "Na fakturách zatím není z čeho spočítat, kolik klient platí.",
+    "noOffers": "Kancelář zatím nemá nabídku pro tento blok.",
+    "draft": "Nachystat výzvu",
+    "kind": {
+      "luz": "Elektřina",
+      "gaz": "Plyn",
+      "seguro": "Pojištění"
+    }
+  },
   "clients": {
     "title": "Klienti",
     "onShelf": "{count} složek",
@@ -294,7 +336,8 @@
       "falta_documento": "Chybí dokument",
       "faltan_datos": "Chybí údaje",
       "recordatorio": "Připomínka termínu",
-      "vencido": "Po termínu"
+      "vencido": "Po termínu",
+      "oferta_suministro": "Nabídka přepisu"
     },
     "history": "Zprávy ve spisu",
     "historyEmpty": "Zatím žádný draft ani odeslaná výzva.",
@@ -463,6 +506,11 @@
     "money": "{amount} €",
     "stackPaid": "{count} faktur · {total} €",
     "stackLast": "Poslední {period} · {amount} €",
+    "stackUnit": "Efektivní {unit} €/{measure}",
+    "stackYear": "Odhad ~{amount} €/rok",
+    "stackPremium": "Prémie ~{amount} €/rok",
+    "measureKwh": "kWh",
+    "measureM3": "m³",
     "paperDetails": "Údaje na dokladu",
     "paperDetailsHide": "Méně",
     "docsMissing": "Chybí: {types}",

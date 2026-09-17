@@ -19,6 +19,7 @@ import '../../core/time/office_date.dart';
 import '../ai/ai_providers.dart';
 import '../ai/documento_fields.dart';
 import '../ai/escritura_parties.dart';
+import '../ai/extract_queue_providers.dart';
 import '../ai/extract_text.dart';
 import 'cliente_audit.dart';
 import 'cliente_card_controller.dart';
@@ -1135,6 +1136,7 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
                               ref.invalidate(
                                 liveAiDraftsProvider(widget.clienteId),
                               );
+                              invalidateExtractQueue(ref);
                               final notice = applyExtractNotice(
                                 mismatch: mismatch,
                                 skippedDeedParties: false,
@@ -1217,6 +1219,7 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
             originalName: file.name,
           );
       ref.invalidate(liveAiDraftsProvider(widget.clienteId));
+      invalidateExtractQueue(ref);
     } on Object catch (e) {
       if (mounted) showOfficeUploadFailure(context, e);
     } finally {

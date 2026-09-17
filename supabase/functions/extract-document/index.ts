@@ -84,11 +84,26 @@ Deno.serve(async (req) => {
       bloque_key: bloqueKey,
       fields: { extract_status: "pending" },
       storage_path: storagePath,
+      expires_at: null,
     })
     .select("id")
     .single();
   if (insErr || !draft) {
     return json(500, { ok: false, error: insErr?.message ?? "draft insert failed" });
+  }
+
+  const { data: docRow } = await userClient
+    .from("documentos")
+    .select("id")
+    .eq("tenant_id", tenantId)
+    .eq("storage_path", storagePath)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (docRow && typeof docRow.id === "string") {
+    await userClient
+      .from("ai_drafts")
+      .update({ documento_id: docRow.id })
+      .eq("id", draft.id);
   }
 
   const work = finishExtract({
@@ -300,6 +315,7 @@ function extractSystemPrompt(docTipo: string, includeBody: boolean): string {
     "Base imponible → base, IVA cuota → iva, IVA % → ivaRate (21), vencimiento → due, " +
     "concepto → concept. " +
     "Consumo kWh or m³ → consumption. Compañía / comercializadora → company. Titular → holder. " +
+    "póliza de seguro / prima: importe or prima anual → amount. Periodo de cobertura → periodFrom and periodTo. " +
     "Dates YYYY-MM-DD. Omit unknown. Do not invent. " +
     "Escritura de compraventa: list ALL sellers in sellers and ALL real buyers in buyers as 'NAME (NIE); NAME (NIE)'. " +
     "A representative (en nombre y representación) is attorney, not a buyer. Interpreter is not a party. " +

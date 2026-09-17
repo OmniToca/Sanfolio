@@ -102,6 +102,9 @@ List<String> fieldsForDocTipo(String tipo) {
         'fields.company',
         'fields.policy',
         'fields.expiry',
+        'fields.periodFrom',
+        'fields.periodTo',
+        'fields.amount',
       ];
     case 'copia_poder':
       return const [

@@ -196,6 +196,42 @@ void main() {
     expect(glance.bars, [17987, 18885]);
   });
 
+  test('efektivní cena z kWh a roční odhad z období faktury', () {
+    final glance = stackGlanceOf([
+      (
+        tipo: 'factura_luz',
+        fields: {
+          'fields.amount': '188.85',
+          'fields.consumption': '1120 kWh',
+          'fields.periodFrom': '2026-06-26',
+          'fields.periodTo': '2026-07-23',
+        },
+      ),
+    ]);
+    expect(glance.effectiveUnitCents, 17);
+    expect(glance.annualCentsEstimate, isNotNull);
+    expect(glance.yearlyConsumption, greaterThan(1000));
+  });
+
+  test('póliza nese prémii, smlouva bez částky ne', () {
+    expect(
+      fieldsForDocTipo('poliza_seguro'),
+      contains('fields.amount'),
+    );
+    final glance = stackGlanceOf([
+      (
+        tipo: 'poliza_seguro',
+        fields: {
+          'fields.amount': '420.00',
+          'fields.company': 'Mapfre',
+        },
+      ),
+    ]);
+    expect(glance.invoiceCount, 0);
+    expect(glance.policyPremiumCents, 42000);
+    expect(parseConsumptionQty('12,5 m³'), 12.5);
+  });
+
   test('stoh faktur řadí od nejnovějšího období', () {
     expect(isInvoiceDocTipo('factura_agua'), isTrue);
     expect(isInvoiceDocTipo('factura_recibida'), isTrue);
