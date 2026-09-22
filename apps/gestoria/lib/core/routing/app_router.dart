@@ -45,17 +45,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final forbidden = path == '/forbidden';
       final payment = path == '/payment-required';
 
-      // Odkaz z mailu občas přistane mimo `/reset-password` (i na `/sb`).
-      if (looksLikePasswordRecovery(state.uri) || path == '/sb') {
+      if (accepting) return null;
+      if (auth.isLoading) return null;
+
+      final snap = auth.valueOrNull ?? AuthSnapshot.signedOut;
+      // Token v URL: heslo jen dokud ještě není uložené. Zbylý `?code=`
+      // po úspěchu nesmí držet formulář (druhý klik = falešná chyba).
+      if ((looksLikePasswordRecovery(state.uri) || path == '/sb') &&
+          (snap.passwordRecovery || !snap.signedIn)) {
         if (resetting) return null;
         final q = state.uri.hasQuery ? '?${state.uri.query}' : '';
         return '/reset-password$q';
       }
 
-      if (accepting) return null;
-      if (auth.isLoading) return null;
-
-      final snap = auth.valueOrNull ?? AuthSnapshot.signedOut;
       // Odkaz z e-mailu = session, ale inbox až po novém heslu.
       if (snap.passwordRecovery) {
         return resetting ? null : '/reset-password';
@@ -66,7 +68,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       if (!snap.signedIn) {
         return (loggingIn || resetting) ? null : '/login';
       }
-      if (snap.isSupport && !snap.impersonating) {
+      if (snap.isSupport &&
+          !snap.impersonating &&
+          snap.memberships.isEmpty) {
         return forbidden ? null : '/forbidden';
       }
       if (snap.licenceBlocked && !snap.isSupport) {

@@ -1,5 +1,9 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import {
+  findAuthUserId,
+  inviteOrCreateAuthUser,
+} from "../_shared/invite_user.ts";
 
 /**
  * Owner zve 2. a 3. člověka (gestor / asistente). Service role kvůli invite.
@@ -76,24 +80,18 @@ Deno.serve(async (req) => {
     return json(409, { ok: false, error: "team_full" });
   }
 
-  const gestoriaBase = (Deno.env.get("GESTORIA_BASE_URL") ??
-    "http://localhost:5555").replace(/\/$/, "");
-  const invited = await admin.auth.admin.inviteUserByEmail(email, {
-    redirectTo: `${gestoriaBase}/login`,
-  });
-
-  let userId = invited.data.user?.id;
-  if (invited.error || !userId) {
-    const { data: existing } = await admin
-      .from("profiles")
-      .select("id")
-      .eq("email", email)
-      .maybeSingle();
-    userId = existing?.id as string | undefined;
+  // Účet už v Auth existuje (Support, jiná kancelář) → jen membership, ne invite.
+  let userId = await findAuthUserId(admin, email);
+  const existing = Boolean(userId);
+  let emailSent = false;
+  if (!userId) {
+    const invited = await inviteOrCreateAuthUser(admin, email);
+    userId = invited.userId;
+    emailSent = invited.emailSent;
     if (!userId) {
       return json(500, {
         ok: false,
-        error: invited.error?.message ?? "invite failed",
+        error: invited.error ?? "invite failed",
       });
     }
   }
@@ -143,7 +141,13 @@ Deno.serve(async (req) => {
     after: { email, role },
   });
 
-  return json(200, { ok: true, profile_id: userId, role });
+  return json(200, {
+    ok: true,
+    profile_id: userId,
+    role,
+    existing,
+    email_sent: existing ? false : emailSent,
+  });
 });
 
 function json(status: number, body: Record<string, unknown>) {

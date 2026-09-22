@@ -26,7 +26,9 @@ auth.users.id
 Role tenant: `owner` | `gestor` | `asistente`.  
 Jeden e-mail smí být ve více kancelářích (Leo cross-tenant). Switcher organizace když `count(memberships) > 1`.
 
-Reset hesla: login má „Zapomenuté heslo“ → `resetPasswordForEmail` (`redirectTo` = `{GESTORIA_BASE_URL}/reset-password`). Routa je veřejná; inbox až po `updateUser(password)`. AI heslo nemění. PKCE `code` musí zůstat v query, proto web používá path URL (ne `#/login`).
+Support bez impersonace **a bez membership** v kancelářské appce → `/forbidden`. Když má živé členství, jde do kanceláře jako staff (RLS), Support HQ zůstává zvlášť.
+
+Reset hesla: login má „Zapomenuté heslo“ → `resetPasswordForEmail` (`redirectTo` = `{GESTORIA_BASE_URL}/reset-password`). Invite ownera / kolegy (`create-office`, `invite-staff`) míří na stejnou routu (`type=invite`). Routa je veřejná; inbox až po `updateUser(password)`. Zbylý `?code=` po úspěchu nesmí držet formulář. AI heslo nemění. PKCE `code` musí zůstat v query, proto web používá path URL (ne `#/login`). Když Auth e-mail / redirect selže, Edge účet stejně založí (`generateLink` / `createUser`); kolega heslo přes Zapomenuté heslo. `GESTORIA_BASE_URL` na hosted nikdy nesmí spadnout na localhost.
 
 Helper RLS (SECURITY DEFINER, `stable`):
 

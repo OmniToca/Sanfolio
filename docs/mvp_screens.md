@@ -11,7 +11,7 @@ Všechny texty UI z i18n (`cs` default). Layout: rail vlevo (desktop) + top bar.
 | Route | Obrazovka |
 | --- | --- |
 | `/login` | e-mail / heslo, zapomenuté heslo |
-| `/reset-password` | nové heslo z odkazu v e-mailu |
+| `/reset-password` | nové heslo z odkazu v e-mailu (reset i první invite) |
 | `/inbox` | denní smyčka |
 | `/prepis` | fronta přepisů (Guardar) |
 | `/kampane` | 210 bez podání + koupě po notáři + IBI/SUMA + expirace DNI/pas/poder/seguro |

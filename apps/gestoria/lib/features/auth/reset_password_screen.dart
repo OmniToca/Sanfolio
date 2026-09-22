@@ -44,6 +44,8 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
     });
     try {
       await ref.read(authControllerProvider.notifier).updatePassword(pass);
+      if (!mounted) return;
+      context.go('/inbox');
     } on Object {
       if (mounted) setState(() => _error = 'auth.updatePasswordError');
     } finally {

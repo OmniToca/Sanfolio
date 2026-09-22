@@ -15,6 +15,14 @@ additional_redirect_urls = [
   "http://localhost:5555/reset-password/**",
   "http://localhost:5555/#/reset-password",
   "http://localhost:5556/**",
+  "https://sanfolio.app",
+  "https://sanfolio.app/**",
+  "https://sanfolio.app/reset-password",
+  "https://sanfolio.app/reset-password/**",
+  "https://www.sanfolio.app",
+  "https://www.sanfolio.app/**",
+  "https://www.sanfolio.app/reset-password",
+  "https://www.sanfolio.app/reset-password/**",
 ]
 
 [functions.create-office]

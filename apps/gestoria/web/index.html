@@ -38,8 +38,9 @@
 </head>
 <body>
   <!--
-    Recovery token musí zůstat v query/hash. Flutter hash router ho jinak
-    spolkne a GoTrue skončí na cizí cestě (u nás `/sb` = 404).
+    Recovery / invite token musí zůstat v query/hash. Flutter hash router ho jinak
+    spolkne a GoTrue skončí na cizí cestě (u nás `/sb` = 404). Invite bez hesla
+    sem patří taky — jinak session otevře inbox.
   -->
   <script>
     (function () {
@@ -47,10 +48,15 @@
       var search = location.search;
       var hash = location.hash || '';
       var blob = search + hash;
-      var recovery = /type=recovery/.test(blob) ||
+      var setPass = /type=recovery/.test(blob) ||
+        /type=invite/.test(blob) ||
+        /type=signup/.test(blob) ||
         /access_token=/.test(blob) ||
         (/[?&]code=/.test(search) && !/[?&]session_id=/.test(search));
-      if (recovery && path !== '/reset-password') {
+      if (setPass) {
+        try { sessionStorage.setItem('sanfolio_set_password', '1'); } catch (e) {}
+      }
+      if (setPass && path !== '/reset-password') {
         location.replace('/reset-password' + search + hash);
         return;
       }

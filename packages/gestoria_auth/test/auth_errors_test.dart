@@ -40,6 +40,30 @@ void main() {
       ),
       isTrue,
     );
+    expect(
+      looksLikePasswordRecovery(
+        Uri.parse(
+          'http://localhost:5555/#access_token=abc&type=invite&refresh_token=x',
+        ),
+      ),
+      isTrue,
+    );
+    expect(
+      looksLikePasswordRecovery(
+        Uri.parse('http://localhost:5555/login?type=invite'),
+      ),
+      isTrue,
+    );
+  });
+
+  test('druhý klik po uloženém hesle není chyba uložení', () {
+    expect(
+      authPasswordAlreadyApplied(
+        'New password should be different from the old password.',
+      ),
+      isTrue,
+    );
+    expect(authPasswordAlreadyApplied('Invalid login credentials'), isFalse);
   });
 
   test('password reset redirect is /reset-password, not behind hash', () {

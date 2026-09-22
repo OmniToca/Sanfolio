@@ -15,14 +15,38 @@ String authErrorI18nKey(String message) {
   return 'auth.signInError';
 }
 
-/// Recovery token z e-mailu. `/reset-password` samotné session nenese.
+/// GoTrue už heslo zapsalo; druhý klik tváří „nejde uložit“.
+bool authPasswordAlreadyApplied(String message) {
+  final m = message.toLowerCase();
+  return m.contains('should be different') ||
+      m.contains('same as the old') ||
+      m.contains('same password') ||
+      m.contains('different from the old');
+}
+
+/// Odkaz z e-mailu, který musí nejdřív nastavit heslo. Samotné `/reset-password`
+/// session nenese. Invite má `type=invite`, ne `recovery` — jinak inbox bez hesla.
 bool looksLikePasswordRecovery(Uri uri) {
-  if (uri.queryParameters['type'] == 'recovery') return true;
-  // PKCE: GoTrue často pošle jen `?code=`, bez `type=recovery`.
+  final type = (uri.queryParameters['type'] ?? _fragmentParam(uri, 'type'))
+      ?.trim()
+      .toLowerCase();
+  if (type == 'recovery' || type == 'invite' || type == 'signup') {
+    return true;
+  }
+  // PKCE: GoTrue často pošle jen `?code=`, bez `type=`.
   if (uri.queryParameters['code']?.isNotEmpty == true) return true;
-  final frag = uri.fragment;
-  if (frag.contains('type=recovery')) return true;
-  if (frag.contains('code=')) return true;
-  final q = uri.query.toLowerCase();
-  return q.contains('type=recovery');
+  return _fragmentParam(uri, 'code') != null;
+}
+
+String? _fragmentParam(Uri uri, String key) {
+  var frag = uri.fragment;
+  if (frag.isEmpty) return null;
+  if (frag.startsWith('/')) {
+    final i = frag.indexOf('?');
+    if (i < 0) return null;
+    frag = frag.substring(i + 1);
+  }
+  if (!frag.contains('=')) return null;
+  final v = Uri.splitQueryString(frag)[key]?.trim();
+  return (v == null || v.isEmpty) ? null : v;
 }

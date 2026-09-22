@@ -7,11 +7,14 @@ import 'auth_models.dart';
 import 'open_external_url.dart';
 import 'password_change.dart';
 import 'portal_urls.dart';
+import 'set_password_flag.dart';
 import 'supabase_bootstrap.dart';
 
 /// Stav přihlášení. Proč skip prvního auth eventu: jinak `invalidateSelf` smyčka.
 class AuthController extends AsyncNotifier<AuthSnapshot> {
   var _passwordRecovery = false;
+  /// Invite/reset už heslo zapsal. URL s `code` ho nesmí znovu otevřít.
+  var _passwordAccepted = false;
 
   @override
   Future<AuthSnapshot> build() async {
@@ -21,6 +24,12 @@ class AuthController extends AsyncNotifier<AuthSnapshot> {
     final client = trySupabaseClient();
     if (client == null) {
       return AuthSnapshot.unconfigured;
+    }
+    if (_passwordAccepted) {
+      _passwordRecovery = false;
+    } else if (looksLikePasswordRecovery(Uri.base) ||
+        pendingSetPasswordFlag()) {
+      _passwordRecovery = true;
     }
     var primed = false;
     final sub = client.auth.onAuthStateChange.listen((data) {
@@ -78,8 +87,15 @@ class AuthController extends AsyncNotifier<AuthSnapshot> {
     if (client == null) {
       throw StateError('not configured');
     }
-    await client.auth.updateUser(UserAttributes(password: password));
+    try {
+      await client.auth.updateUser(UserAttributes(password: password));
+    } on AuthException catch (e) {
+      if (!authPasswordAlreadyApplied(e.message)) rethrow;
+    }
+    _passwordAccepted = true;
     _passwordRecovery = false;
+    clearSetPasswordFlag();
+    dropAuthLinkFromAddressBar();
     ref.invalidateSelf();
   }
 
@@ -112,6 +128,8 @@ class AuthController extends AsyncNotifier<AuthSnapshot> {
     final client = trySupabaseClient();
     await client?.auth.signOut();
     _passwordRecovery = false;
+    _passwordAccepted = false;
+    clearSetPasswordFlag();
     state = const AsyncData(AuthSnapshot.signedOut);
   }
 
@@ -281,8 +299,7 @@ class AuthController extends AsyncNotifier<AuthSnapshot> {
         memberships: memberships,
         impersonation: impersonation,
         licenceBlocked: licenceBlocked,
-        passwordRecovery:
-            _passwordRecovery || looksLikePasswordRecovery(Uri.base),
+        passwordRecovery: !_passwordAccepted && _passwordRecovery,
       );
     } on Object catch (e, st) {
       debugPrint('auth hydrate failed: $e\n$st');

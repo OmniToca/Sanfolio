@@ -58,7 +58,10 @@ class OfficeTeamController extends AsyncNotifier<List<OfficeMember>> {
     return out;
   }
 
-  Future<void> invite({required String email, required String role}) async {
+  Future<OfficeInviteKind> invite({
+    required String email,
+    required String role,
+  }) async {
     final auth = ref.read(authControllerProvider).valueOrNull;
     final tenantId = auth?.currentTenantId;
     final client = trySupabaseClient();
@@ -68,20 +71,27 @@ class OfficeTeamController extends AsyncNotifier<List<OfficeMember>> {
     if (!canInviteStaff(auth)) {
       throw StateError('owner only');
     }
-    final response = await client.functions.invoke(
-      'invite-staff',
-      body: {
-        'tenant_id': tenantId,
-        'email': email.trim().toLowerCase(),
-        'role': role,
-      },
-    );
+    late final dynamic response;
+    try {
+      response = await client.functions.invoke(
+        'invite-staff',
+        body: {
+          'tenant_id': tenantId,
+          'email': email.trim().toLowerCase(),
+          'role': role,
+        },
+      );
+    } on Object catch (e) {
+      throw StateError(inviteStaffErrorCode(e));
+    }
     final data = response.data;
     if (data is! Map || data['ok'] != true) {
-      final err = data is Map ? '${data['error']}' : '${response.status}';
-      throw StateError(err);
+      throw StateError(inviteStaffErrorCode(data, fallback: response.status));
     }
     ref.invalidateSelf();
+    if (data['existing'] == true) return OfficeInviteKind.existing;
+    if (data['email_sent'] == false) return OfficeInviteKind.noEmail;
+    return OfficeInviteKind.sent;
   }
 
   Future<void> removeMember(String memberId) async {
@@ -109,3 +119,36 @@ final officeTeamProvider =
 );
 
 const officeTeamLimit = 3;
+
+/// Výsledek Pozvat. UI mapuje na i18n, ne plaintext z API.
+enum OfficeInviteKind { sent, existing, noEmail }
+
+/// Kód z Edge / FunctionException. UI mapuje na i18n, ne plaintext z API.
+String inviteStaffErrorCode(Object error, {Object? fallback}) {
+  final parts = <String>['$error'];
+  if (fallback != null) parts.add('$fallback');
+  try {
+    final details = (error as dynamic).details;
+    parts.add('$details');
+    if (details is Map) {
+      parts.add('${details['error']}');
+      parts.add('${details['message']}');
+    }
+  } on Object {
+    // Bez details stačí toString.
+  }
+  if (error is Map) {
+    parts.add('${error['error']}');
+  }
+  final blob = parts.join(' ').toLowerCase();
+  if (blob.contains('team_full')) return 'team_full';
+  if (blob.contains('already_member')) return 'already_member';
+  if (blob.contains('already been registered') ||
+      blob.contains('already registered')) {
+    return 'already_registered';
+  }
+  if (blob.contains('redirect') || blob.contains('redirect_to')) {
+    return 'invite_redirect';
+  }
+  return 'invite_error';
+}

@@ -172,12 +172,21 @@ class _OfficeTeamSectionState extends ConsumerState<OfficeTeamSection> {
     }
     setState(() => _busy = true);
     try {
-      await ref.read(officeTeamProvider.notifier).invite(
+      final kind = await ref.read(officeTeamProvider.notifier).invite(
             email: email,
             role: _role,
           );
       _email.clear();
-      if (mounted) _toast('settings.inviteSent'.tr());
+      if (mounted) {
+        switch (kind) {
+          case OfficeInviteKind.existing:
+            _toast('settings.memberAdded'.tr());
+          case OfficeInviteKind.noEmail:
+            _toast('settings.inviteNoEmail'.tr());
+          case OfficeInviteKind.sent:
+            _toast('settings.inviteSent'.tr());
+        }
+      }
     } on Object catch (e) {
       final msg = '$e';
       if (mounted) {
@@ -185,6 +194,10 @@ class _OfficeTeamSectionState extends ConsumerState<OfficeTeamSection> {
           _toast('settings.teamFull'.tr());
         } else if (msg.contains('already_member')) {
           _toast('settings.alreadyMember'.tr());
+        } else if (msg.contains('already_registered')) {
+          _toast('settings.alreadyRegistered'.tr());
+        } else if (msg.contains('invite_redirect')) {
+          _toast('settings.inviteRedirect'.tr());
         } else {
           _toast('settings.inviteError'.tr());
         }

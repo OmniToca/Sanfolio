@@ -1,5 +1,9 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import {
+  findAuthUserId,
+  inviteOrCreateAuthUser,
+} from "../_shared/invite_user.ts";
 
 /**
  * Support zakládá kancelář: tenant + settings + moduly + invite owner.
@@ -103,26 +107,14 @@ Deno.serve(async (req) => {
       .insert(moduleRows);
     if (modErr) return jsonError(500, modErr.message);
 
-    const gestoriaBase = (Deno.env.get("GESTORIA_BASE_URL") ??
-      "http://localhost:5555").replace(/\/$/, "");
-    const redirectTo = `${gestoriaBase}/login`;
-
-    const invited = await admin.auth.admin.inviteUserByEmail(ownerEmail, {
-      redirectTo,
-    });
-
-    let userId = invited.data.user?.id;
-    if (invited.error || !userId) {
-      const { data: existing } = await admin
-        .from("profiles")
-        .select("id")
-        .eq("email", ownerEmail)
-        .maybeSingle();
-      userId = existing?.id as string | undefined;
+    let userId = await findAuthUserId(admin, ownerEmail);
+    if (!userId) {
+      const invited = await inviteOrCreateAuthUser(admin, ownerEmail);
+      userId = invited.userId;
       if (!userId) {
         return jsonError(
           500,
-          invited.error?.message ?? "invite failed and profile not found",
+          invited.error ?? "invite failed and profile not found",
         );
       }
     }
