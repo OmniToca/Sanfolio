@@ -17,6 +17,10 @@ class TenantsScreen extends ConsumerWidget {
         title: Text('tenants.title'.tr()),
         actions: [
           TextButton(
+            onPressed: () => context.go('/cenik'),
+            child: Text('cenik.title'.tr()),
+          ),
+          TextButton(
             onPressed: () => ref.read(authControllerProvider.notifier).signOut(),
             child: Text('auth.signOut'.tr()),
           ),

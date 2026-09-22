@@ -23,6 +23,36 @@
     "impersonateHint": "Opens the office app with the same account. The refresh_token goes in the URL hash; otherwise the other origin has no session.",
     "reason": "Reason (required)",
     "note": "Note",
-    "reasonRequired": "A reason is required."
+    "reasonRequired": "A reason is required.",
+    "modulesTitle": "Licence",
+    "modulesHint": "Enabled services = the monthly fee. The discount applies to the catalogue total.",
+    "modulesEmpty": "The module catalogue is empty.",
+    "modulesPrice": "{amount} € / month",
+    "discount": "Discount",
+    "saveDiscount": "Save discount",
+    "discountSaved": "The discount is saved.",
+    "discountOff": "Discount {amount} €",
+    "monthly": "{amount} € per month"
+  },
+  "cenik": {
+    "title": "Price list",
+    "hint": "Monthly price of a service for every office. The discount is set on the office card.",
+    "monthly": "Month",
+    "save": "Save",
+    "saved": "The price is saved."
+  },
+  "modules": {
+    "core": "Core",
+    "carpeta_inmueble": "Property file",
+    "impuestos": "Taxes (210)",
+    "nie_poder": "NIE and poder",
+    "messaging": "Mail",
+    "ai_copilot": "AI copilot",
+    "facturacion": "Invoices",
+    "ofertas": "Office offers",
+    "policia": "Police",
+    "ayuntamiento": "Town hall",
+    "testament": "Will / death",
+    "client_portal": "Client zone"
   }
 }

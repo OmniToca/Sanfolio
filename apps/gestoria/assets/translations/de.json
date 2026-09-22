@@ -11,6 +11,20 @@
     "invoices": "Rechnungen",
     "settings": "Einstellungen"
   },
+  "modules": {
+    "core": "Kern",
+    "carpeta_inmueble": "Immobilienakte",
+    "impuestos": "Steuern (210)",
+    "nie_poder": "NIE und Poder",
+    "messaging": "Post",
+    "ai_copilot": "KI-Assistent",
+    "facturacion": "Rechnungen",
+    "ofertas": "Büro-Angebote",
+    "policia": "Polizei",
+    "ayuntamiento": "Rathaus",
+    "testament": "Testament",
+    "client_portal": "Klientenzone"
+  },
   "common": {
     "history": "Verlauf",
     "historyHide": "Weniger"
@@ -21,6 +35,14 @@
     "tabDeadlines": "Fristen",
     "tabTeam": "Team",
     "tabFolder": "Mappe",
+    "modulesTitle": "Büro-Dienste",
+    "modulesHint": "Aktive Dienste und die Monatsgebühr. Preisliste und Rabatt setzt Support.",
+    "modulesOwnerOnly": "Dienste schaltet Support ein.",
+    "modulesEmpty": "Noch kein bezahlter Dienst. Support schaltet sie ein.",
+    "modulesIncluded": "Im Kern",
+    "modulesPrice": "{amount} € / Monat",
+    "modulesDiscount": "Rabatt {percent} %",
+    "modulesMonthly": "{amount} € im Monat",
     "intro": "Fristen stehen nicht im Code. Jedes Büro stellt die Tage hier ein.",
     "sendTranslated": "E-Mail und WhatsApp gehen in der Sprache des Mandanten raus. Das Original bleibt in der Akte.",
     "plusvaliaDays": "Plusvalía — Tage nach der Escritura",

@@ -11,6 +11,20 @@
     "invoices": "Faktury",
     "settings": "Nastavení"
   },
+  "modules": {
+    "core": "Jádro",
+    "carpeta_inmueble": "Složka nemovitosti",
+    "impuestos": "Daně (210)",
+    "nie_poder": "NIE a poder",
+    "messaging": "Pošta",
+    "ai_copilot": "AI asistent",
+    "facturacion": "Faktury",
+    "ofertas": "Nabídky kanceláře",
+    "policia": "Policie",
+    "ayuntamiento": "Magistrát",
+    "testament": "Závěť / úmrtí",
+    "client_portal": "Zóna klienta"
+  },
   "common": {
     "history": "Historie",
     "historyHide": "Méně"
@@ -21,6 +35,14 @@
     "tabDeadlines": "Lhůty",
     "tabTeam": "Lidé",
     "tabFolder": "Deska",
+    "modulesTitle": "Služby kanceláře",
+    "modulesHint": "Zapnuté služby a měsíční poplatek. Ceník a slevu nastavuje Support.",
+    "modulesOwnerOnly": "Služby zapíná Support.",
+    "modulesEmpty": "Zatím žádná placená služba. Zapíná je Support.",
+    "modulesIncluded": "V jádru",
+    "modulesPrice": "{amount} € / měsíc",
+    "modulesDiscount": "Sleva {percent} %",
+    "modulesMonthly": "Měsíčně {amount} €",
     "intro": "Lhůty nejsou v kódu. Každá kancelář si dny nastaví tady.",
     "sendTranslated": "Do e-mailu a WhatsApp jde překlad do jazyka klienta. Originál zůstane ve spisu.",
     "plusvaliaDays": "Plusvalía — dní od escritura",

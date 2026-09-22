@@ -11,6 +11,20 @@
     "invoices": "Factures",
     "settings": "Paramètres"
   },
+  "modules": {
+    "core": "Noyau",
+    "carpeta_inmueble": "Dossier immobilier",
+    "impuestos": "Impôts (210)",
+    "nie_poder": "NIE et poder",
+    "messaging": "Courrier",
+    "ai_copilot": "Assistant IA",
+    "facturacion": "Factures",
+    "ofertas": "Offres du cabinet",
+    "policia": "Police",
+    "ayuntamiento": "Mairie",
+    "testament": "Testament",
+    "client_portal": "Espace client"
+  },
   "common": {
     "history": "Historique",
     "historyHide": "Moins"
@@ -21,6 +35,14 @@
     "tabDeadlines": "Délais",
     "tabTeam": "Équipe",
     "tabFolder": "Dossier",
+    "modulesTitle": "Services du cabinet",
+    "modulesHint": "Services actifs et la cotisation mensuelle. Le tarif et la remise, c’est Support.",
+    "modulesOwnerOnly": "Les services, c’est Support qui les active.",
+    "modulesEmpty": "Pas encore de service payant. Support les active.",
+    "modulesIncluded": "Dans le noyau",
+    "modulesPrice": "{amount} € / mois",
+    "modulesDiscount": "Remise {percent} %",
+    "modulesMonthly": "{amount} € par mois",
     "intro": "Les délais ne sont pas dans le code. Chaque cabinet règle les jours ici.",
     "sendTranslated": "E-mail et WhatsApp partent dans la langue du client. L’original reste au dossier.",
     "plusvaliaDays": "Plusvalía — jours après l’escritura",

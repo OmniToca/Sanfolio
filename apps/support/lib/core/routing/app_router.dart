@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/auth/forbidden_screen.dart';
 import '../../features/auth/login_screen.dart';
+import '../../features/tenants/cenik_screen.dart';
 import '../../features/tenants/tenant_detail_screen.dart';
 import '../../features/tenants/tenants_screen.dart';
 
@@ -52,6 +53,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/tenants',
         pageBuilder: (context, state) => const NoTransitionPage(
           child: TenantsScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/cenik',
+        pageBuilder: (context, state) => const NoTransitionPage(
+          child: CenikScreen(),
         ),
       ),
       GoRoute(

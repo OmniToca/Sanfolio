@@ -11,6 +11,20 @@
     "invoices": "Facturas",
     "settings": "Ajustes"
   },
+  "modules": {
+    "core": "Núcleo",
+    "carpeta_inmueble": "Carpeta inmueble",
+    "impuestos": "Impuestos (210)",
+    "nie_poder": "NIE y poder",
+    "messaging": "Correo",
+    "ai_copilot": "Copiloto IA",
+    "facturacion": "Facturas",
+    "ofertas": "Ofertas del despacho",
+    "policia": "Policía",
+    "ayuntamiento": "Ayuntamiento",
+    "testament": "Testamento",
+    "client_portal": "Zona cliente"
+  },
   "common": {
     "history": "Historial",
     "historyHide": "Menos"
@@ -21,6 +35,14 @@
     "tabDeadlines": "Plazos",
     "tabTeam": "Personas",
     "tabFolder": "Carpeta",
+    "modulesTitle": "Servicios del despacho",
+    "modulesHint": "Servicios activos y la cuota mensual. La tarifa y el descuento los pone Support.",
+    "modulesOwnerOnly": "Los servicios los enciende Support.",
+    "modulesEmpty": "Aún no hay servicio de pago. Los enciende Support.",
+    "modulesIncluded": "En el núcleo",
+    "modulesPrice": "{amount} € / mes",
+    "modulesDiscount": "Descuento {percent} %",
+    "modulesMonthly": "{amount} € al mes",
     "intro": "Los plazos no van en el código. Cada despacho configura los días aquí.",
     "sendTranslated": "El correo y WhatsApp salen en el idioma del cliente. El original queda en el expediente.",
     "plusvaliaDays": "Plusvalía — días desde la escritura",

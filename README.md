@@ -7,7 +7,7 @@ Provozní systém španělské kanceláře. Evidence klienta a služeb, doklady,
 ## Spuštění
 
 1. Zkopíruj [`config.example.json`](config.example.json) → `config.json` (je v gitignore).
-2. `supabase link` + `supabase db push` (migrace `0001`–`0059`).
+2. `supabase link` + `supabase db push` (migrace `0001`–`0060`).
 3. Deploy Edge Functions podle potřeby: `create-office` a `invite-staff` (secret `GESTORIA_BASE_URL=https://sanfolio.app`, nikdy localhost), `extract-document`, `ai-assistant`, `ai-draft-message`, `translate-message`, `plazo-reminders`, `posta-inbound`, `send-client-message`, `sif-emit`, `sif-status`.
 4. Auth → Redirect URLs: kancelář i Support (Netlify + `localhost:5555` / `5556`).
 5. Zaregistruj se na Support, v SQL: `UPDATE profiles SET is_support = true WHERE email = '…';`

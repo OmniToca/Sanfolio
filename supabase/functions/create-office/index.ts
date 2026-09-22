@@ -6,8 +6,8 @@ import {
 } from "../_shared/invite_user.ts";
 
 /**
- * Support zakládá kancelář: tenant + settings + moduly + invite owner.
- * Flutter INSERT do tenants nesmí — jen tahle funkce (service_role).
+ * Support zakládá kancelář: tenant + settings + deska + invite owner.
+ * Další licence zapíná Support HQ. Flutter INSERT do tenants nesmí.
  */
 
 const corsHeaders: Record<string, string> = {
@@ -17,17 +17,9 @@ const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+/** Deska složky je základ. Další služby zapíná Support podle smlouvy. */
 const DEFAULT_MODULES = [
   "carpeta_inmueble",
-  "impuestos",
-  "nie_poder",
-  "messaging",
-  "ai_copilot",
-  "facturacion",
-  "policia",
-  "ayuntamiento",
-  "testament",
-  "ofertas",
 ];
 
 Deno.serve(async (req) => {

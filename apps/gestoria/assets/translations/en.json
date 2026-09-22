@@ -11,6 +11,20 @@
     "invoices": "Invoices",
     "settings": "Settings"
   },
+  "modules": {
+    "core": "Core",
+    "carpeta_inmueble": "Property file",
+    "impuestos": "Taxes (210)",
+    "nie_poder": "NIE and poder",
+    "messaging": "Mail",
+    "ai_copilot": "AI copilot",
+    "facturacion": "Invoices",
+    "ofertas": "Office offers",
+    "policia": "Police",
+    "ayuntamiento": "Town hall",
+    "testament": "Will / death",
+    "client_portal": "Client zone"
+  },
   "common": {
     "history": "History",
     "historyHide": "Show less"
@@ -21,6 +35,14 @@
     "tabDeadlines": "Deadlines",
     "tabTeam": "People",
     "tabFolder": "Folder",
+    "modulesTitle": "Office services",
+    "modulesHint": "Enabled services and the monthly fee. Support sets the catalogue and the discount.",
+    "modulesOwnerOnly": "Support turns services on.",
+    "modulesEmpty": "No paid service yet. Support turns them on.",
+    "modulesIncluded": "In the core",
+    "modulesPrice": "{amount} € / month",
+    "modulesDiscount": "Discount {percent} %",
+    "modulesMonthly": "{amount} € per month",
     "intro": "Deadlines are not hardcoded. Each office sets the days here.",
     "sendTranslated": "Email and WhatsApp go out in the client’s language. The original stays in the file.",
     "plusvaliaDays": "Plusvalía — days after the escritura",

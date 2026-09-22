@@ -12,6 +12,7 @@ import '../facturacion/facturacion_settings.dart';
 import '../ofertas/ofertas_settings.dart';
 import '../posta/posta_settings.dart';
 import 'office_account_section.dart';
+import 'office_modules_section.dart';
 import 'office_settings_controller.dart';
 import 'office_team_section.dart';
 
@@ -161,6 +162,8 @@ class _OfficeTab extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              const OfficeModulesSection(),
+              const SizedBox(height: 16),
               LayoutBuilder(
                 builder: (context, constraints) {
                   if (constraints.maxWidth < 900) {

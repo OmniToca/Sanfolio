@@ -63,7 +63,11 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `gestoria_auth` | `packages/gestoria_auth` | login, PortalUrls, hash `setSession` |
 | `AuthController` | `gestoria_auth` | session, profil, impersonace, změna hesla |
 | `OfficeAccountSection` | `office_account_section.dart` | odhlášení a změna hesla v Nastavení; AI sem nesahá |
-| `create-office` | Edge Function | založení tenanta + invite owner |
+| `create-office` | Edge Function | založení tenanta + invite owner; default jen `carpeta_inmueble` |
+| `set_office_module` | SQL RPC | jen Support zapne službu; vypnutí `deleted_at`, ne `cancelled` |
+| `set_office_discount` | SQL RPC | sleva kanceláře v bps; 10000 = měsíc zdarma |
+| `set_module_monthly_cents` | SQL RPC | ceník katalogu; Support HQ `/cenik` |
+| `OfficeModulesSection` | Nastavení kanceláře | read-only: zapnuté služby + měsíční poplatek |
 | `start_impersonation` | SQL RPC | auditní session 8 h |
 | `apps/support` | Flutter web | HQ kanceláře, Impersonar |
 | `CarpetaController` | `carpeta_controller.dart` | tužka, `bloques`, `clientes`, `documentos` |

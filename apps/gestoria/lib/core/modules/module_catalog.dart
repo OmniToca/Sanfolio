@@ -38,5 +38,19 @@ extension GestoriaModuleKey on GestoriaModule {
   }
 }
 
+/// Služby v Nastavení / Support HQ. Core je vždy. Portál ještě nestavíme.
+const officeToggleModules = <GestoriaModule>[
+  GestoriaModule.carpetaInmueble,
+  GestoriaModule.impuestos,
+  GestoriaModule.niePoder,
+  GestoriaModule.messaging,
+  GestoriaModule.aiCopilot,
+  GestoriaModule.facturacion,
+  GestoriaModule.ofertas,
+  GestoriaModule.policia,
+  GestoriaModule.ayuntamiento,
+  GestoriaModule.testament,
+];
+
 /// Pojmenované díry v shellu. Modul sem přispěje widgetem, neskládá celou stránku.
 enum UiSlot { inboxFeed, clienteTabs, carpetaBlocks, settingsSection }
