@@ -176,7 +176,7 @@ List<web.File> snapshotOfficeFileList(
   int max = officeFileBatchMax,
 }) {
   if (list == null) return const [];
-  return takeIndexedBatch(list.length, list.item, max: max);
+  return takeIndexedBatch(list.length, (i) => list.item(i), max: max);
 }
 
 String _shortError(Object error) {
