@@ -264,7 +264,10 @@
       "cliente_snapshot": "Identität (DNI / NIE)",
       "nie_tramite": "NIE-Verfahren"
     },
-    "onDesk": "Auf der Akte"
+    "onDesk": "Auf der Akte",
+    "fincaMismatch": "Diese Papiere gehören zu einer anderen Immobilie als diesem Kauf. Adresse korrigieren oder neuen Kauf anlegen. DNI und Poder bleiben frei.",
+    "fincaFix": "Diesen Kauf korrigieren",
+    "fincaNewPurchase": "Neuer Kauf aus dem Papier"
   },
   "ofertas": {
     "settingsTitle": "Büro-Angebote",
@@ -686,6 +689,8 @@
   "folder": {
     "title": "Mappe",
     "subtitle": "Dieselben zwei Blätter. Der Bleistift ist der Schalter.",
+    "fincaEdit": "Adresse der Immobilie",
+    "fincaSave": "Adresse speichern",
     "print": "Mappe drucken",
     "printSheet1": "Blatt 1 — vor dem Notar",
     "printSheet2": "Blatt 2 — Notar und danach",

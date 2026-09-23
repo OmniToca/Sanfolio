@@ -134,6 +134,54 @@ void main() {
       ),
       'i1',
     );
+    expect(
+      guessDocumentoInmueble(
+        proposedBloque: 'suma',
+        properties: const [
+          LibraryInmueble(id: 'i1', direccion: 'Plaza Tolosa'),
+        ],
+        address: 'AV SAN FULGENCIO-MARINA 3',
+        catastral: '4244203YH0244S0003RX',
+      ),
+      isNull,
+    );
+  });
+
+  test('hromada nespouští finca banner u DNI, IBI s cizím katastrem ano', () {
+    const one = [LibraryInmueble(id: 'i1', direccion: 'Plaza Tolosa')];
+    expect(
+      unmatchedFincaHint(
+        papers: const [
+          FincaPaperSignal(
+            id: 'dni',
+            bloqueKey: 'cliente_snapshot',
+            address: 'Jicin',
+          ),
+        ],
+        properties: one,
+      ),
+      isNull,
+    );
+    final hint = unmatchedFincaHint(
+      papers: const [
+        FincaPaperSignal(
+          id: 'ibi',
+          bloqueKey: 'suma',
+          address: 'AV SAN FULGENCIO-MARINA 3',
+          catastral: '4244203YH0244S0003RX',
+        ),
+        FincaPaperSignal(
+          id: 'ibi2',
+          bloqueKey: 'suma',
+          address: 'AV SAN FULGENCIO-MARINA 3',
+          catastral: '4244203YH0244S0003RX',
+        ),
+      ],
+      properties: one,
+    );
+    expect(hint, isNotNull);
+    expect(hint!.documentIds, ['ibi', 'ibi2']);
+    expect(hint.catastral, '4244203YH0244S0003RX');
   });
 
   test('hromada se seskupí podle návrhu, mail a neznámé na konci', () {

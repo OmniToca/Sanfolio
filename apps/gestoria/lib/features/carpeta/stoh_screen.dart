@@ -15,6 +15,7 @@ import '../ai/ai_providers.dart';
 import 'carpeta_controller.dart';
 import 'carpeta_routes.dart';
 import 'documento_library.dart';
+import 'finca_edit_dialog.dart';
 import 'library_view.dart';
 import 'stoh.dart';
 import 'stoh_queue.dart';
@@ -63,6 +64,11 @@ class _StohScreenState extends ConsumerState<StohScreen> {
       c.dispose();
     }
     super.dispose();
+  }
+
+  void _toast(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -166,6 +172,7 @@ class _StohScreenState extends ConsumerState<StohScreen> {
                       ),
                       const SizedBox(height: 12),
                       _filters(view, allPapers),
+                      _fincaMismatchBanner(view, allPapers),
                       if (_selected.isNotEmpty) _bulkBar(view, allPapers),
                       if (papers.isNotEmpty)
                         Expanded(
@@ -236,6 +243,125 @@ class _StohScreenState extends ConsumerState<StohScreen> {
   String _fincaChip(LibraryInmueble inm, List<LibraryPaper> papers) {
     final label = libraryFincaLabel(inm, papers: papers);
     return label.isEmpty ? 'stoh.unnamedFinca'.tr() : label;
+  }
+
+  Widget _fincaMismatchBanner(CarpetaView view, List<LibraryPaper> papers) {
+    final hint = unmatchedFincaHint(
+      papers: [
+        for (final p in papers)
+          FincaPaperSignal(
+            id: p.document.id,
+            bloqueKey: p.proposal.bloqueKey,
+            onPile: p.onPile,
+            address: p.glanceFields['fields.address'] ?? '',
+            catastral: p.glanceFields['fields.cadastral'] ?? '',
+          ),
+      ],
+      properties: view.inmuebles,
+    );
+    if (hint == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: AppTheme.accentSoft,
+          borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('stoh.fincaMismatch'.tr()),
+              if (hint.address.isNotEmpty || hint.catastral.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  [
+                    if (hint.address.isNotEmpty) hint.address,
+                    if (hint.catastral.isNotEmpty) hint.catastral,
+                  ].join(' · '),
+                  style: const TextStyle(color: AppTheme.pencil, fontSize: 13),
+                ),
+              ],
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  if ((view.inmuebleId ?? '').isNotEmpty)
+                    TextButton(
+                      onPressed: () => _fixCurrentFinca(view, hint),
+                      child: Text('stoh.fincaFix'.tr()),
+                    ),
+                  FilledButton.tonal(
+                    onPressed: () => _newFincaFromPaper(hint),
+                    child: Text('stoh.fincaNewPurchase'.tr()),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _fixCurrentFinca(
+    CarpetaView view,
+    UnmatchedFincaHint hint,
+  ) async {
+    final id = view.inmuebleId;
+    if (id == null || id.isEmpty) return;
+    final next = await showFincaEditDialog(
+      context,
+      title: 'stoh.fincaFix'.tr(),
+      confirmLabel: 'folder.fincaSave'.tr(),
+      direccion: hint.address.isNotEmpty
+          ? hint.address
+          : (view.inmuebleDireccion ?? ''),
+      catastral: hint.catastral.isNotEmpty
+          ? hint.catastral
+          : (view.inmuebleCatastral ?? ''),
+    );
+    if (next == null || !mounted) return;
+    if (next.direccion.isEmpty) {
+      _toast('clients.addressRequired'.tr());
+      return;
+    }
+    final ctrl = ref.read(carpetaControllerProvider(_target).notifier);
+    final ok = await ctrl.updateInmuebleFinca(
+      inmuebleId: id,
+      direccion: next.direccion,
+      catastral: next.catastral,
+    );
+    if (!ok) _toast('folder.persistError'.tr());
+  }
+
+  Future<void> _newFincaFromPaper(UnmatchedFincaHint hint) async {
+    final next = await showFincaEditDialog(
+      context,
+      title: 'expedientes.newPurchase'.tr(),
+      confirmLabel: 'expedientes.newPurchase'.tr(),
+      direccion: hint.address,
+      catastral: hint.catastral,
+    );
+    if (next == null || !mounted) return;
+    if (next.direccion.isEmpty) {
+      _toast('clients.addressRequired'.tr());
+      return;
+    }
+    final ctrl = ref.read(carpetaControllerProvider(_target).notifier);
+    final expId = await ctrl.addCompraventaFromFinca(
+      direccion: next.direccion,
+      catastral: next.catastral,
+      documentIds: hint.documentIds,
+    );
+    if (!mounted) return;
+    if (expId == null) {
+      _toast('folder.persistError'.tr());
+      return;
+    }
+    _toast('stoh.placed'.tr());
   }
 
   Widget _bulkBar(CarpetaView view, List<LibraryPaper> papers) {

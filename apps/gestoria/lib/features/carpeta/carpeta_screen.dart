@@ -31,6 +31,7 @@ import 'carpeta_controller.dart';
 import 'carpeta_print_open.dart';
 import 'carpeta_routes.dart';
 import 'carpeta_titulares.dart';
+import 'finca_edit_dialog.dart';
 
 /// Text v políčku. Cents z DB se formátují; surové `100` by při sync smažalo eura.
 String displayBloqueField(String field, String raw) {
@@ -55,6 +56,42 @@ void _listenCarpetaNotice(
       ref.read(carpetaNoticeProvider(target).notifier).state = null;
     });
   });
+}
+
+Future<void> _editFinca(
+  BuildContext context,
+  WidgetRef ref,
+  CarpetaTarget target,
+  CarpetaView view,
+) async {
+  final id = view.inmuebleId;
+  if (id == null || id.isEmpty) return;
+  final next = await showFincaEditDialog(
+    context,
+    title: 'folder.fincaEdit'.tr(),
+    confirmLabel: 'folder.fincaSave'.tr(),
+    direccion: view.inmuebleDireccion ?? '',
+    catastral: view.inmuebleCatastral ?? '',
+  );
+  if (next == null || !context.mounted) return;
+  if (next.direccion.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('clients.addressRequired'.tr())),
+    );
+    return;
+  }
+  final ok = await ref.read(carpetaControllerProvider(target).notifier)
+      .updateInmuebleFinca(
+    inmuebleId: id,
+    direccion: next.direccion,
+    catastral: next.catastral,
+  );
+  if (!context.mounted) return;
+  if (!ok) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('folder.persistError'.tr())),
+    );
+  }
 }
 
 class CarpetaScreen extends ConsumerWidget {
@@ -148,7 +185,7 @@ class CarpetaScreen extends ConsumerWidget {
               ),
             ],
             bottom: PreferredSize(
-              preferredSize: const Size.fromHeight(40),
+              preferredSize: const Size.fromHeight(48),
               child: Padding(
                 padding: const EdgeInsets.only(bottom: 8, left: 16, right: 16),
                 child: Align(
@@ -158,14 +195,25 @@ class CarpetaScreen extends ConsumerWidget {
                     runSpacing: 4,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      Text(
-                        view.inmuebleDireccion == null ||
-                                view.inmuebleDireccion!.isEmpty
-                            ? 'folder.subtitle'.tr()
-                            : view.inmuebleDireccion!,
-                        style: const TextStyle(
-                          color: AppTheme.pencil,
-                          fontSize: 13,
+                      TextButton.icon(
+                        onPressed: view.inmuebleId == null
+                            ? null
+                            : () => _editFinca(
+                                  context,
+                                  ref,
+                                  _target,
+                                  view,
+                                ),
+                        icon: const Icon(Icons.edit_outlined, size: 16),
+                        label: Text(
+                          view.inmuebleDireccion == null ||
+                                  view.inmuebleDireccion!.isEmpty
+                              ? 'folder.subtitle'.tr()
+                              : view.inmuebleDireccion!,
+                          style: const TextStyle(
+                            color: AppTheme.pencil,
+                            fontSize: 13,
+                          ),
                         ),
                       ),
                       if (view.inmuebleId != null)

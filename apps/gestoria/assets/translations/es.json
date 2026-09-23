@@ -264,7 +264,10 @@
       "cliente_snapshot": "Identidad (DNI / NIE)",
       "nie_tramite": "Trámite NIE"
     },
-    "onDesk": "En el tablero"
+    "onDesk": "En el tablero",
+    "fincaMismatch": "Estos papeles son de otro inmueble que esta compraventa. Corrija la dirección o abra una compra nueva. DNI y poder no se bloquean.",
+    "fincaFix": "Corregir esta compra",
+    "fincaNewPurchase": "Nueva compra desde el papel"
   },
   "ofertas": {
     "settingsTitle": "Ofertas del despacho",
@@ -686,6 +689,8 @@
   "folder": {
     "title": "Carpeta",
     "subtitle": "Las mismas dos hojas. El lápiz es el interruptor.",
+    "fincaEdit": "Dirección del inmueble",
+    "fincaSave": "Guardar dirección",
     "print": "Imprimir carpeta",
     "printSheet1": "Hoja 1 — antes del notario",
     "printSheet2": "Hoja 2 — notario y después",

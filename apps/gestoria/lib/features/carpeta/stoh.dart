@@ -223,10 +223,12 @@ StohProposal? _classifySupply({
 
 /// Obsah první strany má přednost před názvem `scan_01.pdf`.
 /// Název Poder / FACTURA jen jako veto: kancelář tak soubory jmenuje schválně.
+/// [office] je konsensus zařazených papírů kanceláře — až po titulku, před LLM.
 StohProposal classifyStohPaper({
   required String originalName,
   String bodyText = '',
   Map<String, String> fields = const {},
+  StohProposal? office,
 }) {
   final name = originalName.toLowerCase();
   final head = stohBodyHead(bodyText);
@@ -241,6 +243,12 @@ StohProposal classifyStohPaper({
 
   final fromHead = _classifyBodyHead(head, invoiceName: invoiceName);
   if (fromHead != null) return fromHead;
+
+  if (office != null &&
+      office.known &&
+      !(office.bloqueKey == 'escritura' && invoiceName)) {
+    return office;
+  }
 
   final fromLlm = proposalFromExtractFields(fields);
   final llmEscrituraOnInvoice =

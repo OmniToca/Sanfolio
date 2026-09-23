@@ -233,6 +233,7 @@ class CarpetaView {
     this.expedienteEstado = 'abierto',
     this.inmuebleId,
     this.inmuebleDireccion,
+    this.inmuebleCatastral,
     this.movements = const [],
     this.titulares = const [],
     this.stohDocuments = const [],
@@ -247,6 +248,7 @@ class CarpetaView {
   final String expedienteEstado;
   final String? inmuebleId;
   final String? inmuebleDireccion;
+  final String? inmuebleCatastral;
   final Map<String, BloqueState> bloques;
   final List<ProvisionMovement> movements;
   final List<InmuebleTitular> titulares;
@@ -258,6 +260,8 @@ class CarpetaView {
 
   CarpetaView copyWith({
     Map<String, BloqueState>? bloques,
+    String? inmuebleDireccion,
+    String? inmuebleCatastral,
     List<ProvisionMovement>? movements,
     List<InmuebleTitular>? titulares,
     List<CarpetaDocumento>? stohDocuments,
@@ -271,7 +275,8 @@ class CarpetaView {
       expedienteId: expedienteId,
       expedienteEstado: expedienteEstado,
       inmuebleId: inmuebleId,
-      inmuebleDireccion: inmuebleDireccion,
+      inmuebleDireccion: inmuebleDireccion ?? this.inmuebleDireccion,
+      inmuebleCatastral: inmuebleCatastral ?? this.inmuebleCatastral,
       bloques: bloques ?? this.bloques,
       movements: movements ?? this.movements,
       titulares: titulares ?? this.titulares,
@@ -365,7 +370,7 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
 
     var expQuery = client
         .from('expedientes')
-        .select('id, inmueble_id, estado, inmuebles(direccion)')
+        .select('id, inmueble_id, estado, inmuebles(direccion, referencia_catastral)')
         .eq('cliente_id', clienteId)
         .eq('tipo', 'compraventa')
         .eq('tenant_id', tenantId)
@@ -382,11 +387,14 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
       throw StateError('missing expediente');
     }
     String? inmuebleDir;
+    String? inmuebleCat;
     String? inmuebleId;
     final inm = exp['inmuebles'];
     if (inm is Map) {
       inmuebleDir = '${inm['direccion'] ?? ''}'.trim();
       if (inmuebleDir.isEmpty) inmuebleDir = null;
+      inmuebleCat = '${inm['referencia_catastral'] ?? ''}'.trim();
+      if (inmuebleCat.isEmpty) inmuebleCat = null;
     }
     inmuebleId = '${exp['inmueble_id'] ?? ''}'.trim();
     if (inmuebleId.isEmpty || inmuebleId == 'null') inmuebleId = null;
@@ -620,6 +628,7 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
       expedienteEstado: '${exp['estado'] ?? 'abierto'}',
       inmuebleId: inmuebleId,
       inmuebleDireccion: inmuebleDir,
+      inmuebleCatastral: inmuebleCat,
       bloques: bloques,
       movements: movements,
       titulares: liveTitulares,
@@ -1211,6 +1220,67 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
     );
     ref.invalidateSelf();
     return true;
+  }
+
+  /// Tužka URBANA. Bydliště na kartě klienta se nemění.
+  Future<bool> updateInmuebleFinca({
+    required String inmuebleId,
+    required String direccion,
+    String catastral = '',
+  }) async {
+    final dir = direccion.trim();
+    if (dir.isEmpty) return false;
+    final client = trySupabaseClient();
+    if (client == null) return false;
+    final cat = catastral.trim().replaceAll(RegExp(r'\s+'), '').toUpperCase();
+    await client.from('inmuebles').update({
+      'direccion': dir,
+      'referencia_catastral': cat.isEmpty ? null : cat,
+    }).eq('id', inmuebleId);
+    ref.invalidateSelf();
+    return true;
+  }
+
+  /// Nová koupě z papíru na hromadě. AI finca nezakládá.
+  Future<String?> addCompraventaFromFinca({
+    required String direccion,
+    String catastral = '',
+    List<String> documentIds = const [],
+  }) async {
+    final view = state.valueOrNull;
+    final client = trySupabaseClient();
+    if (view == null || client == null) return null;
+    final dir = direccion.trim();
+    if (dir.isEmpty) return null;
+    final expId = '${await client.rpc(
+      'add_inmueble_compraventa',
+      params: {'p_cliente_id': view.clienteId, 'p_direccion': dir},
+    )}';
+    if (expId.isEmpty || expId == 'null') return null;
+    final exp = await client
+        .from('expedientes')
+        .select('inmueble_id')
+        .eq('id', expId)
+        .maybeSingle();
+    final inmId = '${exp?['inmueble_id'] ?? ''}'.trim();
+    if (inmId.isEmpty || inmId == 'null') return expId;
+    final cat = catastral.trim().replaceAll(RegExp(r'\s+'), '').toUpperCase();
+    if (cat.isNotEmpty) {
+      await client.from('inmuebles').update({
+        'referencia_catastral': cat,
+      }).eq('id', inmId);
+    }
+    for (final id in documentIds) {
+      await client.rpc(
+        'set_documento_inmueble',
+        params: {
+          'p_documento_id': id,
+          'p_inmueble_id': inmId,
+        },
+      );
+    }
+    ref.invalidateSelf();
+    return expId;
   }
 
   /// Ruční popis knihovny. Extract ani Guardar desky ho nepřepíšou.

@@ -70,7 +70,7 @@ Tužka na papíře u CLIENTE = tento spis je aktivní zakázka. V systému se t�
 | NIE/DNI/NIF | ne | Kancelář často začíná bez NIE. Masky z úřadu (`Y123**6E`) se ukládají. |
 | email | ne, ale bez něj nejde odeslat e-mail | — |
 | tel | ne | WhatsApp / telefon |
-| direccion | ne | — |
+| direccion | ne | bydliště osoby, **ne** adresa finca (`inmuebles.direccion`) |
 | iban | ne | povinný **jen** když je inkaso |
 | druhý kontakt | ne | `client_contacts` + `locale` (občas partner / překladatel). Spoluvlastník sem ne. |
 
@@ -87,7 +87,7 @@ Inbox: klient bez e-mailu i telefonu + existuje `missing_document` jinde → kan
 
 Dokument: `copia_escritura` obvykle (Gestorie Jarka: většinou ve složce). **Složka = strana listiny; listina se nedělí** na album kupující a album prodávající. Jeden PDF, jeden `copia_escritura`. Čip Comprador / Vendedor / neurčeno čte `inmueble_titulares.lado` této karty. Extract navrhne stranu (Guardar je člověk). 210: kupující → návrh imputace, prodávající → transmise (+ 211 jako pole, ne 14. blok desky).  
 U notářské compraventy extract bere **všechny** prodávající a **všechny** skutečné kupující (zastoupení cónyuges, ne zmocněnce), cenu (`precio de esta compraventa`, ne valor de referencia ani hypotéku), catastral, parcelu, registro, právníka/despacho a notáře. Klient kanceláře je jen jeden z nich — ať jde 210 / plusvalía spočítat z papíru, ne z první strany PDF. Věta v 40stranové smlouvě = `search_document_text` (uložený `body_text`). Notář / Zenia / catastral napříč kanceláří = `query_escritura`.  
-`referencia_catastral` na inmueble: většinou; po Guardar listiny se doplní z přepisu.  
+`referencia_catastral` na inmueble: většinou; po Guardar listiny se doplní z přepisu, **jen když je prázdná**. Tužka v hlavičce desky opraví URBANA (`inmuebles.direccion` + catastral), ne bydliště na kartě. Papír s jiným katastrem se nenašije na jedinou finca — hromada nabídne opravu této koupě nebo Novou koupi.  
 Kupující/prodávající po Guardar (fáze T2+) jdou do `inmueble_titulares` (cuota, NIE), ne do `client_contacts`. Kupující s NIE dostane **kartu** (hledání, e-mail), ne druhou desku. Default stejný díl mezi kupujícími; gananciales se nehádají z českého režimu. Tužka na šanonu ESCRITURA opraví % i stranu. 210 čte `sharePercent` z titulare tohoto klienta — [roadmap_titulares.md](roadmap_titulares.md).  
 Plazo: žádné vlastní. Zapnutá plusvalía odvodí lhůtu z `escritura_fecha` + `tenant_settings.plusvalia_days`.
 
@@ -266,7 +266,7 @@ Nový typ se přidává jen migrací katalogu, ne volným stringem v UI (kromě 
 
 ## 5b. Stoh ze šanonu
 
-Po založení klienta (a kdykoli ze složky) jde `/clientes/:id/stoh`. Soubory padají na `documentos` u klienta (`{tenant}/{cliente}/…`). Extract s `classify` zapíše `body_text` (i bez alba), navrhne album a finca. Jistý návrh zapíše `documento_bloques` (AI jen album, ne pole desky). Nejisté zůstanou na hromadě. Stejný soubor (SHA-256) se podruhé nenahrává — na desce se jen přidá album (junction `tipo` je per album). Jeden soubor = jeden papír (PDF se nedělí). Více fotek jedné listiny: v knihovně **Spojit** (JPG/PNG v pořadí → jedno PDF, zdroje do koše). Guardar polí desky je pořád člověk. `/prepis` bere extract s albem.
+Po založení klienta (a kdykoli ze složky) jde `/clientes/:id/stoh`. Soubory padají na `documentos` u klienta (`{tenant}/{cliente}/…`). Extract s `classify` zapíše `body_text` (i bez alba), navrhne album a finca. Jistý návrh zapíše `documento_bloques` (AI jen album, ne pole desky). Nejisté zůstanou na hromadě. Finca-papír s katastrem, který v kartě není, nenašije na jedinou koupi — banner nabídne opravu URBANA nebo Novou koupi; DNI/poder jdou dál. Při classify Edge vytáhne podobné už zařazené papíry **téže kanceláře** a vezme je jako vzor alba a klíčů (ne dotrénování modelu, ne druhá finca). Stejný soubor (SHA-256) se podruhé nenahrává — na desce se jen přidá album (junction `tipo` je per album). Jeden soubor = jeden papír (PDF se nedělí). Více fotek jedné listiny: v knihovně **Spojit** (JPG/PNG v pořadí → jedno PDF, zdroje do koše). Guardar polí desky je pořád člověk. `/prepis` bere extract s albem.
 
 Migrace 0062–0065 jsou na Sanfolio. `recompute_bloque_status` čte `documento_bloques`. `search_document_text` je FTS + vektory kousků. `/stoh` je knihovna (filtry, štítky, hromadný výběr, spojení fotek).
 

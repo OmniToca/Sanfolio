@@ -1,11 +1,12 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { extractPdfPages, pdfTextUsable } from "../_shared/pdf_extract.ts";
-import { replaceDocumentoChunks } from "../_shared/embed_chunks.ts";
+import { embedTexts, replaceDocumentoChunks } from "../_shared/embed_chunks.ts";
 
 /**
  * Fotka / PDF → návrh do ai_drafts. body_text na documentos.
  * Jistý classify zapíše album (place_documento_ai), ne pole desky.
+ * Vzory: podobné zařazené papíry téhož tenantu, ne dotrénování modelu.
  * HTTP vrátí pending hned; LLM doběhne na pozadí (waitUntil). Guardar polí je gestor.
  */
 
@@ -214,6 +215,21 @@ async function finishExtract(args: {
         if (body && !fields.body_text) fields.body_text = body;
       }
     }
+    let officeExamples: OfficePaperExample[] = [];
+    if (apiKey && fields.body_text && args.classify) {
+      try {
+        officeExamples = await loadOfficePaperExamples({
+          userClient: args.userClient,
+          tenantId: args.tenantId,
+          storagePath: args.storagePath,
+          body: fields.body_text,
+          apiKey,
+        });
+      } catch (err) {
+        console.warn("extract-document: office examples", err);
+      }
+    }
+    const officeHint = officeExamplesPrompt(officeExamples);
     if (apiKey && fields.body_text && !identity) {
       const llm = await llmExtractFromText(
         apiKey,
@@ -221,6 +237,7 @@ async function finishExtract(args: {
         docTipo,
         hint,
         args.classify,
+        officeHint,
       );
       if (llm) {
         const body = fields.body_text;
@@ -236,6 +253,7 @@ async function finishExtract(args: {
         args.storagePath,
         fields.body_text ?? "",
         fields,
+        officeClassifyConsensus(officeExamples),
       );
       if (guess.bloque) fields.proposed_bloque_key = guess.bloque;
       if (guess.tipo) fields.proposed_tipo = guess.tipo;
@@ -434,7 +452,11 @@ function guessInmueble(
     return byCat || byAddr;
   });
   if (hits.length === 1) return hits[0].id;
-  if (properties.length === 1) return properties[0].id;
+  if (properties.length === 1) {
+    const paperHasSignal = cat.length > 0 || addr.length > 0;
+    if (paperHasSignal) return "";
+    return properties[0].id;
+  }
   return "";
 }
 
@@ -651,12 +673,14 @@ async function llmExtractFromText(
   docTipo: string,
   hint: { nombre: string; nie: string },
   classify = false,
+  officeHint = "",
 ): Promise<Record<string, string> | null> {
   const clipped = escrituraLlmFocus(text).slice(0, 24000);
   const who = [
     hint.nombre ? `Office client name: ${hint.nombre}.` : "",
     hint.nie ? `Office client NIE: ${hint.nie}.` : "",
   ].filter(Boolean).join(" ");
+  const userText = [officeHint, who, clipped].filter(Boolean).join("\n\n");
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -671,7 +695,7 @@ async function llmExtractFromText(
         { role: "system", content: extractSystemPrompt(docTipo, false, classify) },
         {
           role: "user",
-          content: who ? `${who}\n\n${clipped}` : clipped,
+          content: userText,
         },
       ],
     }),
@@ -879,12 +903,168 @@ function classifyBodyHead(
   return null;
 }
 
+type OfficePaperExample = {
+  bloqueKey: string;
+  tipo: string;
+  source: string;
+  title: string;
+  caption: string;
+  filledKeys: string[];
+  dist: number;
+};
+
+const OFFICE_MAX_DIST = 0.45;
+const OFFICE_TIGHT_DIST = 0.28;
+const OFFICE_NIE = /\b(?:[XYZ]\s*-?\s*[0-9*]{7}\s*-?\s*[A-Z]|[0-9*]{8}[A-Z])\b/gi;
+const OFFICE_EMAIL = /[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}/gi;
+const OFFICE_TEL = /\+?\d[\d \-]{7,14}\d/g;
+
+function redactOfficeExampleText(raw: string): string {
+  let t = raw.trim().replace(/\s+/g, " ");
+  t = t.replace(OFFICE_NIE, "[NIE]");
+  t = t.replace(OFFICE_EMAIL, "[email]");
+  t = t.replace(OFFICE_TEL, "[tel]");
+  return t.length > 120 ? t.slice(0, 120) : t;
+}
+
+function officeClassifyConsensus(
+  raw: OfficePaperExample[],
+): { bloque: string; tipo: string } | null {
+  const close = raw.filter((e) =>
+    e.dist <= OFFICE_MAX_DIST && STOH_BLOQUES.has(e.bloqueKey)
+  );
+  if (close.length === 0) return null;
+  const byBloque = new Map<string, OfficePaperExample[]>();
+  for (const e of close) {
+    const list = byBloque.get(e.bloqueKey) ?? [];
+    list.push(e);
+    byBloque.set(e.bloqueKey, list);
+  }
+  let bestKey = "";
+  let bestCount = 0;
+  let bestDist = 99;
+  for (const [key, list] of byBloque) {
+    const avg = list.reduce((s, x) => s + x.dist, 0) / list.length;
+    if (list.length > bestCount || (list.length === bestCount && avg < bestDist)) {
+      bestKey = key;
+      bestCount = list.length;
+      bestDist = avg;
+    }
+  }
+  let winners: OfficePaperExample[];
+  if (bestCount >= 2) {
+    winners = byBloque.get(bestKey) ?? [];
+  } else {
+    const only = close[0];
+    if (only.source !== "human" || only.dist > OFFICE_TIGHT_DIST) return null;
+    winners = [only];
+    bestKey = only.bloqueKey;
+  }
+  const tipos = new Map<string, number>();
+  for (const e of winners) {
+    const t = (e.tipo ?? "").trim();
+    if (!t || t === "other") continue;
+    tipos.set(t, (tipos.get(t) ?? 0) + 1);
+  }
+  let tipo = "other";
+  let tipoN = 0;
+  for (const [t, n] of tipos) {
+    if (n > tipoN) {
+      tipo = t;
+      tipoN = n;
+    }
+  }
+  return { bloque: bestKey, tipo };
+}
+
+function officeExamplesPrompt(raw: OfficePaperExample[]): string {
+  const lines: string[] = [];
+  for (const e of raw) {
+    if (e.dist > OFFICE_MAX_DIST || !STOH_BLOQUES.has(e.bloqueKey)) continue;
+    if (lines.length >= 5) break;
+    const keys = e.filledKeys.filter((k) => k.startsWith("fields.")).slice(0, 8)
+      .join(",");
+    const title = redactOfficeExampleText(e.title);
+    const caption = redactOfficeExampleText(e.caption);
+    const n = lines.length + 1;
+    lines.push(
+      `${n}. album=${e.bloqueKey} tipo=${e.tipo} source=${e.source}` +
+        (keys ? ` keys=${keys}` : "") +
+        (title ? ` title=${title}` : "") +
+        (caption ? ` caption=${caption}` : ""),
+    );
+  }
+  if (lines.length === 0) return "";
+  return "This office already filed similar papers (same tenant, not this file). " +
+    "Follow their album and which fields they kept. Do not copy names or NIE. " +
+    "If they agree, proposedBloque/proposedTipo should match. " +
+    "IBI period is the year; address is the finca, never the SUMA office.\n" +
+    lines.join("\n");
+}
+
+async function loadOfficePaperExamples(args: {
+  userClient: ReturnType<typeof createClient>;
+  tenantId: string;
+  storagePath: string;
+  body: string;
+  apiKey: string;
+}): Promise<OfficePaperExample[]> {
+  const head = args.body.trim().slice(0, 1200);
+  if (head.length < 40) return [];
+  const [vector] = await embedTexts(args.apiKey, [head]);
+  if (!vector || vector.length !== 1536) return [];
+  const { data: docRow } = await args.userClient
+    .from("documentos")
+    .select("id")
+    .eq("tenant_id", args.tenantId)
+    .eq("storage_path", args.storagePath)
+    .is("deleted_at", null)
+    .maybeSingle();
+  const excludeId = typeof docRow?.id === "string" ? docRow.id : null;
+  const { data, error } = await args.userClient.rpc("similar_placed_papers", {
+    p_tenant_id: args.tenantId,
+    p_query_embedding: vector,
+    p_exclude_documento_id: excludeId,
+    p_limit: 5,
+  });
+  if (error) {
+    console.warn("extract-document: similar_placed_papers", error.message);
+    return [];
+  }
+  const items = (data as { items?: unknown } | null)?.items;
+  if (!Array.isArray(items)) return [];
+  const out: OfficePaperExample[] = [];
+  for (const raw of items) {
+    if (!raw || typeof raw !== "object") continue;
+    const row = raw as Record<string, unknown>;
+    const albums = Array.isArray(row.albums) ? row.albums : [];
+    const bloque = typeof albums[0] === "string" ? albums[0] : "";
+    const keys = Array.isArray(row.filled_keys)
+      ? row.filled_keys.filter((k): k is string => typeof k === "string")
+      : [];
+    const dist = typeof row.dist === "number"
+      ? row.dist
+      : Number(row.dist ?? 1);
+    out.push({
+      bloqueKey: bloque,
+      tipo: typeof row.tipo === "string" ? row.tipo : "other",
+      source: row.source === "human" ? "human" : "ai",
+      title: typeof row.title === "string" ? row.title : "",
+      caption: typeof row.caption === "string" ? row.caption : "",
+      filledKeys: keys,
+      dist: Number.isFinite(dist) ? dist : 1,
+    });
+  }
+  return out;
+}
+
 /// Stejné pořadí jako Flutter `classifyStohPaper`. První strana PDF, ne scan_01.
-/// Název Poder/FACTURA je jen veto.
+/// Název Poder/FACTURA je jen veto. Vzory kanceláře až po titulku, před LLM.
 function classifyStohPaper(
   path: string,
   bodyText: string,
   fields: Record<string, string>,
+  office?: { bloque: string; tipo: string } | null,
 ): { bloque: string; tipo: string } {
   const name = (path.split("/").pop() ?? "").toLowerCase();
   const head = stohBodyHead(bodyText);
@@ -899,6 +1079,17 @@ function classifyStohPaper(
 
   const fromHead = classifyBodyHead(head, invoiceName);
   if (fromHead) return fromHead;
+
+  if (
+    office?.bloque &&
+    STOH_BLOQUES.has(office.bloque) &&
+    !(office.bloque === "escritura" && invoiceName)
+  ) {
+    return {
+      bloque: office.bloque,
+      tipo: office.tipo || "other",
+    };
+  }
 
   const fromLlmBloque = STOH_BLOQUES.has(fields.proposed_bloque_key ?? "")
     ? fields.proposed_bloque_key!

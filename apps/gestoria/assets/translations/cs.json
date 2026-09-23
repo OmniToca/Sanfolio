@@ -264,7 +264,10 @@
       "cliente_snapshot": "Identita (DNI / NIE)",
       "nie_tramite": "Vyřízení NIE"
     },
-    "onDesk": "Na desce"
+    "onDesk": "Na desce",
+    "fincaMismatch": "Na papírech je jiná nemovitost, než která je u této koupě. Opravte adresu, nebo založte novou koupi. DNI a poder tím neblokujeme.",
+    "fincaFix": "Opravit tuto koupi",
+    "fincaNewPurchase": "Nová koupě z papíru"
   },
   "ofertas": {
     "settingsTitle": "Nabídky kanceláře",
@@ -686,6 +689,8 @@
   "folder": {
     "title": "Složka",
     "subtitle": "Stejné dva listy. Tužka je přepínač.",
+    "fincaEdit": "Adresa nemovitosti",
+    "fincaSave": "Uložit adresu",
     "print": "Tisk desky",
     "printSheet1": "List 1 — před notářem",
     "printSheet2": "List 2 — notář a po",

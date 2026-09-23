@@ -264,7 +264,10 @@
       "cliente_snapshot": "Identity (DNI / NIE)",
       "nie_tramite": "NIE application"
     },
-    "onDesk": "On the desk"
+    "onDesk": "On the desk",
+    "fincaMismatch": "These papers belong to a different property than this purchase. Fix the address, or open a new purchase. DNI and poder stay free.",
+    "fincaFix": "Fix this purchase",
+    "fincaNewPurchase": "New purchase from paper"
   },
   "ofertas": {
     "settingsTitle": "Office offers",
@@ -686,6 +689,8 @@
   "folder": {
     "title": "Folder",
     "subtitle": "The same two sheets. The pencil is the switch.",
+    "fincaEdit": "Property address",
+    "fincaSave": "Save address",
     "print": "Print desk",
     "printSheet1": "Sheet 1 — before the notary",
     "printSheet2": "Sheet 2 — notary and after",

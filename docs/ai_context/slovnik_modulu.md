@@ -27,7 +27,9 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `printHtmlDocument` | `core/print/office_print.dart` | blob URL + `window.print()`; Safari nesnese about:srcdoc |
 | `AiPanel` / `aiChatProvider` | `features/ai/ai_panel.dart` | trvalý chat; zápis `ai_conversations` + `ai_messages` |
 | `AiPanel` / `aiChatProvider` | `features/ai/ai_panel.dart` | trvalý chat; zápis `ai_conversations` + `ai_messages` |
-| `extract-document` | Edge Function | fotka/PDF → text LLM nebo vision → `ai_drafts`; po LLM `body_text` + jistý album **z první strany PDF**, ne z `scan_01.pdf`; Poder/FACTURA v názvu není escritura; IBI → `sumaId`/`period` rok; Guardar polí desky je gestor |
+| `extract-document` | Edge Function | fotka/PDF → text LLM nebo vision → `ai_drafts`; po LLM `body_text` + jistý album **z první strany PDF**, ne z `scan_01.pdf`; Poder/FACTURA v názvu není escritura; IBI → `sumaId`/`period` rok; podobné zařazené papíry kanceláře (`similar_placed_papers`) jako vzor; Guardar polí desky je gestor |
+| `similar_placed_papers` | SQL RPC | cosine k zařazeným papírům tenantu; extract čte album/tipo/klíče; bez jmen a NIE; AI neukládá |
+| `office_paper_memory` | `office_paper_memory.dart` | konsensus vzorů kanceláře (2 blízké / 1 hodně blízký lidský); redakce PII v promptu |
 | `documentos.extracted` | JSONB na dokladu | uložená pole po Guardar; AI sem nezapisuje |
 | `documentos.body_text` | TEXT na dokladu | přepis PDF po extractu (i bez alba) |
 | `documentos.caption` | TEXT na dokladu | ruční „co v souboru je“ v knihovně; AI nezapisuje; není extracted |
@@ -87,6 +89,8 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `expiryTone` | `core/time/office_date.dart` | DNI/pas badge; dny z `poder_warn_days` |
 | `recompute_bloque_status` | SQL RPC | missing_data/document/watching/done; agua/luz/gaz `required_docs_mode=any` |
 | `add_inmueble_compraventa` | SQL RPC | druhá koupě = nové inmueble + deska |
+| `updateInmuebleFinca` | `carpeta_controller.dart` | tužka URBANA + catastral; ne `clientes.direccion` |
+| `unmatchedFincaHint` | `documento_library.dart` | hromada: finca-papír s cizím katastrem; DNI ne |
 | `add_manual_plazo` / `snooze_plazo` | SQL RPC | ruční termín; odklad inboxu, nic se nemaže |
 | `clienteMensajesProvider` | karta klienta | historie draft/sent; zahodit = `discarded` |
 | `set_expediente_estado` | SQL RPC + deska | abierto…archivado; stale v inboxu z nastavení |

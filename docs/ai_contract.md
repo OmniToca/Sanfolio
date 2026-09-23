@@ -57,7 +57,7 @@ Read-only fulltext v `documentos.body_text` **plus** cosine v `documento_chunks`
 
 ## 2b. Samostatné Edge (ne chat tools)
 
-- **`extract-document`** — JWT, fotka/PDF → `ai_drafts`. `classify: true` u stohu navrhne blok a tipo (název Poder/FACTURA přebije notáře v těle i LLM). Po LLM zapíše `documentos.body_text`, kousky (`documento_chunks`) a jistý album (`place_documento_ai`); poder/DNI AI nezařazuje; `extracted` a pole desky pořád Guardar.
+- **`extract-document`** — JWT, fotka/PDF → `ai_drafts`. `classify: true` u stohu navrhne blok a tipo (název Poder/FACTURA přebije notáře v těle i LLM). Po LLM zapíše `documentos.body_text`, kousky (`documento_chunks`) a jistý album (`place_documento_ai`); poder/DNI AI nezařazuje; `extracted` a pole desky pořád Guardar. Při classify vytáhne až 5 podobných **zařazených** papírů téhož tenantu (`similar_placed_papers`) — album a klíče jako vzor, ne trénink modelu a ne PII jiného klienta.
 - **`merge-document-pages`** — JWT, 2–20 JPG/PNG v pořadí → jedno PDF, zdroje do koše. AI nespojuje. PDF se neřeže.
 - **`embed-pending-chunks`** — dopočet vektorů u přepisů bez kousků.
 - **`ai-draft-message`** — JWT, nachystá `mensajes.status = draft`. `sent_at` zůstane null. Tool `send_message` **neexistuje**.

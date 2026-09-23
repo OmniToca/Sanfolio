@@ -186,8 +186,96 @@ String? guessDocumentoInmueble({
     if (byCat || byAddr) hits.add(p);
   }
   if (hits.length == 1) return hits.single.id;
-  if (properties.length == 1) return properties.single.id;
+  if (properties.length == 1) {
+    final paperHasSignal = cat.isNotEmpty || addr.isNotEmpty;
+    if (paperHasSignal) return null;
+    return properties.single.id;
+  }
   return null;
+}
+
+/// Papír nemovitosti, jehož katastr/adresa v kartě není. DNI sem nepatří.
+class UnmatchedFincaHint {
+  const UnmatchedFincaHint({
+    required this.address,
+    required this.catastral,
+    required this.documentIds,
+  });
+
+  final String address;
+  final String catastral;
+  final List<String> documentIds;
+}
+
+class FincaPaperSignal {
+  const FincaPaperSignal({
+    required this.id,
+    required this.bloqueKey,
+    this.onPile = true,
+    this.address = '',
+    this.catastral = '',
+  });
+
+  final String id;
+  final String bloqueKey;
+  final bool onPile;
+  final String address;
+  final String catastral;
+}
+
+bool _sameCatastral(String a, String b) {
+  final x = a.trim().toLowerCase().replaceAll(' ', '');
+  final y = b.trim().toLowerCase().replaceAll(' ', '');
+  if (x.isEmpty || y.isEmpty) return false;
+  return x == y || x.contains(y) || y.contains(x);
+}
+
+bool _sameAddress(String a, String b) {
+  final x = a.trim().toLowerCase();
+  final y = b.trim().toLowerCase();
+  if (x.isEmpty || y.isEmpty) return false;
+  return x.contains(y) || y.contains(x);
+}
+
+/// První shluk hromady, který nesedí na uložené finca. AI sem nic nezakládá.
+UnmatchedFincaHint? unmatchedFincaHint({
+  required List<FincaPaperSignal> papers,
+  required List<LibraryInmueble> properties,
+}) {
+  UnmatchedFincaHint? cluster;
+  final ids = <String>[];
+  for (final p in papers) {
+    if (!p.onPile) continue;
+    if (isPersonBloqueKey(p.bloqueKey)) continue;
+    final fincaish =
+        isFincaBloqueKey(p.bloqueKey) || p.bloqueKey.trim().isEmpty;
+    if (!fincaish) continue;
+    final addr = p.address.trim();
+    final cat = p.catastral.trim();
+    if (addr.isEmpty && cat.isEmpty) continue;
+    final guessed = guessDocumentoInmueble(
+      proposedBloque: isFincaBloqueKey(p.bloqueKey) ? p.bloqueKey : 'suma',
+      properties: properties,
+      address: addr,
+      catastral: cat,
+    );
+    if (guessed != null) continue;
+    cluster ??= UnmatchedFincaHint(
+      address: addr,
+      catastral: cat,
+      documentIds: const [],
+    );
+    final same = _sameCatastral(cat, cluster.catastral) ||
+        (cluster.catastral.isEmpty && _sameAddress(addr, cluster.address)) ||
+        (cat.isEmpty && _sameAddress(addr, cluster.address));
+    if (same) ids.add(p.id);
+  }
+  if (cluster == null || ids.isEmpty) return null;
+  return UnmatchedFincaHint(
+    address: cluster.address,
+    catastral: cluster.catastral,
+    documentIds: ids,
+  );
 }
 
 /// Skupina hromady z návrhu, ne z volného tagu.
