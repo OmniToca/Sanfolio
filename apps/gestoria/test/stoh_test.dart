@@ -120,4 +120,12 @@ void main() {
     expect(carpetaStohRoute('abc', afterCreate: true), '/clientes/abc/stoh?new=1');
     expect(carpetaRoute('abc'), '/clientes/abc/carpeta');
   });
+
+  test('nahraný stoh ukáže kus z celku a procenta', () {
+    expect(stohUploadPercent(done: 0, total: 38), 0);
+    expect(stohUploadPercent(done: 19, total: 38), 50);
+    expect(stohUploadPercent(done: 38, total: 38), 100);
+    expect(stohUploadPercent(done: 1, total: 0), 0);
+    expect(stohUploadFraction(done: 19, total: 38), 0.5);
+  });
 }

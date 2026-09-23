@@ -25,6 +25,14 @@
     "testament": "Testament",
     "client_portal": "Klientenzone"
   },
+  "plans": {
+    "carpetaName": "Carpeta",
+    "carpetaHint": "Akte, Post, Mandanten",
+    "despachoName": "Despacho",
+    "despachoHint": "Steuern, NIE, Polizei, Rathaus, Testament, Angebote, KI",
+    "asesoriaName": "Asesoría",
+    "asesoriaHint": "Despacho plus Rechnungsbuch"
+  },
   "common": {
     "history": "Verlauf",
     "historyHide": "Weniger"
@@ -35,11 +43,12 @@
     "tabDeadlines": "Fristen",
     "tabTeam": "Team",
     "tabFolder": "Mappe",
-    "modulesTitle": "Büro-Dienste",
-    "modulesHint": "Aktive Dienste und die Monatsgebühr. Preisliste und Rabatt setzt Support.",
-    "modulesOwnerOnly": "Dienste schaltet Support ein.",
-    "modulesEmpty": "Noch kein bezahlter Dienst. Support schaltet sie ein.",
-    "modulesIncluded": "Im Kern",
+    "modulesTitle": "Lizenz",
+    "modulesHint": "Paket und Monatsgebühr. Preisliste und Rabatt setzt Support.",
+    "modulesOwnerOnly": "Die Lizenz schaltet Support ein.",
+    "modulesEmpty": "Noch kein Paket. Support schaltet es ein.",
+    "modulesIncluded": "Im Paket",
+    "modulesAddon": "Zusatz",
     "modulesPrice": "{amount} € / Monat",
     "modulesDiscount": "Rabatt {percent} %",
     "modulesMonthly": "{amount} € im Monat",
@@ -210,6 +219,8 @@
     "discarded": "Die Datei ist verborgen.",
     "tooMany": "Höchstens 40 Dateien auf einmal.",
     "uploading": "Lade {done}/{total} hoch…",
+    "progress": "{done} von {total} hochgeladen",
+    "percent": "{percent} %",
     "newHint": "1. Der Name steht. 2. Die Akte hochladen. 3. Bestätigen, wohin jedes Papier gehört."
   },
   "ofertas": {

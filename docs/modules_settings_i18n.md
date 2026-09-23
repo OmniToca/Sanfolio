@@ -71,7 +71,7 @@ Jarka chce **přeskládat** bloky → vrstva C (`slot_order`) je v rozsahu, ne d
 
 Workflow kanceláře = zapnuté moduly + tyhle offsety + pořadí bloků. Ne BPMN editor.
 
-Nová kancelář (`create-office`) dostane jen desku (`carpeta_inmueble`). Další služby zapíná **Support HQ** podle smlouvy. Ceník je `modules.monthly_cents`, sleva kanceláře `tenant_settings.licence_discount_bps` (1000 = 10 %). Měsíční poplatek = součet zapnutých (včetně `always_on`) minus sleva. Owner v Nastavení vidí výši, licence nemění. Vypnutí služby je `deleted_at`, ne `cancelled`.
+Nová kancelář (`create-office`) dostane zvolený balíček (default Carpeta). Vyšší tarif a doplňky (AI, faktury) jde i později v **Support HQ**. Ceník balíčků je `licence_plans.monthly_cents`, doplňků `modules.monthly_cents`, sleva kanceláře `tenant_settings.licence_discount_bps` (1000 = 10 %). Měsíční poplatek = cena balíčku + doplňky mimo included minus sleva. Owner v Nastavení vidí balíček a výši, licence nemění. Vypnutí služby je `deleted_at`, ne `cancelled`. `organization_modules` zůstává SoT pro FeatureGate.
 
 ## 5. Katalog modulů
 

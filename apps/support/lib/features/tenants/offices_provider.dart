@@ -1,16 +1,20 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gestoria_auth/gestoria_auth.dart';
 
+import 'office_licence.dart';
+
 class OfficeRow {
   const OfficeRow({
     required this.id,
     required this.name,
     this.displayName,
+    this.planKey = LicencePlanKeys.carpeta,
   });
 
   final String id;
   final String name;
   final String? displayName;
+  final String planKey;
 
   String get label {
     final d = displayName?.trim();
@@ -25,7 +29,7 @@ final officesProvider = FutureProvider<List<OfficeRow>>((ref) async {
   if (client == null) return [];
   final rows = await client
       .from('tenants')
-      .select('id, name, tenant_settings(display_name)')
+      .select('id, name, tenant_settings(display_name, licence_plan_key)')
       .isFilter('deleted_at', null)
       .order('created_at', ascending: false);
   final out = <OfficeRow>[];
@@ -33,18 +37,25 @@ final officesProvider = FutureProvider<List<OfficeRow>>((ref) async {
     if (raw is! Map) continue;
     final settings = raw['tenant_settings'];
     String? display;
+    var planKey = LicencePlanKeys.carpeta;
+    Map? settingsMap;
     if (settings is Map) {
-      display = '${settings['display_name'] ?? ''}'.trim();
-      if (display.isEmpty) display = null;
+      settingsMap = settings;
     } else if (settings is List && settings.isNotEmpty && settings.first is Map) {
-      display = '${(settings.first as Map)['display_name'] ?? ''}'.trim();
+      settingsMap = settings.first as Map;
+    }
+    if (settingsMap != null) {
+      display = '${settingsMap['display_name'] ?? ''}'.trim();
       if (display.isEmpty) display = null;
+      final rawPlan = '${settingsMap['licence_plan_key'] ?? ''}'.trim();
+      if (rawPlan.isNotEmpty) planKey = rawPlan;
     }
     out.add(
       OfficeRow(
         id: '${raw['id']}',
         name: '${raw['name'] ?? ''}',
         displayName: display,
+        planKey: planKey,
       ),
     );
   }

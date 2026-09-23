@@ -25,6 +25,14 @@
     "testament": "Testamento",
     "client_portal": "Zona cliente"
   },
+  "plans": {
+    "carpetaName": "Carpeta",
+    "carpetaHint": "Carpeta, correo, clientes",
+    "despachoName": "Despacho",
+    "despachoHint": "Impuestos, NIE, policía, ayuntamiento, testamento, ofertas, IA",
+    "asesoriaName": "Asesoría",
+    "asesoriaHint": "Despacho más el libro de facturas"
+  },
   "common": {
     "history": "Historial",
     "historyHide": "Menos"
@@ -35,11 +43,12 @@
     "tabDeadlines": "Plazos",
     "tabTeam": "Personas",
     "tabFolder": "Carpeta",
-    "modulesTitle": "Servicios del despacho",
-    "modulesHint": "Servicios activos y la cuota mensual. La tarifa y el descuento los pone Support.",
-    "modulesOwnerOnly": "Los servicios los enciende Support.",
-    "modulesEmpty": "Aún no hay servicio de pago. Los enciende Support.",
-    "modulesIncluded": "En el núcleo",
+    "modulesTitle": "Licencia",
+    "modulesHint": "El paquete y la cuota mensual. La tarifa y el descuento los pone Support.",
+    "modulesOwnerOnly": "La licencia la enciende Support.",
+    "modulesEmpty": "Aún no hay paquete. Lo enciende Support.",
+    "modulesIncluded": "En el paquete",
+    "modulesAddon": "Complemento",
     "modulesPrice": "{amount} € / mes",
     "modulesDiscount": "Descuento {percent} %",
     "modulesMonthly": "{amount} € al mes",
@@ -210,6 +219,8 @@
     "discarded": "El archivo está oculto.",
     "tooMany": "Como máximo 40 archivos de una vez.",
     "uploading": "Subiendo {done}/{total}…",
+    "progress": "Subidos {done} de {total}",
+    "percent": "{percent} %",
     "newHint": "1. Ya tiene el nombre. 2. Suba el archivador. 3. Confirme a qué bloque va cada papel."
   },
   "ofertas": {

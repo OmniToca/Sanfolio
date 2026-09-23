@@ -8,6 +8,19 @@ const kStohFolder = 'stoh';
 /// Jedna dávka ze šanonu. Víc by Edge extract neusnesl najednou.
 const kStohBatchMax = officeFileBatchMax;
 
+/// Proč floor ne: 1/38 má být 3 %, ne 2 %. Nula totálu je 0, ne NaN.
+int stohUploadPercent({required int done, required int total}) {
+  if (total <= 0) return 0;
+  final n = done < 0 ? 0 : (done > total ? total : done);
+  return ((n * 100) / total).round().clamp(0, 100);
+}
+
+double stohUploadFraction({required int done, required int total}) {
+  if (total <= 0) return 0;
+  final n = done < 0 ? 0 : (done > total ? total : done);
+  return n / total;
+}
+
 /// Bloky, kam stoh smí papír navrhnout. provision_factura peníze nejsou sken.
 const kStohBloqueKeys = <String>{
   'cliente_snapshot',

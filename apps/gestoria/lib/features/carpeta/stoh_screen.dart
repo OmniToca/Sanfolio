@@ -37,9 +37,11 @@ class StohScreen extends ConsumerStatefulWidget {
 class _StohScreenState extends ConsumerState<StohScreen> {
   final _bloqueChoice = <String, String>{};
   final _tipoChoice = <String, String>{};
+  final _queue = <PickedOfficeFile>[];
   var _uploading = false;
   var _uploadDone = 0;
   var _uploadTotal = 0;
+  var _draining = false;
 
   CarpetaTarget get _target => CarpetaTarget(
         clienteId: widget.clienteId,
@@ -70,45 +72,37 @@ class _StohScreenState extends ConsumerState<StohScreen> {
               documents: view.stohDocuments,
               drafts: drafts.valueOrNull ?? const [],
             );
-            return ListView(
-              padding: const EdgeInsets.fromLTRB(24, 12, 24, 48),
-              children: [
-                Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      maxWidth: AppTheme.contentWide,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        AppPageHeader(
-                          title: view.nombre.isEmpty
-                              ? 'stoh.title'.tr()
-                              : view.nombre,
-                          subtitle: widget.afterCreate
-                              ? 'stoh.newHint'.tr()
-                              : 'stoh.subtitle'.tr(),
-                          actions: [
-                            OfficeAttachButton(
-                              label: 'stoh.attach'.tr(),
-                              icon: Icons.file_upload_outlined,
-                              outlined: true,
-                              multiple: true,
-                              enabled: !_uploading,
-                              onPickedMany: _upload,
-                            ),
-                          ],
+            return Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: AppTheme.contentWide,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      AppPageHeader(
+                        title: view.nombre.isEmpty
+                            ? 'stoh.title'.tr()
+                            : view.nombre,
+                        subtitle: widget.afterCreate
+                            ? 'stoh.newHint'.tr()
+                            : 'stoh.subtitle'.tr(),
+                        actions: [_attachButton()],
+                      ),
+                      Text(
+                        'stoh.hint'.tr(),
+                        style: const TextStyle(
+                          color: AppTheme.pencil,
+                          fontSize: 13,
                         ),
-                        Text(
-                          'stoh.hint'.tr(),
-                          style: const TextStyle(
-                            color: AppTheme.pencil,
-                            fontSize: 13,
-                          ),
-                        ),
-                        if (widget.afterCreate)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 12),
+                      ),
+                      if (widget.afterCreate)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 12),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
                             child: TextButton(
                               onPressed: () => context.go(
                                 carpetaRoute(
@@ -119,52 +113,51 @@ class _StohScreenState extends ConsumerState<StohScreen> {
                               child: Text('stoh.skip'.tr()),
                             ),
                           ),
-                        if (_uploading)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 16),
-                            child: Text(
-                              'stoh.uploading'.tr(
-                                namedArgs: {
-                                  'done': '$_uploadDone',
-                                  'total': '$_uploadTotal',
-                                },
-                              ),
-                            ),
-                          ),
-                        if (rows.isEmpty && !_uploading)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 48),
-                            child: Text('stoh.empty'.tr()),
-                          )
-                        else
-                          for (final row in rows)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 16),
-                              child: _StohCard(
-                                row: row,
-                                view: view,
-                                bloque: _bloqueChoice[row.document.id] ??
-                                    row.proposal.bloqueKey,
-                                tipo: _tipoChoice[row.document.id] ??
-                                    row.proposal.tipo,
-                                onBloque: (v) => setState(() {
-                                  _bloqueChoice[row.document.id] = v;
-                                  _tipoChoice[row.document.id] =
-                                      tiposForStohBloque(v).first;
-                                }),
-                                onTipo: (v) => setState(
-                                  () => _tipoChoice[row.document.id] = v,
+                        ),
+                      if (_uploading) _uploadProgress(),
+                      Expanded(
+                        child: rows.isEmpty && !_uploading
+                            ? Padding(
+                                padding: const EdgeInsets.only(top: 48),
+                                child: Text('stoh.empty'.tr()),
+                              )
+                            : ListView(
+                                padding: const EdgeInsets.only(
+                                  top: 16,
+                                  bottom: 48,
                                 ),
-                                onGuardar: () => _guardar(row, view),
-                                onDiscard: () => _discard(row),
-                                onOpen: () => _open(row.document.storagePath),
+                                children: [
+                                  for (final row in rows)
+                                    Padding(
+                                      padding: const EdgeInsets.only(bottom: 16),
+                                      child: _StohCard(
+                                        row: row,
+                                        view: view,
+                                        bloque: _bloqueChoice[row.document.id] ??
+                                            row.proposal.bloqueKey,
+                                        tipo: _tipoChoice[row.document.id] ??
+                                            row.proposal.tipo,
+                                        onBloque: (v) => setState(() {
+                                          _bloqueChoice[row.document.id] = v;
+                                          _tipoChoice[row.document.id] =
+                                              tiposForStohBloque(v).first;
+                                        }),
+                                        onTipo: (v) => setState(
+                                          () => _tipoChoice[row.document.id] = v,
+                                        ),
+                                        onGuardar: () => _guardar(row, view),
+                                        onDiscard: () => _discard(row),
+                                        onOpen: () =>
+                                            _open(row.document.storagePath),
+                                      ),
+                                    ),
+                                ],
                               ),
-                            ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
+              ),
             );
           },
         ),
@@ -172,23 +165,111 @@ class _StohScreenState extends ConsumerState<StohScreen> {
     );
   }
 
-  Future<void> _upload(List<PickedOfficeFile> files) async {
-    if (files.length > kStohBatchMax) {
-      if (!mounted) return;
+  Widget _uploadProgress() {
+    final percent = stohUploadPercent(
+      done: _uploadDone,
+      total: _uploadTotal,
+    );
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'stoh.progress'.tr(
+                    namedArgs: {
+                      'done': '$_uploadDone',
+                      'total': '$_uploadTotal',
+                    },
+                  ),
+                ),
+              ),
+              Text(
+                'stoh.percent'.tr(
+                  namedArgs: {'percent': '$percent'},
+                ),
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: stohUploadFraction(
+                done: _uploadDone,
+                total: _uploadTotal,
+              ),
+              minHeight: 8,
+              color: AppTheme.accent,
+              backgroundColor: AppTheme.accentSoft,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _attachButton() {
+    return OfficeAttachButton(
+      label: 'stoh.attach'.tr(),
+      icon: Icons.file_upload_outlined,
+      outlined: true,
+      multiple: true,
+      onPickedMany: _enqueue,
+    );
+  }
+
+  Future<void> _enqueue(List<PickedOfficeFile> files) async {
+    if (files.isEmpty) return;
+    final room = kStohBatchMax - _uploadDone - _queue.length;
+    if (room <= 0) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('stoh.tooMany'.tr())),
+        );
+      }
+      return;
+    }
+    final accepted = files.take(room).toList();
+    if (accepted.length < files.length && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('stoh.tooMany'.tr())),
       );
     }
-    final batch = files.take(kStohBatchMax).toList();
+    _queue.addAll(accepted);
+    if (_draining) {
+      if (mounted) {
+        setState(() => _uploadTotal = _uploadDone + _queue.length);
+      }
+      return;
+    }
+    await _drain();
+  }
+
+  Future<void> _drain() async {
+    _draining = true;
+    if (mounted) {
+      setState(() {
+        _uploading = true;
+        _uploadTotal = _uploadDone + _queue.length;
+      });
+    }
     final view = ref.read(carpetaControllerProvider(_target)).valueOrNull;
-    if (view == null) return;
-    setState(() {
-      _uploading = true;
+    if (view == null) {
+      _queue.clear();
+      _draining = false;
       _uploadDone = 0;
-      _uploadTotal = batch.length;
-    });
+      _uploadTotal = 0;
+      if (mounted) setState(() => _uploading = false);
+      return;
+    }
     final ctrl = ref.read(carpetaControllerProvider(_target).notifier);
-    for (final file in batch) {
+    while (_queue.isNotEmpty) {
+      final file = _queue.removeAt(0);
       try {
         final doc = await ctrl.attachStohDocument(
           bytes: file.bytes,
@@ -207,10 +288,16 @@ class _StohScreenState extends ConsumerState<StohScreen> {
         if (mounted) showOfficeUploadFailure(context, e);
       }
       if (mounted) {
-        setState(() => _uploadDone += 1);
+        setState(() {
+          _uploadDone += 1;
+          _uploadTotal = _uploadDone + _queue.length;
+        });
       }
     }
     ref.invalidate(liveAiDraftsProvider(widget.clienteId));
+    _draining = false;
+    _uploadDone = 0;
+    _uploadTotal = 0;
     if (mounted) setState(() => _uploading = false);
   }
 

@@ -5,6 +5,7 @@ import 'package:gestoria_auth/gestoria_auth.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/money/cents.dart';
+import 'office_licence.dart';
 import 'office_modules_provider.dart';
 import 'offices_provider.dart';
 
@@ -31,6 +32,10 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen> {
   void dispose() {
     _discount.dispose();
     super.dispose();
+  }
+
+  Future<void> _reload() async {
+    ref.invalidate(supportOfficeLicenceProvider(widget.tenantId));
   }
 
   @override
@@ -85,29 +90,67 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen> {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  for (final line in quote.lines)
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text('modules.${line.key}'.tr()),
-                      subtitle: Text(
-                        'tenants.modulesPrice'.tr(
-                          namedArgs: {'amount': formatCents(line.cents)},
-                        ),
-                      ),
-                      value: line.on,
-                      onChanged: line.alwaysOn
-                          ? null
-                          : (v) async {
-                              await setSupportOfficeModule(
-                                tenantId: widget.tenantId,
-                                moduleKey: line.key,
-                                on: v,
-                              );
-                              ref.invalidate(
-                                supportOfficeLicenceProvider(widget.tenantId),
-                              );
-                            },
+                  RadioGroup<String>(
+                    groupValue: quote.planKey,
+                    onChanged: (key) async {
+                      if (key == null || key == quote.planKey) return;
+                      try {
+                        await setSupportOfficePlan(
+                          tenantId: widget.tenantId,
+                          planKey: key,
+                        );
+                        ref.invalidate(officesProvider);
+                        await _reload();
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('tenants.planSaved'.tr())),
+                        );
+                      } on Object {
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('tenants.planError'.tr())),
+                        );
+                      }
+                    },
+                    child: Column(
+                      children: [
+                        for (final plan in quote.plans) _PlanTile(plan: plan),
+                      ],
                     ),
+                  ),
+                  if (quote.addOns.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      'tenants.addons'.tr(),
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    for (final line in quote.addOns)
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text('modules.${line.key}'.tr()),
+                        subtitle: Text(
+                          'tenants.modulesPrice'.tr(
+                            namedArgs: {'amount': formatCents(line.cents)},
+                          ),
+                        ),
+                        value: line.on,
+                        onChanged: (v) async {
+                          try {
+                            await setSupportOfficeModule(
+                              tenantId: widget.tenantId,
+                              moduleKey: line.key,
+                              on: v,
+                            );
+                            await _reload();
+                          } on Object {
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('tenants.addonError'.tr())),
+                            );
+                          }
+                        },
+                      ),
+                  ],
                   const SizedBox(height: 8),
                   TextField(
                     controller: _discount,
@@ -157,7 +200,7 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen> {
       tenantId: widget.tenantId,
       discountBps: percent * 100,
     );
-    ref.invalidate(supportOfficeLicenceProvider(widget.tenantId));
+    await _reload();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('tenants.discountSaved'.tr())),
@@ -220,5 +263,41 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen> {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
       }
     }
+  }
+}
+
+class _PlanTile extends StatelessWidget {
+  const _PlanTile({required this.plan});
+
+  final LicencePlanInfo plan;
+
+  @override
+  Widget build(BuildContext context) {
+    final included = plan.includedKeys.toList()..sort();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: RadioListTile<String>(
+        contentPadding: EdgeInsets.zero,
+        value: plan.key,
+        title: Text(
+          'plans.${plan.key}'.tr(
+            namedArgs: {'amount': formatCents(plan.cents)},
+          ),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('plans.${plan.key}Hint'.tr()),
+            const SizedBox(height: 4),
+            Text(
+              [
+                for (final key in included) 'modules.$key'.tr(),
+              ].join(' · '),
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

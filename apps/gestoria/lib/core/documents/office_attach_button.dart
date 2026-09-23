@@ -27,42 +27,64 @@ class OfficeAttachButton extends StatelessWidget {
   final void Function(PickedOfficeFile file)? onPicked;
   final void Function(List<PickedOfficeFile> files)? onPickedMany;
 
+  Future<void> _fallbackPick(BuildContext context) async {
+    try {
+      if (multiple) {
+        final picked = await pickOfficeFiles();
+        if (picked.isNotEmpty) onPickedMany?.call(picked);
+        return;
+      }
+      final picked = await pickOfficeFile();
+      if (picked != null) onPicked?.call(picked);
+    } on OfficeFilePickException catch (e) {
+      if (context.mounted) {
+        showOfficeFileError(context, officePickErrorI18n(e.code), code: e.code.name);
+      }
+    } on Object {
+      if (context.mounted) {
+        showOfficeFileError(context, 'folder.fileEmpty', code: 'empty');
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    void error(String key, String code) =>
+        showOfficeFileError(context, key, code: code);
     final visual = outlined
         ? OutlinedButton.icon(
-            onPressed: enabled ? () {} : null,
+            onPressed: enabled ? () => _fallbackPick(context) : null,
             icon: Icon(icon ?? Icons.attach_file, size: 18),
             label: Text(label),
           )
         : icon == null
             ? TextButton(
-                onPressed: enabled ? () {} : null,
+                onPressed: enabled ? () => _fallbackPick(context) : null,
                 child: Text(label),
               )
             : TextButton.icon(
-                onPressed: enabled ? () {} : null,
+                onPressed: enabled ? () => _fallbackPick(context) : null,
                 icon: Icon(icon, size: 18),
                 label: Text(label),
               );
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        IgnorePointer(child: visual),
-        if (enabled)
-          Positioned.fill(
-            child: OfficeFileHitLayer(
-              onPicked: onPicked,
-              onPickedMany: onPickedMany,
-              multiple: multiple,
-              onError: (key, code) => showOfficeFileError(
-                context,
-                key,
-                code: code,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 40, minWidth: 48),
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.center,
+        children: [
+          visual,
+          if (enabled)
+            Positioned.fill(
+              child: OfficeFileHitLayer(
+                onPicked: onPicked,
+                onPickedMany: onPickedMany,
+                multiple: multiple,
+                onError: error,
               ),
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 }

@@ -25,6 +25,14 @@
     "testament": "Závěť / úmrtí",
     "client_portal": "Zóna klienta"
   },
+  "plans": {
+    "carpetaName": "Carpeta",
+    "carpetaHint": "Složka, pošta, klienti",
+    "despachoName": "Despacho",
+    "despachoHint": "Daně, NIE, policie, magistrát, závěť, nabídky, AI",
+    "asesoriaName": "Asesoría",
+    "asesoriaHint": "Despacho plus kniha faktur"
+  },
   "common": {
     "history": "Historie",
     "historyHide": "Méně"
@@ -35,11 +43,12 @@
     "tabDeadlines": "Lhůty",
     "tabTeam": "Lidé",
     "tabFolder": "Deska",
-    "modulesTitle": "Služby kanceláře",
-    "modulesHint": "Zapnuté služby a měsíční poplatek. Ceník a slevu nastavuje Support.",
-    "modulesOwnerOnly": "Služby zapíná Support.",
-    "modulesEmpty": "Zatím žádná placená služba. Zapíná je Support.",
-    "modulesIncluded": "V jádru",
+    "modulesTitle": "Licence",
+    "modulesHint": "Balíček a měsíční poplatek. Ceník a slevu nastavuje Support.",
+    "modulesOwnerOnly": "Licence zapíná Support.",
+    "modulesEmpty": "Zatím žádný balíček. Zapíná ho Support.",
+    "modulesIncluded": "V balíčku",
+    "modulesAddon": "Doplněk",
     "modulesPrice": "{amount} € / měsíc",
     "modulesDiscount": "Sleva {percent} %",
     "modulesMonthly": "Měsíčně {amount} €",
@@ -210,6 +219,8 @@
     "discarded": "Soubor je schovaný.",
     "tooMany": "Najednou nejvýš 40 souborů.",
     "uploading": "Nahrávám {done}/{total}…",
+    "progress": "Nahráno {done} z {total}",
+    "percent": "{percent} %",
     "newHint": "1. Jméno máte. 2. Nahrajte šanon. 3. Potvrďte, kam který papír patří."
   },
   "ofertas": {

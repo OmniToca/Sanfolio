@@ -137,6 +137,7 @@ class AuthController extends AsyncNotifier<AuthSnapshot> {
     required String name,
     required String ownerEmail,
     String? displayName,
+    String planKey = 'carpeta',
   }) async {
     final client = trySupabaseClient();
     if (client == null) {
@@ -148,6 +149,7 @@ class AuthController extends AsyncNotifier<AuthSnapshot> {
         'name': name,
         'owner_email': ownerEmail,
         'display_name': displayName ?? name,
+        'plan_key': planKey,
       },
     );
     final data = response.data;

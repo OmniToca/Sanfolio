@@ -8,6 +8,8 @@ import 'package:web/web.dart' as web;
 import 'office_file_pick.dart';
 
 /// Skutečný `<input type=file>` přes tlačítko.
+/// `isVisible: false` vyřízne díru v canvasu — jinak Safari v ListView
+/// klikne do Flutteru a dialog se neotevře.
 /// `change` z DOM je mimo Flutter zónu — bez [Zone] Riverpod hodí minified:zt.
 class OfficeFileHitLayer extends StatefulWidget {
   const OfficeFileHitLayer({
@@ -41,6 +43,7 @@ class _OfficeFileHitLayerState extends State<OfficeFileHitLayer> {
   Widget build(BuildContext context) {
     return HtmlElementView.fromTagName(
       tagName: 'input',
+      isVisible: false,
       onElementCreated: _bind,
     );
   }
@@ -49,10 +52,11 @@ class _OfficeFileHitLayerState extends State<OfficeFileHitLayer> {
     final input = raw as web.HTMLInputElement;
     input
       ..type = 'file'
-      ..accept = '.pdf,.jpg,.jpeg,.png,.webp,.heic'
+      ..accept = 'application/pdf,image/*,.pdf,.jpg,.jpeg,.png,.webp,.heic,.heif'
       ..multiple = widget.multiple;
     final s = input.style;
     s.setProperty('opacity', '0');
+    s.setProperty('display', 'block');
     s.setProperty('width', '100%');
     s.setProperty('height', '100%');
     s.setProperty('cursor', 'pointer');
@@ -60,9 +64,9 @@ class _OfficeFileHitLayerState extends State<OfficeFileHitLayer> {
     s.setProperty('padding', '0');
     s.setProperty('margin', '0');
     s.setProperty('position', 'absolute');
-    s.setProperty('left', '0');
-    s.setProperty('top', '0');
+    s.setProperty('inset', '0');
     s.setProperty('font-size', '64px');
+    s.setProperty('pointer-events', 'auto');
 
     input.addEventListener(
       'change',
@@ -89,53 +93,53 @@ class _OfficeFileHitLayerState extends State<OfficeFileHitLayer> {
     );
   }
 
+  Future<PickedOfficeFile> _pickedOf(web.File file) async {
+    final buffer = await file.arrayBuffer().toDart;
+    final bytes = Uint8List.fromList(buffer.toDart.asUint8List());
+    return officeFileFromBytes(bytes, file.name);
+  }
+
   Future<void> _read(web.File file) async {
     try {
-      final buffer = await file.arrayBuffer().toDart;
-      final bytes = Uint8List.fromList(buffer.toDart.asUint8List());
-      final picked = officeFileFromBytes(bytes, file.name);
-      // `await` JS Promise skončí mimo zónu — Riverpod musí běžet uvnitř.
+      final picked = await _pickedOf(file);
       _zone.run(() {
         if (!mounted) return;
         widget.onPicked?.call(picked);
       });
     } on OfficeFilePickException catch (e) {
-      _zone.run(() {
-        if (!mounted) return;
-        widget.onError(officePickErrorI18n(e.code), e.code.name);
-      });
+      _emitError(officePickErrorI18n(e.code), e.code.name);
     } on Object catch (e) {
-      _zone.run(() {
-        if (!mounted) return;
-        widget.onError('folder.fileEmpty', _shortError(e));
-      });
+      _emitError('folder.fileEmpty', _shortError(e));
     }
   }
 
+  /// Po jednom: 38 PDF naráz by Safari drželo v RAM a UI by vypadalo mrtvě.
   Future<void> _readMany(List<web.File> files) async {
-    final out = <PickedOfficeFile>[];
-    try {
-      for (final file in files) {
-        final buffer = await file.arrayBuffer().toDart;
-        final bytes = Uint8List.fromList(buffer.toDart.asUint8List());
-        out.add(officeFileFromBytes(bytes, file.name));
+    var delivered = 0;
+    for (final file in files) {
+      try {
+        final picked = await _pickedOf(file);
+        delivered++;
+        _zone.run(() {
+          if (!mounted) return;
+          widget.onPickedMany?.call([picked]);
+        });
+      } on OfficeFilePickException catch (e) {
+        _emitError(officePickErrorI18n(e.code), e.code.name);
+      } on Object catch (e) {
+        _emitError('folder.fileEmpty', _shortError(e));
       }
-      _zone.run(() {
-        if (!mounted) return;
-        if (out.isEmpty) return;
-        widget.onPickedMany?.call(out);
-      });
-    } on OfficeFilePickException catch (e) {
-      _zone.run(() {
-        if (!mounted) return;
-        widget.onError(officePickErrorI18n(e.code), e.code.name);
-      });
-    } on Object catch (e) {
-      _zone.run(() {
-        if (!mounted) return;
-        widget.onError('folder.fileEmpty', _shortError(e));
-      });
     }
+    if (delivered == 0 && files.isNotEmpty) {
+      _emitError('folder.fileEmpty', 'empty');
+    }
+  }
+
+  void _emitError(String key, String code) {
+    _zone.run(() {
+      if (!mounted) return;
+      widget.onError(key, code);
+    });
   }
 }
 

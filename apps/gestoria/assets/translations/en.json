@@ -25,6 +25,14 @@
     "testament": "Will / death",
     "client_portal": "Client zone"
   },
+  "plans": {
+    "carpetaName": "Carpeta",
+    "carpetaHint": "Folder, mail, clients",
+    "despachoName": "Despacho",
+    "despachoHint": "Taxes, NIE, police, town hall, wills, offers, AI",
+    "asesoriaName": "Asesoría",
+    "asesoriaHint": "Despacho plus the invoice book"
+  },
   "common": {
     "history": "History",
     "historyHide": "Show less"
@@ -35,11 +43,12 @@
     "tabDeadlines": "Deadlines",
     "tabTeam": "People",
     "tabFolder": "Folder",
-    "modulesTitle": "Office services",
-    "modulesHint": "Enabled services and the monthly fee. Support sets the catalogue and the discount.",
-    "modulesOwnerOnly": "Support turns services on.",
-    "modulesEmpty": "No paid service yet. Support turns them on.",
-    "modulesIncluded": "In the core",
+    "modulesTitle": "Licence",
+    "modulesHint": "The package and the monthly fee. Support sets the price list and the discount.",
+    "modulesOwnerOnly": "Support turns the licence on.",
+    "modulesEmpty": "No package yet. Support turns it on.",
+    "modulesIncluded": "In the package",
+    "modulesAddon": "Add-on",
     "modulesPrice": "{amount} € / month",
     "modulesDiscount": "Discount {percent} %",
     "modulesMonthly": "{amount} € per month",
@@ -210,6 +219,8 @@
     "discarded": "The file is hidden.",
     "tooMany": "At most 40 files at once.",
     "uploading": "Uploading {done}/{total}…",
+    "progress": "Uploaded {done} of {total}",
+    "percent": "{percent} %",
     "newHint": "1. You have the name. 2. Upload the folder. 3. Confirm where each paper belongs."
   },
   "ofertas": {

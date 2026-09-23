@@ -6,8 +6,8 @@ import {
 } from "../_shared/invite_user.ts";
 
 /**
- * Support zakládá kancelář: tenant + settings + deska + invite owner.
- * Další licence zapíná Support HQ. Flutter INSERT do tenants nesmí.
+ * Support zakládá kancelář: tenant + settings + zvolený balíček + invite owner.
+ * Flutter INSERT do tenants nesmí.
  */
 
 const corsHeaders: Record<string, string> = {
@@ -17,10 +17,33 @@ const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-/** Deska složky je základ. Další služby zapíná Support podle smlouvy. */
-const DEFAULT_MODULES = [
-  "carpeta_inmueble",
-];
+/** Fallback, když licence_plan_modules ještě není (stejné jako seed 0061). */
+const PLAN_MODULES: Record<string, string[]> = {
+  carpeta: ["carpeta_inmueble", "messaging"],
+  despacho: [
+    "carpeta_inmueble",
+    "messaging",
+    "impuestos",
+    "nie_poder",
+    "policia",
+    "ayuntamiento",
+    "testament",
+    "ofertas",
+    "ai_copilot",
+  ],
+  asesoria: [
+    "carpeta_inmueble",
+    "messaging",
+    "impuestos",
+    "nie_poder",
+    "policia",
+    "ayuntamiento",
+    "testament",
+    "ofertas",
+    "ai_copilot",
+    "facturacion",
+  ],
+};
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -49,6 +72,7 @@ Deno.serve(async (req) => {
       name?: unknown;
       owner_email?: unknown;
       display_name?: unknown;
+      plan_key?: unknown;
     };
     const name = typeof body.name === "string" ? body.name.trim() : "";
     const ownerEmail = typeof body.owner_email === "string"
@@ -57,6 +81,10 @@ Deno.serve(async (req) => {
     const displayName = typeof body.display_name === "string"
       ? body.display_name.trim()
       : name;
+    const rawPlan = typeof body.plan_key === "string"
+      ? body.plan_key.trim()
+      : "carpeta";
+    const planKey = rawPlan in PLAN_MODULES ? rawPlan : "carpeta";
     if (!name) return jsonError(400, "name required");
     if (!ownerEmail || !ownerEmail.includes("@")) {
       return jsonError(400, "owner_email required");
@@ -84,12 +112,27 @@ Deno.serve(async (req) => {
       send_translated_outbound: true,
       allow_client_without_nie: true,
       iban_required_for_debit_only: true,
+      licence_plan_key: planKey,
     });
     if (settingsErr) {
       return jsonError(500, settingsErr.message);
     }
 
-    const moduleRows = DEFAULT_MODULES.map((key) => ({
+    let moduleKeys = PLAN_MODULES[planKey] ?? PLAN_MODULES.carpeta;
+    const { data: planRows } = await admin
+      .from("licence_plan_modules")
+      .select("module_key")
+      .eq("plan_key", planKey);
+    if (Array.isArray(planRows) && planRows.length > 0) {
+      moduleKeys = planRows
+        .map((row) =>
+          row && typeof row === "object"
+            ? `${(row as { module_key?: unknown }).module_key ?? ""}`
+            : ""
+        )
+        .filter((key) => key.length > 0);
+    }
+    const moduleRows = moduleKeys.map((key) => ({
       tenant_id: tenantId,
       module_key: key,
       status: "active",
@@ -143,7 +186,7 @@ Deno.serve(async (req) => {
       action: "tenant.create",
       entity_table: "tenants",
       entity_id: tenantId,
-      after: { name, owner_email: ownerEmail },
+      after: { name, owner_email: ownerEmail, plan_key: planKey },
     });
 
     return new Response(

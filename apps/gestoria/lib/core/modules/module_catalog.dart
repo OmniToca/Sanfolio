@@ -38,7 +38,8 @@ extension GestoriaModuleKey on GestoriaModule {
   }
 }
 
-/// Služby v Nastavení / Support HQ. Core je vždy. Portál ještě nestavíme.
+/// Katalog FeatureGate. Komerčně se prodávají 3 balíčky, ne tyto přepínače.
+/// Core je vždy. Portál ještě nestavíme.
 const officeToggleModules = <GestoriaModule>[
   GestoriaModule.carpetaInmueble,
   GestoriaModule.impuestos,

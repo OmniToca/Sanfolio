@@ -25,6 +25,14 @@
     "testament": "Testament",
     "client_portal": "Espace client"
   },
+  "plans": {
+    "carpetaName": "Carpeta",
+    "carpetaHint": "Dossier, courrier, clients",
+    "despachoName": "Despacho",
+    "despachoHint": "Impôts, NIE, police, mairie, testament, offres, IA",
+    "asesoriaName": "Asesoría",
+    "asesoriaHint": "Despacho plus le livre de factures"
+  },
   "common": {
     "history": "Historique",
     "historyHide": "Moins"
@@ -35,11 +43,12 @@
     "tabDeadlines": "Délais",
     "tabTeam": "Équipe",
     "tabFolder": "Dossier",
-    "modulesTitle": "Services du cabinet",
-    "modulesHint": "Services actifs et la cotisation mensuelle. Le tarif et la remise, c’est Support.",
-    "modulesOwnerOnly": "Les services, c’est Support qui les active.",
-    "modulesEmpty": "Pas encore de service payant. Support les active.",
-    "modulesIncluded": "Dans le noyau",
+    "modulesTitle": "Licence",
+    "modulesHint": "Le forfait et la cotisation mensuelle. Le tarif et la remise, c’est Support.",
+    "modulesOwnerOnly": "La licence, c’est Support qui l’active.",
+    "modulesEmpty": "Pas encore de forfait. Support l’active.",
+    "modulesIncluded": "Dans le forfait",
+    "modulesAddon": "Option",
     "modulesPrice": "{amount} € / mois",
     "modulesDiscount": "Remise {percent} %",
     "modulesMonthly": "{amount} € par mois",
@@ -210,6 +219,8 @@
     "discarded": "Le fichier est masqué.",
     "tooMany": "40 fichiers maximum d’un coup.",
     "uploading": "Envoi {done}/{total}…",
+    "progress": "Envoyés {done} sur {total}",
+    "percent": "{percent} %",
     "newHint": "1. Le nom est là. 2. Déposez le dossier. 3. Confirmez où va chaque papier."
   },
   "ofertas": {

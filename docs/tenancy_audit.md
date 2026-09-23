@@ -13,7 +13,7 @@ Vzory z OmniToca (Support ≠ Cloud, impersonace s důvodem) a LeoDejvIT (soft-d
 
 Cross-app URL: `GESTORIA_BASE_URL`, `SUPPORT_APP_URL`. Release zakazuje localhost. Handoff **vždy** nese `refresh_token` v hash (dvě origin = dvě localStorage). Produkční build na Netlify: env `SUPABASE_*`; URL default `$URL` (viz root `netlify.toml`). Vlastní doména: `GESTORIA_BASE_URL=https://sanfolio.app`.
 
-Licence: tabulky `modules` + `organization_modules` (`trial` \| `active` \| `cancelled` \| `past_due`). Ceník `modules.monthly_cents`, sleva kanceláře `tenant_settings.licence_discount_bps`. Kill-switch Gestoría app při `cancelled`/`past_due` → `/payment-required`. Support se nezamyká. Zapíná jen Support HQ (jako OmniToca).
+Licence: komerčně 3 balíčky (`licence_plans`: carpeta / despacho / asesoria) jako OmniToca Mesa/Servicio/Cadena. Entitlement zůstává `modules` + `organization_modules` (`trial` \| `active` \| `cancelled` \| `past_due`). Ceník balíčku `licence_plans.monthly_cents`, doplňků `modules.monthly_cents`, sleva `tenant_settings.licence_discount_bps`. Kill-switch Gestoría app při `cancelled`/`past_due` → `/payment-required`. Support se nezamyká. Zapíná jen Support HQ.
 
 ## 2. Identity
 

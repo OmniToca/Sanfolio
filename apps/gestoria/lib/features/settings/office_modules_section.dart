@@ -7,7 +7,7 @@ import '../../core/presentation/widgets/app_widgets.dart';
 import '../../core/theme/app_theme.dart';
 import 'office_modules_controller.dart';
 
-/// Slot `settings.section`: co je v licenci a kolik kancelář platí.
+/// Slot `settings.section`: balíček a kolik kancelář platí.
 /// Zapíná Support HQ, ne owner.
 class OfficeModulesSection extends ConsumerWidget {
   const OfficeModulesSection({super.key});
@@ -22,22 +22,40 @@ class OfficeModulesSection extends ConsumerWidget {
         loading: () => const LinearProgressIndicator(),
         error: (e, st) => Text('settings.loadError'.tr()),
         data: (quote) {
-          final billed = [
-            for (final line in quote.lines)
-              if (line.billed) line,
+          final billedAddOns = [
+            for (final line in quote.addOns)
+              if (line.on) line,
           ];
-          if (billed.isEmpty) {
-            return Text('settings.modulesEmpty'.tr());
-          }
+          final included = quote.includedKeys.toList()..sort();
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              for (final line in billed)
+              AppInsetRow(
+                title: 'plans.${quote.planKey}Name'.tr(),
+                subtitle: 'plans.${quote.planKey}Hint'.tr(),
+                trailing: Text(
+                  'settings.modulesPrice'.tr(
+                    namedArgs: {'amount': formatCents(quote.planCents)},
+                  ),
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+              ),
+              if (included.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 4, 4, 8),
+                  child: Text(
+                    [
+                      for (final key in included) 'modules.$key'.tr(),
+                    ].join(' · '),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppTheme.pencil,
+                        ),
+                  ),
+                ),
+              for (final line in billedAddOns)
                 AppInsetRow(
                   title: 'modules.${line.key}'.tr(),
-                  subtitle: line.alwaysOn
-                      ? 'settings.modulesIncluded'.tr()
-                      : null,
+                  subtitle: 'settings.modulesAddon'.tr(),
                   trailing: Text(
                     'settings.modulesPrice'.tr(
                       namedArgs: {'amount': formatCents(line.cents)},
@@ -69,6 +87,13 @@ class OfficeModulesSection extends ConsumerWidget {
                   namedArgs: {'amount': formatCents(quote.totalCents)},
                 ),
                 style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'settings.modulesOwnerOnly'.tr(),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppTheme.pencil,
+                    ),
               ),
             ],
           );
