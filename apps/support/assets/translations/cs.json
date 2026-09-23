@@ -1,6 +1,10 @@
 {
-  "app": { "title": "Gestoría Support" },
-  "error": { "notFound": "Stránka neexistuje" },
+  "app": {
+    "title": "Gestoría Support"
+  },
+  "error": {
+    "notFound": "Stránka neexistuje"
+  },
   "auth": {
     "intro": "Interní HQ. Bez impersonace nevidíte klienty kanceláře.",
     "email": "E-mail",
@@ -21,7 +25,7 @@
     "detail": "Kancelář",
     "impersonate": "Převtělit se",
     "impersonateHint": "Otevře kancelářskou aplikaci se stejným účtem. Do URL jde refresh_token (hash), jinak druhá origin nemá přihlášení.",
-    "reason": "Důvod (povinný)",
+    "reason": "Důvod (min. 12 znaků)",
     "note": "Poznámka",
     "reasonRequired": "Důvod je povinný.",
     "modulesTitle": "Licence",
@@ -37,7 +41,8 @@
     "saveDiscount": "Uložit slevu",
     "discountSaved": "Sleva je uložená.",
     "discountOff": "Sleva {amount} €",
-    "monthly": "Měsíčně {amount} €"
+    "monthly": "Měsíčně {amount} €",
+    "reasonTooShort": "Důvod musí mít aspoň 12 znaků."
   },
   "cenik": {
     "title": "Ceník",

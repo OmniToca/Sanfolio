@@ -1,32 +1,30 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { replaceDocumentoChunks } from "../_shared/embed_chunks.ts";
+import { corsHeaders } from "../_shared/cors.ts";
 
 /**
  * Dopočítá kousky u přepisů bez indexu. JWT kanceláře = její tenant.
- * Service role = dávka napříč (backfill z CLI). AI neukládá desku.
+ * Service / cron = exact SUPABASE_SERVICE_ROLE_KEY nebo CRON_SECRET.
+ * Žádný unsigned JWT "role" claim (C2).
  */
 
-const corsHeaders: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
 Deno.serve(async (req) => {
+  const headers = corsHeaders(req);
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers });
   }
   if (req.method !== "POST") {
-    return json(405, { ok: false, error: "Method not allowed" });
+    return json(405, { ok: false, error: "Method not allowed" }, headers);
   }
   const authHeader = req.headers.get("Authorization") ?? "";
   const bearer = authHeader.replace(/^Bearer\s+/i, "").trim();
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")?.trim() ?? "";
+  const cronSecret = Deno.env.get("CRON_SECRET")?.trim() ?? "";
+  // Jen exact match — žádný forged JWT payload.
   const isService = Boolean(bearer) && (
     (Boolean(serviceKey) && bearer === serviceKey) ||
-    jwtRole(bearer) === "service_role"
+    (Boolean(cronSecret) && bearer === cronSecret)
   );
 
   const userClient = createClient(supabaseUrl(), supabaseAnonKey(), {
@@ -37,11 +35,11 @@ Deno.serve(async (req) => {
   let tenantId = "";
   if (!isService) {
     if (!authHeader.toLowerCase().startsWith("bearer ")) {
-      return json(401, { ok: false, error: "Missing Authorization" });
+      return json(401, { ok: false, error: "Missing Authorization" }, headers);
     }
     const { data: userData, error: userErr } = await userClient.auth.getUser();
     if (userErr || !userData.user) {
-      return json(401, { ok: false, error: "Unauthorized" });
+      return json(401, { ok: false, error: "Unauthorized" }, headers);
     }
     const { data: mem } = await userClient
       .from("tenant_members")
@@ -50,11 +48,15 @@ Deno.serve(async (req) => {
       .limit(1)
       .maybeSingle();
     tenantId = `${mem?.tenant_id ?? ""}`;
-    if (!tenantId) return json(403, { ok: false, error: "no tenant" });
+    if (!tenantId) {
+      return json(403, { ok: false, error: "no tenant" }, headers);
+    }
   }
 
   const apiKey = Deno.env.get("OPENAI_API_KEY")?.trim();
-  if (!apiKey) return json(503, { ok: false, error: "LLM not configured" });
+  if (!apiKey) {
+    return json(503, { ok: false, error: "LLM not configured" }, headers);
+  }
 
   const db = isService ? admin : userClient;
   const pending: Array<{
@@ -72,7 +74,7 @@ Deno.serve(async (req) => {
       .range(offset, offset + 19);
     if (tenantId) q = q.eq("tenant_id", tenantId);
     const { data: rows, error } = await q;
-    if (error) return json(500, { ok: false, error: error.message });
+    if (error) return json(500, { ok: false, error: error.message }, headers);
     const batch = rows ?? [];
     scanned += batch.length;
     if (batch.length === 0) break;
@@ -107,7 +109,7 @@ Deno.serve(async (req) => {
     }
   }
 
-  return json(200, { ok: true, done, scanned, pending: pending.length });
+  return json(200, { ok: true, done, scanned, pending: pending.length }, headers);
 });
 
 function supabaseUrl(): string {
@@ -118,20 +120,13 @@ function supabaseAnonKey(): string {
   return Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 }
 
-function json(status: number, body: Record<string, unknown>) {
+function json(
+  status: number,
+  body: Record<string, unknown>,
+  headers: Record<string, string>,
+) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...headers, "Content-Type": "application/json" },
   });
-}
-
-function jwtRole(token: string): string {
-  try {
-    const payload = token.split(".")[1] ?? "";
-    const json = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
-    const data = JSON.parse(json) as { role?: string };
-    return `${data.role ?? ""}`;
-  } catch {
-    return "";
-  }
 }

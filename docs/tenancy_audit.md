@@ -113,12 +113,14 @@ OmniToca posílala jen `session_id`. Support a kancelář jsou **dvě origin** �
 
 Tady:
 
-1. Support: povinný důvod → RPC `start_impersonation`.
+1. Support: důvod ≥ 12 znaků → RPC `start_impersonation` (session tabulka jen SELECT z klienta; mutate jen RPC; `forbid_hard_delete`).
 2. Stejná záložka: `{GESTORIA_BASE_URL}/impersonation/accept?session_id=…#refresh_token=…`  
    Token je v **hash**, ne v query.
 3. Accept nejdřív `setSession(refresh_token)`, pak ověří živou session. Chybí-li token, **řekne to na obrazovce** — nikdy tichý login.
 4. Banner „Režim podpory: {despacho}“ + Ukončit → `end_impersonation` → `SUPPORT_APP_URL`.
 5. Support JWT v kanceláři **bez** živé session → `/forbidden`.
+
+`profiles.is_support` smí měnit jen `service_role` / SQL editor (trigger `forbid_client_is_support_change`). Self-promote z JWT klienta je zakázaný.
 
 Localhost v debugu smí; v release musí být veřejné URL. Handoff i na dvou `flutter run` portech nese token, takže funguje.
 
@@ -127,7 +129,7 @@ Založení kanceláře: Edge Function `create-office` (service_role). Flutter IN
 ## 7. Storage
 
 Bucket `documentos` v EU. Cesta `{tenant_id}/{cliente_id}/{id}_{název}`.  
-Policy: membership tenantu. Žádné veřejné URL. Signed URL 2 minuty.  
+Policy: `can_access_tenant` **a** `can_access_cliente` na SELECT/INSERT/UPDATE/DELETE orphan. Žádné veřejné URL. Signed URL 2 minuty.  
 INSERT cesty hlídá trigger (nesmí ven z tenanta/klienta). DELETE blobu: orphan rollback přes Storage API; vysypání koše jen `purge_documento_storage` (owner, dokument v koši). Hosted trigger `protect_delete` zakáže holý `DELETE FROM storage.objects` — RPC proto nastaví `storage.allow_delete_query`.
 
 ## 8. GDPR / LOPDGDD vs. „100 % soft-delete“

@@ -1,17 +1,11 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { corsHeaders } from "../_shared/cors.ts";
 
 /**
  * Copilot nachystá mensajes.draft ze děr složky. sent_at zůstane null.
  * Tool send_message neexistuje — odesílá gestor.
  */
-
-const corsHeaders: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
 
 const TEMPLATES: Record<string, { asunto: string; cuerpo: string }> = {
   falta_documento: {
@@ -37,8 +31,9 @@ const TEMPLATES: Record<string, { asunto: string; cuerpo: string }> = {
 };
 
 Deno.serve(async (req) => {
+  const cors = corsHeaders(req);
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: cors });
   }
   if (req.method !== "POST") {
     return json(405, { ok: false, error: "Method not allowed" });
@@ -203,9 +198,13 @@ function serviceRoleKey(): string {
   return Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 }
 
-function json(status: number, body: Record<string, unknown>) {
+function json(
+  status: number,
+  body: Record<string, unknown>,
+  req?: Request,
+) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...corsHeaders(req), "Content-Type": "application/json" },
   });
 }

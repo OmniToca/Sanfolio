@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { corsHeaders } from "../_shared/cors.ts";
 import {
   findAuthUserId,
   inviteOrCreateAuthUser,
@@ -9,13 +10,6 @@ import {
  * Support zakládá kancelář: tenant + settings + zvolený balíček + invite owner.
  * Flutter INSERT do tenants nesmí.
  */
-
-const corsHeaders: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
 
 /** Fallback, když licence_plan_modules ještě není (stejné jako seed 0061). */
 const PLAN_MODULES: Record<string, string[]> = {
@@ -46,17 +40,18 @@ const PLAN_MODULES: Record<string, string[]> = {
 };
 
 Deno.serve(async (req) => {
+  const cors = corsHeaders(req);
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: cors });
   }
   if (req.method !== "POST") {
-    return jsonError(405, "Method not allowed");
+    return jsonError(405, "Method not allowed", req);
   }
 
   try {
     const authHeader = req.headers.get("Authorization") ?? "";
     if (!authHeader.toLowerCase().startsWith("bearer ")) {
-      return jsonError(401, "Missing Authorization");
+      return jsonError(401, "Missing Authorization", req);
     }
 
     const userClient = createClient(supabaseUrl(), supabaseAnonKey(), {
@@ -65,8 +60,8 @@ Deno.serve(async (req) => {
     const { data: supportOk, error: supportErr } = await userClient.rpc(
       "auth_is_support_user",
     );
-    if (supportErr) return jsonError(500, supportErr.message);
-    if (supportOk !== true) return jsonError(403, "Support only");
+    if (supportErr) return jsonError(500, supportErr.message, req);
+    if (supportOk !== true) return jsonError(403, "Support only", req);
 
     const body = await req.json() as {
       name?: unknown;
@@ -85,9 +80,9 @@ Deno.serve(async (req) => {
       ? body.plan_key.trim()
       : "carpeta";
     const planKey = rawPlan in PLAN_MODULES ? rawPlan : "carpeta";
-    if (!name) return jsonError(400, "name required");
+    if (!name) return jsonError(400, "name required", req);
     if (!ownerEmail || !ownerEmail.includes("@")) {
-      return jsonError(400, "owner_email required");
+      return jsonError(400, "owner_email required", req);
     }
 
     const admin = createClient(supabaseUrl(), serviceRoleKey(), {
@@ -100,7 +95,7 @@ Deno.serve(async (req) => {
       .select("id")
       .single();
     if (tenantErr || !tenant) {
-      return jsonError(500, tenantErr?.message ?? "tenant insert failed");
+      return jsonError(500, tenantErr?.message ?? "tenant insert failed", req);
     }
     const tenantId = tenant.id as string;
 
@@ -115,7 +110,7 @@ Deno.serve(async (req) => {
       licence_plan_key: planKey,
     });
     if (settingsErr) {
-      return jsonError(500, settingsErr.message);
+      return jsonError(500, settingsErr.message, req);
     }
 
     let moduleKeys = PLAN_MODULES[planKey] ?? PLAN_MODULES.carpeta;
@@ -140,7 +135,7 @@ Deno.serve(async (req) => {
     const { error: modErr } = await admin
       .from("organization_modules")
       .insert(moduleRows);
-    if (modErr) return jsonError(500, modErr.message);
+    if (modErr) return jsonError(500, modErr.message, req);
 
     let userId = await findAuthUserId(admin, ownerEmail);
     if (!userId) {
@@ -167,7 +162,7 @@ Deno.serve(async (req) => {
           id: userId,
           email: ownerEmail,
         });
-        if (pErr) return jsonError(500, pErr.message);
+        if (pErr) return jsonError(500, pErr.message, req);
       } else {
         await new Promise((r) => setTimeout(r, 150));
       }
@@ -178,7 +173,7 @@ Deno.serve(async (req) => {
       profile_id: userId,
       role: "owner",
     });
-    if (memErr) return jsonError(500, memErr.message);
+    if (memErr) return jsonError(500, memErr.message, req);
 
     await admin.from("audit_logs").insert({
       tenant_id: tenantId,
@@ -191,17 +186,17 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({ ok: true, tenant_id: tenantId, owner_id: userId }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      { headers: { ...cors, "Content-Type": "application/json" } },
     );
   } catch (e) {
-    return jsonError(500, e instanceof Error ? e.message : String(e));
+    return jsonError(500, e instanceof Error ? e.message : String(e), req);
   }
 });
 
-function jsonError(status: number, error: string) {
+function jsonError(status: number, error: string, req?: Request) {
   return new Response(JSON.stringify({ ok: false, error }), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...corsHeaders(req), "Content-Type": "application/json" },
   });
 }
 

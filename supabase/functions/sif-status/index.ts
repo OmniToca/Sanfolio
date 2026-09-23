@@ -21,7 +21,7 @@ import {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return json(200, { ok: true });
+    return json(200, { ok: true }, req);
   }
   if (req.method !== "POST") {
     return json(405, { ok: false, error: "Method not allowed" });

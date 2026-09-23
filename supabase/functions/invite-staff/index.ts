@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { corsHeaders } from "../_shared/cors.ts";
 import {
   findAuthUserId,
   inviteOrCreateAuthUser,
@@ -11,26 +12,20 @@ import {
  * Strop počtu lidí není — omezení je, které karty a bloky člen vidí.
  */
 
-const corsHeaders: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
 const ALLOWED_ROLES = new Set(["gestor", "asistente"]);
 
 Deno.serve(async (req) => {
+  const cors = corsHeaders(req);
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: cors });
   }
   if (req.method !== "POST") {
-    return json(405, { ok: false, error: "Method not allowed" });
+    return json(405, { ok: false, error: "Method not allowed" }, req);
   }
 
   const authHeader = req.headers.get("Authorization") ?? "";
   if (!authHeader.toLowerCase().startsWith("bearer ")) {
-    return json(401, { ok: false, error: "Missing Authorization" });
+    return json(401, { ok: false, error: "Missing Authorization" }, req);
   }
 
   const userClient = createClient(supabaseUrl(), supabaseAnonKey(), {
@@ -38,7 +33,7 @@ Deno.serve(async (req) => {
   });
   const { data: userData, error: userErr } = await userClient.auth.getUser();
   if (userErr || !userData.user) {
-    return json(401, { ok: false, error: "Unauthorized" });
+    return json(401, { ok: false, error: "Unauthorized" }, req);
   }
 
   const body = await req.json() as {
@@ -51,20 +46,29 @@ Deno.serve(async (req) => {
     ? body.email.trim().toLowerCase()
     : "";
   const role = typeof body.role === "string" ? body.role.trim() : "";
-  if (!tenantId) return json(400, { ok: false, error: "tenant_id required" });
+  if (!tenantId) {
+    return json(400, { ok: false, error: "tenant_id required" }, req);
+  }
   if (!email || !email.includes("@")) {
-    return json(400, { ok: false, error: "email required" });
+    return json(400, { ok: false, error: "email required" }, req);
   }
   if (!ALLOWED_ROLES.has(role)) {
-    return json(400, { ok: false, error: "role must be gestor or asistente" });
+    return json(400, {
+      ok: false,
+      error: "role must be gestor or asistente",
+    }, req);
   }
 
   const { data: ownerOk, error: ownerErr } = await userClient.rpc(
     "is_tenant_owner",
     { _tenant_id: tenantId },
   );
-  if (ownerErr) return json(500, { ok: false, error: ownerErr.message });
-  if (ownerOk !== true) return json(403, { ok: false, error: "Owner only" });
+  if (ownerErr) {
+    return json(500, { ok: false, error: ownerErr.message }, req);
+  }
+  if (ownerOk !== true) {
+    return json(403, { ok: false, error: "Owner only" }, req);
+  }
 
   const admin = createClient(supabaseUrl(), serviceRoleKey(), {
     auth: { autoRefreshToken: false, persistSession: false },
@@ -82,7 +86,7 @@ Deno.serve(async (req) => {
       return json(500, {
         ok: false,
         error: invited.error ?? "invite failed",
-      });
+      }, req);
     }
   }
 
@@ -98,7 +102,9 @@ Deno.serve(async (req) => {
         id: userId,
         email,
       });
-      if (pErr) return json(500, { ok: false, error: pErr.message });
+      if (pErr) {
+        return json(500, { ok: false, error: pErr.message }, req);
+      }
     } else {
       await new Promise((r) => setTimeout(r, 150));
     }
@@ -112,7 +118,7 @@ Deno.serve(async (req) => {
     .is("deleted_at", null)
     .maybeSingle();
   if (live) {
-    return json(409, { ok: false, error: "already_member" });
+    return json(409, { ok: false, error: "already_member" }, req);
   }
 
   const { error: memErr } = await admin.from("tenant_members").insert({
@@ -120,7 +126,9 @@ Deno.serve(async (req) => {
     profile_id: userId,
     role,
   });
-  if (memErr) return json(500, { ok: false, error: memErr.message });
+  if (memErr) {
+    return json(500, { ok: false, error: memErr.message }, req);
+  }
 
   await admin.from("audit_logs").insert({
     tenant_id: tenantId,
@@ -137,13 +145,17 @@ Deno.serve(async (req) => {
     role,
     existing,
     email_sent: existing ? false : emailSent,
-  });
+  }, req);
 });
 
-function json(status: number, body: Record<string, unknown>) {
+function json(
+  status: number,
+  body: Record<string, unknown>,
+  req?: Request,
+) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...corsHeaders(req), "Content-Type": "application/json" },
   });
 }
 

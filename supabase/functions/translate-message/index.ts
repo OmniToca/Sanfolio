@@ -1,21 +1,16 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { corsHeaders } from "../_shared/cors.ts";
 
 /**
  * Překlad výzvy do clientes.locale. Volá jen gestor klikem, ne AI, ne cron.
  * Bez OPENAI_API_KEY vrátí originál — nic se netváří, že se přeložilo.
  */
 
-const corsHeaders: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
 Deno.serve(async (req) => {
+  const cors = corsHeaders(req);
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: cors });
   }
   if (req.method !== "POST") {
     return json(405, { ok: false, error: "Method not allowed" });
@@ -100,9 +95,13 @@ Deno.serve(async (req) => {
   return json(200, { ok: true, text: translated, translated: true });
 });
 
-function json(status: number, body: Record<string, unknown>) {
+function json(
+  status: number,
+  body: Record<string, unknown>,
+  req?: Request,
+) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...corsHeaders(req), "Content-Type": "application/json" },
   });
 }

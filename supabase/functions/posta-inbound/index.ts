@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { corsHeaders } from "../_shared/cors.ts";
 
 /**
  * Inbound webhook (Resend / Postmark / generický JSON).
@@ -11,20 +12,14 @@ import { createClient } from "npm:@supabase/supabase-js@2";
  * Ne JWT uživatele.
  */
 
-const corsHeaders: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-posta-secret, x-webhook-secret, svix-id, svix-timestamp, svix-signature",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
 const MAX_BODY = 200_000;
 const MAX_ATTACH = 20;
 const MAX_ATTACH_BYTES = 32 * 1024 * 1024;
 
 Deno.serve(async (req) => {
+  const cors = corsHeaders(req);
   if (req.method === "OPTIONS") {
-    return json(200, { ok: true });
+    return json(200, { ok: true }, req);
   }
   if (req.method !== "POST") {
     return json(405, { ok: false, error: "method" });
@@ -573,6 +568,11 @@ async function verifyResendSvix(req: Request, rawBody: string): Promise<boolean>
   const ts = (req.headers.get("svix-timestamp") ?? "").trim();
   const sigHeader = (req.headers.get("svix-signature") ?? "").trim();
   if (!id || !ts || !sigHeader) return false;
+  // M2: odmítni replay starší/novější než ±5 min.
+  const tsNum = Number(ts);
+  if (!Number.isFinite(tsNum)) return false;
+  const skew = Math.abs(Math.floor(Date.now() / 1000) - tsNum);
+  if (skew > 300) return false;
   const b64 = secret.startsWith("whsec_") ? secret.slice("whsec_".length) : secret;
   let keyBytes: Uint8Array;
   try {
@@ -611,9 +611,13 @@ function timingSafeEqual(a: string, b: string): boolean {
   return n === 0;
 }
 
-function json(status: number, body: Record<string, unknown>) {
+function json(
+  status: number,
+  body: Record<string, unknown>,
+  req?: Request,
+) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...corsHeaders(req), "Content-Type": "application/json" },
   });
 }

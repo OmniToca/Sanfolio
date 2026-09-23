@@ -3,12 +3,12 @@
  * PROČ: create i ověření musí stejné datum a stejné Pendiente → emitida.
  */
 
-export const sifCors: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+import { corsHeaders } from "./cors.ts";
+
+/** @deprecated použij corsHeaders(req); ponecháno jako alias bez Origin. */
+export function sifCors(req?: Request): Record<string, string> {
+  return corsHeaders(req);
+}
 
 export type BookEstado = "pendiente" | "emitida" | "error" | "anulada";
 
@@ -252,10 +252,14 @@ export async function fetchVerifactiStatus(opts: {
   });
 }
 
-export function json(status: number, body: Record<string, unknown>): Response {
+export function json(
+  status: number,
+  body: Record<string, unknown>,
+  req?: Request,
+): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...sifCors, "Content-Type": "application/json" },
+    headers: { ...corsHeaders(req), "Content-Type": "application/json" },
   });
 }
 

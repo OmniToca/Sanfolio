@@ -57,9 +57,9 @@ Read-only fulltext v `documentos.body_text` **plus** cosine v `documento_chunks`
 
 ## 2b. Samostatné Edge (ne chat tools)
 
-- **`extract-document`** — JWT, fotka/PDF → `ai_drafts`. `classify` u každého nahrání (hromada, deska, karta, pošta) navrhne blok a tipo (název Poder/FACTURA přebije notáře v těle i LLM). Kódy mají typ (IBAN, CUPS, NIE); regex z nich nedělá telefon. Listinu zarovná jen u COMPARECEN, ne u faktury s citací notáře. Po LLM zapíše `documentos.body_text`, kousky (`documento_chunks`) a jistý album (`place_documento_ai`); poder/DNI AI nezařazuje; `extracted` a pole desky pořád Guardar. Při classify vytáhne až 5 podobných **zařazených** papírů téhož tenantu (`similar_placed_papers`) — album a klíče jako vzor, ne trénink modelu a ne PII jiného klienta.
+- **`extract-document`** — JWT, fotka/PDF → `ai_drafts`. `classify` navrhne blok a tipo (název Poder/FACTURA přebije notáře v těle i LLM). Kódy mají typ (IBAN, CUPS, NIE); regex z nich nedělá telefon. Listinu zarovná jen u COMPARECEN. Po LLM zapíše jen OCR `documentos.body_text` + kousky (`documento_chunks`) pro search — **ne** album, **ne** `tipo`/`inmueble_id` (to až lidský Guardar přes `set_documento_placement` / `set_documento_inmueble`). `extracted` a pole desky Guardar. Při classify vytáhne až 5 podobných **zařazených** papírů v rozsahu člena (`similar_placed_papers` + `can_access_cliente`) — album a klíče jako vzor, ne trénink modelu.
 - **`merge-document-pages`** — JWT, 2–20 JPG/PNG v pořadí → jedno PDF, zdroje do koše. AI nespojuje. PDF se neřeže.
-- **`embed-pending-chunks`** — dopočet vektorů u přepisů bez kousků.
+- **`embed-pending-chunks`** — dopočet vektorů. Auth: JWT kanceláře **nebo** exact `SUPABASE_SERVICE_ROLE_KEY` / `CRON_SECRET` (žádný unsigned JWT `role`).
 - **`ai-draft-message`** — JWT, nachystá `mensajes.status = draft`. `sent_at` zůstane null. Tool `send_message` **neexistuje**.
 - **`translate-message`** — při odeslání člověkem.
 

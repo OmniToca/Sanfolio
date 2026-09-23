@@ -1,25 +1,20 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { PDFDocument } from "npm:pdf-lib@1.17.1";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { corsHeaders } from "../_shared/cors.ts";
 
 /**
  * 2–20 fotek téhož klienta → jedno PDF. Pořadí posílá gestor, ne AI.
  * Zdroje soft-delete. Extract classify na novém papíru. PDF se neřeže.
  */
 
-const corsHeaders: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
 const MAX_PAGES = 20;
 const A4 = { width: 595, height: 842 };
 
 Deno.serve(async (req) => {
+  const cors = corsHeaders(req);
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: cors });
   }
   if (req.method !== "POST") {
     return json(405, { ok: false, error: "Method not allowed" });
@@ -240,9 +235,13 @@ function supabaseAnonKey(): string {
   return Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 }
 
-function json(status: number, body: Record<string, unknown>) {
+function json(
+  status: number,
+  body: Record<string, unknown>,
+  req?: Request,
+) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...corsHeaders(req), "Content-Type": "application/json" },
   });
 }

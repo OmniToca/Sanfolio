@@ -252,6 +252,12 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen> {
       );
       return;
     }
+    if (reasonText.length < 12) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('tenants.reasonTooShort'.tr())),
+      );
+      return;
+    }
     try {
       await ref.read(authControllerProvider.notifier).startImpersonation(
             tenantId: widget.tenantId,

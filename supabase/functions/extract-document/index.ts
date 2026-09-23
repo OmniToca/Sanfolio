@@ -2,27 +2,22 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { extractPdfPages, pdfTextUsable } from "../_shared/pdf_extract.ts";
 import { embedTexts, replaceDocumentoChunks } from "../_shared/embed_chunks.ts";
+import { corsHeaders } from "../_shared/cors.ts";
 
 /**
- * Fotka / PDF → návrh do ai_drafts. body_text na documentos.
- * Jistý classify zapíše album (place_documento_ai), ne pole desky.
- * Vzory: podobné zařazené papíry téhož tenantu, ne dotrénování modelu.
- * HTTP vrátí pending hned; LLM doběhne na pozadí (waitUntil). Guardar polí je gestor.
+ * Fotka / PDF → návrh do ai_drafts. OCR přepis (body_text) + chunks pro search.
+ * Album / tipo / inmueble až po lidském Guardar — AI neukládá knihovnu (H3).
+ * Vzory: podobné zařazené papíry v rozsahu člena, ne dotrénování modelu.
+ * HTTP vrátí pending hned; LLM doběhne na pozadí (waitUntil).
  */
-
-const corsHeaders: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
 
 const IMAGE_MIME = new Set(["image/jpeg", "image/png", "image/webp", "image/heic"]);
 const MAX_BYTES = 12 * 1024 * 1024;
 
 Deno.serve(async (req) => {
+  const cors = corsHeaders(req);
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: cors });
   }
   if (req.method !== "POST") {
     return json(405, { ok: false, error: "Method not allowed" });
@@ -342,18 +337,12 @@ async function persistLibraryExtract(
   if (!docId) return;
 
   const body = (fields.body_text ?? "").trim();
-  const guessBloque = (fields.proposed_bloque_key ?? "").trim();
-  const guessTipo = (fields.proposed_tipo ?? "").trim() || "other";
-  const patch: Record<string, unknown> = {
-    updated_at: new Date().toISOString(),
-  };
-  if (body) patch.body_text = body;
-  if (guessTipo && guessTipo !== "other" && STOH_BLOQUES.has(guessBloque)) {
-    patch.tipo = guessTipo;
-  }
-  await args.userClient.from("documentos").update(patch).eq("id", docId);
-
+  // H3: jen OCR přepis + vektory. Album/tipo/inmueble = Guardar (set_documento_*).
   if (body) {
+    await args.userClient.from("documentos").update({
+      body_text: body,
+      updated_at: new Date().toISOString(),
+    }).eq("id", docId);
     const apiKey = Deno.env.get("OPENAI_API_KEY")?.trim();
     if (apiKey) {
       try {
@@ -368,35 +357,6 @@ async function persistLibraryExtract(
       }
     }
   }
-
-  if (!args.classify || !STOH_BLOQUES.has(guessBloque)) return;
-  if (PERSON_BLOQUES.has(guessBloque)) return;
-  const fileName = (args.storagePath.split("/").pop() ?? "").toLowerCase();
-  if (
-    guessBloque === "escritura" &&
-    /factura|invoice|recibo|p[oó]der|apoderad/.test(fileName)
-  ) {
-    return;
-  }
-
-  const found = await findBloqueForGuess(
-    args.userClient,
-    args.clienteId,
-    guessBloque,
-    fields,
-  );
-  if (found.inmuebleId) {
-    await args.userClient.from("documentos").update({
-      inmueble_id: found.inmuebleId,
-      updated_at: new Date().toISOString(),
-    }).eq("id", docId);
-  }
-  if (!found.bloqueId) return;
-  await args.userClient.rpc("place_documento_ai", {
-    p_documento_id: docId,
-    p_bloque_id: found.bloqueId,
-    p_tipo: guessTipo,
-  });
 }
 
 const PERSON_BLOQUES = new Set(["cliente_snapshot", "nie_tramite", "poder"]);
@@ -963,10 +923,14 @@ function serviceRoleKey(): string {
   return Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 }
 
-function json(status: number, body: Record<string, unknown>) {
+function json(
+  status: number,
+  body: Record<string, unknown>,
+  req?: Request,
+) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...corsHeaders(req), "Content-Type": "application/json" },
   });
 }
 
