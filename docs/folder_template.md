@@ -259,6 +259,7 @@ Výpočet renta / IRPF a XML AEAT = mimo rozsah. 210 na desce počítá IRNR; re
 | `justificante_ingreso` | Justificante provisión |
 | `factura_honorarios` | Factura de honorarios |
 | `justificante_cita` | Justificante de cita |
+| `justificante_iban` | CTA / IBAN (karta klienta) |
 | `copia_poder` | Copia del poder |
 | `otro` | Otro |
 

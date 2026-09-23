@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gestoria_auth/gestoria_auth.dart';
 
 import '../../core/identity/nie_persist.dart';
+import '../../core/identity/person_name.dart';
 import '../settings/office_settings_controller.dart';
 import 'poder_glance.dart';
 
@@ -175,7 +176,8 @@ final clientesListProvider = FutureProvider<List<ClienteRow>>((ref) async {
   return _withPoderGlances(
     client: client,
     tenantId: tenantId,
-    warnDays: ref.watch(officeSettingsProvider).valueOrNull?.poderWarnDays ?? 60,
+    warnDays:
+        ref.watch(officeSettingsProvider).valueOrNull?.poderWarnDays ?? 60,
     rows: hinted,
   );
 });
@@ -183,6 +185,7 @@ final clientesListProvider = FutureProvider<List<ClienteRow>>((ref) async {
 Future<String> openCarpetaCompraventa({
   required String tenantId,
   required String nombre,
+  String? apellidos,
   String? email,
   String? tel,
   String? nie,
@@ -191,11 +194,13 @@ Future<String> openCarpetaCompraventa({
   if (client == null) {
     throw StateError('not configured');
   }
+  final parts = splitPersonName(nombre: nombre, apellidos: apellidos);
   final id = await client.rpc(
     'open_carpeta_compraventa',
     params: {
       'p_tenant_id': tenantId,
-      'p_nombre': nombre,
+      'p_nombre': parts.nombre,
+      'p_apellidos': parts.apellidos.isEmpty ? null : parts.apellidos,
       'p_email': email,
       'p_tel': tel,
       'p_nie': nie,
@@ -337,14 +342,11 @@ Future<List<ClienteRow>> _withPoderGlances({
       if (raw is! Map) continue;
       final id = '${raw['cliente_id'] ?? ''}'.trim();
       if (id.isEmpty) continue;
-      byId[id] = poderGlanceFromRpc(
-        raw: raw,
-        today: today,
-        warnDays: warnDays,
-      );
+      byId[id] = poderGlanceFromRpc(raw: raw, today: today, warnDays: warnDays);
     }
     return [
-      for (final row in rows) row.withPoder(byId[row.id] ?? PoderGlance.missing),
+      for (final row in rows)
+        row.withPoder(byId[row.id] ?? PoderGlance.missing),
     ];
   } on Object {
     return rows;

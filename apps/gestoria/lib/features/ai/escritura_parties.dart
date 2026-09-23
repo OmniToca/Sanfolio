@@ -2,18 +2,15 @@ import 'documento_fields.dart';
 import 'extract_text.dart';
 export '../../core/identity/nie_persist.dart' show identifierKindFromNormalized;
 
-/// Notářská compraventa: první compareciente je skoro vždy prodávající.
+/// Notářská compraventa: COMPARECEN + strana. Faktura s citací notáře nestačí.
 bool looksLikeEscrituraText(String text) {
   final t = text.toLowerCase();
-  final deed = t.contains('escritura') ||
-      t.contains('compraventa') ||
-      t.contains('notario') ||
-      t.contains('comparecen');
-  final parties = t.contains('vender') ||
-      t.contains('vendedor') ||
-      t.contains('comprar') ||
-      t.contains('comprador');
-  return deed && parties;
+  final parties =
+      t.contains('para vender') ||
+      t.contains('para comprar') ||
+      t.contains('parte vendedora') ||
+      t.contains('parte compradora');
+  return RegExp(r'comparece[n]?').hasMatch(t) && parties;
 }
 
 String normalizeNie(String raw) {
@@ -187,8 +184,7 @@ class TitularGapPatch {
   final String? nieNormalized;
   final String? nombre;
 
-  bool get isEmpty =>
-      nieRaw == null && nieNormalized == null && nombre == null;
+  bool get isEmpty => nieRaw == null && nieNormalized == null && nombre == null;
 }
 
 /// Doplní NIE / jméno když zejí. Cuota a ruční NIE se nepřepíšou.
@@ -280,9 +276,10 @@ class DeedFacts {
 }
 
 final _deedNie = RegExp(
-  r'\b([XYZ])\s*-?\s*(\d{7})\s*-?\s*([A-Z])\b',
+  r'\b(?:([XYZ])\s*-?\s*(\d{7})\s*-?\s*([A-Z])|(\d{8})-?([A-Z]))\b',
   caseSensitive: false,
 );
+
 /// D. / Dª na hranici slova. Bez toho `Nad Kneznou` vypadá jako „D. Kneznou“.
 final _dName = RegExp(
   r'(?:^|[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ])(?:D[ªº]\.?|D\.|Doña|Don)\s+'
@@ -298,7 +295,11 @@ final _euroParen = RegExp(
 List<DeedPerson> deedPeople(String text) {
   final out = <DeedPerson>[];
   for (final m in _deedNie.allMatches(text)) {
-    final nie = '${m.group(1)}${m.group(2)}${m.group(3)}'.toUpperCase();
+    final nie =
+        (m.group(1) != null
+                ? '${m.group(1)}${m.group(2)}${m.group(3)}'
+                : '${m.group(4)}${m.group(5)}')
+            .toUpperCase();
     if (!looksLikeNie(nie)) continue;
     final from = m.start - 800 < 0 ? 0 : m.start - 800;
     final window = text.substring(from, m.start);
@@ -316,14 +317,11 @@ DeedFacts extractDeedFacts(String text) {
   final people = deedPeople(text);
   final lower = text.toLowerCase();
   final sellAt = _indexOfAny(lower, const ['para vender', 'parte vendedora']);
-  final buyAt = _indexOfAny(lower, const [
-    'para comprar',
-    'parte compradora',
-  ]);
+  final buyAt = _indexOfAny(lower, const ['para comprar', 'parte compradora']);
   final interpAt = _indexOfAny(lower, const ['intérprete', 'interprete']);
   final intervienen = lower.indexOf('intervienen');
-  final exponen = _indexOfAny(lower, const ['exponen:', 'otorgan:']) ??
-      lower.length;
+  final exponen =
+      _indexOfAny(lower, const ['exponen:', 'otorgan:']) ?? lower.length;
   final interpEnd = interpAt == null
       ? null
       : (intervienen > interpAt ? intervienen : interpAt + 800);
@@ -352,7 +350,10 @@ DeedFacts extractDeedFacts(String text) {
   ];
   final afterBuy = [
     for (final p in people)
-      if (!skipInterp(p) && buyAt != null && p.index > buyAt && p.index < exponen)
+      if (!skipInterp(p) &&
+          buyAt != null &&
+          p.index > buyAt &&
+          p.index < exponen)
         p,
   ];
   final buyers = represented.isNotEmpty
@@ -409,11 +410,7 @@ String escrituraLlmFocus(String text, {int head = 4500, int chunk = 5000}) {
     'parte compradora',
     'en nombre y representaci',
   ], chunk);
-  add('Finca', const [
-    'exponen:',
-    'urbana',
-    'referencia catastral',
-  ], 4000);
+  add('Finca', const ['exponen:', 'urbana', 'referencia catastral'], 4000);
   add('Precio', const [
     'precio de esta compraventa',
     'es precio de',
@@ -518,8 +515,7 @@ PreparedDocumentoExtract prepareDocumentoExtract({
 }) {
   final t = splitDocumentoTranscript(fields);
   final body = t.bodyText ?? existingBody;
-  final deed =
-      looksLikeEscrituraText(body) || currentTipo == 'copia_escritura';
+  final deed = looksLikeEscrituraText(body) || currentTipo == 'copia_escritura';
   final aligned = deed
       ? alignDeedFieldsToCliente(
           fields: t.fields,
@@ -530,9 +526,9 @@ PreparedDocumentoExtract prepareDocumentoExtract({
       : t.fields;
   final nextTipo =
       (currentTipo == 'other' || (currentTipo ?? '').isEmpty) &&
-              looksLikeEscrituraText(body)
-          ? 'copia_escritura'
-          : currentTipo;
+          looksLikeEscrituraText(body)
+      ? 'copia_escritura'
+      : currentTipo;
   return PreparedDocumentoExtract(
     fields: aligned,
     bodyText: t.bodyText,
@@ -552,9 +548,10 @@ Map<String, String> displayDocumentoFields({
   final fromDoc = (bodyText ?? '').trim();
   final fromFields = (fields['body_text'] ?? '').trim();
   final body = fromDoc.isNotEmpty ? fromDoc : fromFields;
-  if (body.isEmpty) return fields;
+  final withIban = overlayIbanFromBody(fields, bodyText: body);
+  if (body.isEmpty) return withIban;
   return alignDeedFieldsToCliente(
-    fields: fields,
+    fields: withIban,
     bodyText: body,
     clienteNombre: clienteNombre,
     clienteNie: clienteNie,
@@ -766,7 +763,10 @@ List<DeedPerson> _uniqueNie(List<DeedPerson> people) {
 List<DeedPerson> _pairRespectivamente(List<DeedPerson> people, String text) {
   if (people.isEmpty) return people;
   final byNie = {for (final p in people) p.nie: p};
-  for (final m in RegExp('respectivamente', caseSensitive: false).allMatches(text)) {
+  for (final m in RegExp(
+    'respectivamente',
+    caseSensitive: false,
+  ).allMatches(text)) {
     final from = m.start - 900 < 0 ? 0 : m.start - 900;
     final window = text.substring(from, m.end);
     final names = [
@@ -811,7 +811,10 @@ String? _deedParcela(String text) {
   final from = text.toLowerCase().indexOf('urbana');
   final slice = from < 0
       ? text
-      : text.substring(from, from + 1800 > text.length ? text.length : from + 1800);
+      : text.substring(
+          from,
+          from + 1800 > text.length ? text.length : from + 1800,
+        );
   final m = RegExp(
     r'parcela\s+([A-Z0-9][A-Z0-9.\-]{1,12})',
     caseSensitive: false,
@@ -876,19 +879,21 @@ String? _deedAddress(String text) {
     from + 2200 > text.length ? text.length : from + 2200,
   );
   final flat = slice.replaceAll('\n', ' ');
-  final hoy = RegExp(
-    r'hoy calle\s+([^,\n]+?),\s+n[úu]mero\s+([^\s,]+)',
+  final street = RegExp(
+    r'(?:hoy\s+)?(calle|avenida|avda\.?|plaza|paseo|camino|carrer)\s+'
+    r'([^,\n]+?)(?:,)?\s+n[úu]mero\s+([^\s,.;:]+)',
     caseSensitive: false,
   ).firstMatch(flat);
   final mun = RegExp(
     r't[ée]rmino de\s+([A-ZÁÉÍÓÚÜÑa-záéíóúüñ]+)',
     caseSensitive: false,
   ).firstMatch(flat);
-  if (hoy == null) return mun == null ? null : _tidyName(mun.group(1)!);
-  final street = _tidyName(hoy.group(1)!);
-  final num = hoy.group(2)!;
+  if (street == null) return mun == null ? null : _tidyName(mun.group(1)!);
+  final type = street.group(1)!.toLowerCase();
+  final name = _tidyName(street.group(2)!);
+  final num = street.group(3)!;
   final town = mun == null ? '' : ', ${_tidyName(mun.group(1)!)}';
-  return 'calle $street, $num$town';
+  return '$type $name, $num$town';
 }
 
 String _tidyName(String raw) {

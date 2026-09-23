@@ -17,6 +17,54 @@ void main() {
     expect(out.tel, '+34612345678');
   });
 
+  test('CTA bancaria je IBAN, ne telefon z číslic za ES', () {
+    const sheet = '''
+NOMBRE DE LA CUENTA/ACCOUNT NAME: LA MARINA SERVICES INTERNATIONAL
+IBAN: ES96 2100 9143 9413 0049 8086
+BIC: CAIXESBBXXX
+''';
+    final out = extractFromText(sheet);
+    expect(out.iban, 'ES9621009143941300498086');
+    expect(out.tel, isNull);
+    expect(
+      sanitizeExtractedFields({
+        'fields.iban': 'ES96 2100 9143 9413 0049 8086',
+        'fields.tel': '9621009143941',
+      }),
+      {'fields.iban': 'ES9621009143941300498086'},
+    );
+    expect(looksLikeIban('ES0021000012345678AB'), isFalse);
+    expect(looksLikeTel('9621009143941'), isFalse);
+    expect(looksLikeTel('612345678'), isTrue);
+    expect(extractFromText('Factura nº 612345678 Importe 88,50').tel, isNull);
+    expect(
+      displayDocumentoFields(
+        fields: {'fields.tel': '9621009143941'},
+        bodyText: sheet,
+      ),
+      {'fields.iban': 'ES9621009143941300498086'},
+    );
+    expect(
+      formatIban('ES9621009143941300498086'),
+      'ES96 2100 9143 9413 0049 8086',
+    );
+  });
+
+  test('jiný layout banky (Revolut) pořád najde IBAN, ne Tel z číslic', () {
+    const sheet = '''
+Euro
+Beneficiary
+Renata Susicova
+IBAN
+ES10 1583 0001 1190 1063 9767
+BIC/SWIFT code
+REVOESM2
+''';
+    final out = extractFromText(sheet);
+    expect(out.iban, 'ES1015830001119010639767');
+    expect(out.tel, isNull);
+  });
+
   test('žlutý diff ukáže změnu a prázdné teď, nic neukládá', () {
     final diffs = prefillDiffs(
       current: {'fields.nie': '', 'fields.email': 'old@test.com'},
@@ -58,6 +106,7 @@ void main() {
     expect(namesLikelyMatch('Petr Sokol', 'Ana García'), isFalse);
     expect(namesLikelyMatch('Petr Sokol', 'Petr Novak'), isFalse);
     expect(namesLikelyMatch('Petr Sokol', ''), isFalse);
+    expect(namesLikelyMatch('Petr Sokol', 'PETR SOKOL Y MONIKA'), isTrue);
   });
 
   test('NIE na kartě se nepřepíše cizím číslem ani stejným křestním', () {
@@ -75,10 +124,7 @@ void main() {
       documentFitsCliente(
         cardName: 'Petr Sokol',
         cardNie: 'Y9736943E',
-        fields: {
-          'fields.nombre': 'Petr Sokol',
-          'fields.nie': 'Y9737090P',
-        },
+        fields: {'fields.nombre': 'Petr Sokol', 'fields.nie': 'Y9737090P'},
       ),
       isFalse,
     );
@@ -86,10 +132,7 @@ void main() {
       documentFitsCliente(
         cardName: 'Petr Sokol',
         cardNie: 'Y9736943E',
-        fields: {
-          'fields.nombre': 'Petr Sokol',
-          'fields.docNumber': '43927578',
-        },
+        fields: {'fields.nombre': 'Petr Sokol', 'fields.docNumber': '43927578'},
       ),
       isTrue,
     );
@@ -203,16 +246,13 @@ void main() {
 
   test('IBI pohled neshazuje protokol z listiny', () {
     expect(
-      extraPaperFieldKeys(
-        {
-          'fields.protocol': '2116',
-          'fields.nie': 'Y9908856X',
-          'fields.cadastral': '4244203YH0244S0003RX',
-          'fields.address': 'AV SAN FULGENCIO-MARINA 3',
-          'fields.amount': '76.78',
-        },
-        tipo: 'recibo_ibi',
-      ),
+      extraPaperFieldKeys({
+        'fields.protocol': '2116',
+        'fields.nie': 'Y9908856X',
+        'fields.cadastral': '4244203YH0244S0003RX',
+        'fields.address': 'AV SAN FULGENCIO-MARINA 3',
+        'fields.amount': '76.78',
+      }, tipo: 'recibo_ibi'),
       ['fields.cadastral', 'fields.address'],
     );
   });
@@ -221,29 +261,17 @@ void main() {
     final glance = stackGlanceOf([
       (
         tipo: 'factura_luz',
-        fields: {
-          'fields.amount': '188.85',
-          'fields.periodTo': '2026-07-23',
-        },
+        fields: {'fields.amount': '188.85', 'fields.periodTo': '2026-07-23'},
       ),
       (
         tipo: 'factura_luz',
-        fields: {
-          'fields.amount': '179.87',
-          'fields.periodTo': '2026-06-23',
-        },
+        fields: {'fields.amount': '179.87', 'fields.periodTo': '2026-06-23'},
       ),
       (
         tipo: 'factura_luz',
-        fields: {
-          'fields.amount': '-20.00',
-          'fields.periodTo': '2026-06-01',
-        },
+        fields: {'fields.amount': '-20.00', 'fields.periodTo': '2026-06-01'},
       ),
-      (
-        tipo: 'contrato_luz',
-        fields: {'fields.contractNo': '810921765'},
-      ),
+      (tipo: 'contrato_luz', fields: {'fields.contractNo': '810921765'}),
     ]);
     expect(glance.invoiceCount, 3);
     expect(glance.paidCents, 18885 + 17987);
@@ -283,7 +311,10 @@ void main() {
       ),
     ]);
     expect(periodDaysOf(glance.latest!), kAguaQuarterDays);
-    expect(glance.annualCentsEstimate, (12248 * 365 / kAguaQuarterDays).round());
+    expect(
+      glance.annualCentsEstimate,
+      (12248 * 365 / kAguaQuarterDays).round(),
+    );
     expect(glance.annualCentsEstimate, lessThan(60000));
     final trueQuarter = stackGlanceOf([
       (
@@ -299,17 +330,11 @@ void main() {
   });
 
   test('póliza nese prémii, smlouva bez částky ne', () {
-    expect(
-      fieldsForDocTipo('poliza_seguro'),
-      contains('fields.amount'),
-    );
+    expect(fieldsForDocTipo('poliza_seguro'), contains('fields.amount'));
     final glance = stackGlanceOf([
       (
         tipo: 'poliza_seguro',
-        fields: {
-          'fields.amount': '420.00',
-          'fields.company': 'Mapfre',
-        },
+        fields: {'fields.amount': '420.00', 'fields.company': 'Mapfre'},
       ),
     ]);
     expect(glance.invoiceCount, 0);
@@ -322,7 +347,10 @@ void main() {
     expect(isInvoiceDocTipo('factura_recibida'), isTrue);
     expect(isInvoiceDocTipo('contrato_agua'), isFalse);
     expect(
-      paperSortStamp({'fields.periodTo': '2024-09-30', 'fields.issued': '2024-09-23'}),
+      paperSortStamp({
+        'fields.periodTo': '2024-09-30',
+        'fields.issued': '2024-09-23',
+      }),
       '2024-09-30',
     );
   });
@@ -370,8 +398,14 @@ void main() {
   test('modelo 210 má desku nemovitosti, sloty papírů a výpočet IRNR', () {
     final kind = thinKindByTipo('impuestos_210')!;
     expect(kind.linksInmueble, isTrue);
-    expect(kind.fieldKeys, containsAll(['fields.cadastral', 'fields.notes', 'fields.incomeKind']));
-    expect(kind.requiredFieldKeys, containsAll(['fields.incomeKind', 'fields.taxResidency']));
+    expect(
+      kind.fieldKeys,
+      containsAll(['fields.cadastral', 'fields.notes', 'fields.incomeKind']),
+    );
+    expect(
+      kind.requiredFieldKeys,
+      containsAll(['fields.incomeKind', 'fields.taxResidency']),
+    );
     expect(kind.requiredFieldKeys, isNot(contains('fields.cadastral')));
     expect(
       kind.paperSlotTypes,
@@ -390,7 +424,9 @@ void main() {
 
   test('klient zůstane na deskách, voda se otevírá', () {
     expect(
-      compraventaBloques.firstWhere((b) => b.key == 'cliente_snapshot').opensFromDesk,
+      compraventaBloques
+          .firstWhere((b) => b.key == 'cliente_snapshot')
+          .opensFromDesk,
       isFalse,
     );
     expect(
@@ -461,6 +497,20 @@ TITULO.- herencia de su esposo, el día 12 de Abril de 2016, número 527 de prot
     expect(facts.cadastral, '8443304XH9184S0025KY');
     expect(facts.lawyer, contains('ZENIA ABOGADOS'));
     expect(facts.parcela, 'R-2.2');
+    expect(facts.address, contains('calle Islandia'));
+    expect(facts.address, contains('catorce'));
+    expect(
+      extractDeedFacts(
+        'URBANA.- Vivienda en término de Algorfa, hoy avenida de la Vega, número 12.',
+      ).address,
+      'avenida de la Vega, 12, Algorfa',
+    );
+    expect(
+      looksLikeEscrituraText(
+        'FACTURA 88,50 €. Según escritura de compraventa ante notario. Comprador Ana.',
+      ),
+      isFalse,
+    );
     final aligned = alignDeedFieldsToCliente(
       fields: {
         'fields.nombre': 'PATRICIA FRANCIS DAVIDSON',
@@ -538,10 +588,9 @@ TITULO.- herencia de su esposo, el día 12 de Abril de 2016, número 527 de prot
       proposed.where((t) => t.lado == 'comprador').map((t) => t.cuotaBps),
       [5000, 5000],
     );
-    expect(
-      proposed.where((t) => t.lado == 'vendedor').map((t) => t.cuotaBps),
-      [10000],
-    );
+    expect(proposed.where((t) => t.lado == 'vendedor').map((t) => t.cuotaBps), [
+      10000,
+    ]);
     expect(
       matchTitularClienteId(
         row: proposed.firstWhere((t) => t.nieNormalized == 'Y9736943E'),
@@ -619,10 +668,7 @@ Dª MONIKA SOKOLOVA, nacida el día 16 de Abril de 1985, con N.I.E. número Y-97
     expect(looksLikeEscrituraText(deed), isTrue);
     expect(extractDeedFacts(deed).buyers.map((p) => p.nie), ['Y9737090P']);
     final aligned = alignDeedFieldsToCliente(
-      fields: {
-        'fields.nombre': 'MONIKA SOKOLOVA',
-        'fields.nie': 'Y9737090P',
-      },
+      fields: {'fields.nombre': 'MONIKA SOKOLOVA', 'fields.nie': 'Y9737090P'},
       bodyText: deed,
       clienteNombre: 'Petr Sokol',
       clienteNie: 'Y9736943E',
@@ -674,7 +720,10 @@ Es precio de esta compraventa la suma de OCHENTA MIL EUROS (80.000,00 €).
 REFERENCIA CATASTRAL. - 1234567XH1234S0001AB
 ''';
     final facts = extractDeedFacts(deed);
-    expect(facts.sellers.map((p) => p.nie).toList(), ['X1111111A', 'X2222222B']);
+    expect(facts.sellers.map((p) => p.nie).toList(), [
+      'X1111111A',
+      'X2222222B',
+    ]);
     expect(facts.buyers.map((p) => p.nie).toList(), ['Y3333333C']);
     expect(facts.representatives, isEmpty);
     expect(facts.salePrice, '80000.00');
@@ -689,10 +738,10 @@ REFERENCIA CATASTRAL. - 1234567XH1234S0001AB
     final proposed = proposeTitularesFromDeed(facts);
     expect(splitCuotaBps(3), [3333, 3333, 3334]);
     expect(sharePercentFromBps(5000), '50');
-    expect(
-      proposed.where((t) => t.lado == 'vendedor').map((t) => t.cuotaBps),
-      [5000, 5000],
-    );
+    expect(proposed.where((t) => t.lado == 'vendedor').map((t) => t.cuotaBps), [
+      5000,
+      5000,
+    ]);
     expect(
       proposed.where((t) => t.lado == 'comprador').map((t) => t.cuotaBps),
       [10000],
@@ -743,6 +792,20 @@ D. PETR SOKOL, nacido el día 5 de Junio de 1987, con N.I.E. número Y-9736943-E
     expect(prepared.deed, isTrue);
     expect(prepared.nextTipo, 'copia_escritura');
     expect(prepared.fields['fields.buyers'], contains('PETR SOKOL'));
+  });
+
+  test('na listině je i DNI Španěla, nejen NIE', () {
+    const deed = '''
+ESCRITURA DE COMPRAVENTA
+COMPARECEN:
+DE UNA PARTE Y PARA VENDER:
+D. JUAN PEREZ LOPEZ, nacido el día 1 de Enero de 1960, con D.N.I. número 12345678A.
+Y DE OTRA, PARA COMPRAR:
+D. LUIS GARCIA MARTIN, nacido el día 3 de Marzo de 1980, con N.I.E. número Y-3333333-C.
+''';
+    final facts = extractDeedFacts(deed);
+    expect(facts.sellers.map((p) => p.nie).toList(), ['12345678A']);
+    expect(facts.buyers.map((p) => p.nie).toList(), ['Y3333333C']);
   });
 
   test('druhý Guardar doplní prázdné NIE, cuota a ruční NIE nechá', () {

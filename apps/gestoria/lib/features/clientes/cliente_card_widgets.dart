@@ -32,7 +32,7 @@ class ClienteLocaleMenu extends StatelessWidget {
   }
 }
 
-/// Jen owner. Log se tu nedá smazat — append-only v DB.
+/// Stopa dění na kartě. Log se tu nedá smazat — append-only v DB.
 class ClienteAuditSection extends ConsumerWidget {
   const ClienteAuditSection({required this.clienteId});
 

@@ -53,7 +53,10 @@ class LibraryPaper {
   Map<String, String> get glanceFields {
     final fromDoc = extractProposalFields(document.extracted);
     final fromDraft = extractProposalFields(draftFields);
-    return {...fromDoc, ...fromDraft};
+    return overlayIbanFromBody(
+      {...fromDoc, ...fromDraft},
+      bodyText: draftFields['body_text'] ?? document.bodyText ?? '',
+    );
   }
 
   String get groupKey => pileGroupKey(
@@ -70,6 +73,7 @@ const kLibraryGlanceKeys = <String>[
   'fields.amount',
   'fields.company',
   'fields.holder',
+  'fields.iban',
   'fields.periodFrom',
   'fields.periodTo',
   'fields.invoiceNo',
@@ -170,6 +174,13 @@ String libraryPaperAutoSummary(
     if (exp != null) {
       _addSummaryBit(bits, tr('stoh.until', named: {'date': exp}));
     }
+  } else if (tipo == 'justificante_iban') {
+    final iban = _glanceVal(f, 'fields.iban');
+    if (iban != null) _addSummaryBit(bits, formatIban(iban));
+    _addSummaryBit(
+      bits,
+      _glanceVal(f, 'fields.holder') ?? _glanceVal(f, 'fields.company'),
+    );
   } else {
     for (final e in libraryGlanceEntries(f, max: 5)) {
       if (e.key == 'fields.date' ||

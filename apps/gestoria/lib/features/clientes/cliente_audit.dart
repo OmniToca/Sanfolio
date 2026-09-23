@@ -88,7 +88,7 @@ Map<String, dynamic> _asStringKeyedMap(Object? raw) {
   };
 }
 
-/// Owner (a Support v impersonaci) vidí, kdo kartu otevřel / změnil / odeslal.
+/// Člen kanceláře vidí, kdo kartu otevřel / změnil / odeslal. Scoped jen svoje karty.
 final clienteAuditProvider =
     FutureProvider.family<List<ClienteAuditEvent>, String>((ref, clienteId) async {
   ref.watch(authControllerProvider);

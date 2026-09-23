@@ -10,6 +10,7 @@ import '../../core/auth/staff_access.dart';
 import '../../core/auth/staff_role.dart';
 import '../../core/presentation/widgets/app_widgets.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/identity/person_name.dart';
 import '../settings/office_settings_controller.dart';
 import '../settings/office_team_controller.dart';
 import '../carpeta/carpeta_routes.dart';
@@ -58,8 +59,7 @@ class _ClientesScreenState extends ConsumerState<ClientesScreen> {
         if (poderFilter == ClientesPoderFilter.all ||
             (poderFilter == ClientesPoderFilter.withCopy &&
                 row.poder.hasCopy) ||
-            (poderFilter == ClientesPoderFilter.missing &&
-                !row.poder.hasCopy))
+            (poderFilter == ClientesPoderFilter.missing && !row.poder.hasCopy))
           row,
     ];
     return Scaffold(
@@ -170,23 +170,29 @@ class _ClientesScreenState extends ConsumerState<ClientesScreen> {
                       AppStamp(
                         label: 'clients.filterPoderAll'.tr(),
                         selected: poderFilter == ClientesPoderFilter.all,
-                        onTap: () => ref
-                            .read(clientesPoderFilterProvider.notifier)
-                            .state = ClientesPoderFilter.all,
+                        onTap: () =>
+                            ref
+                                    .read(clientesPoderFilterProvider.notifier)
+                                    .state =
+                                ClientesPoderFilter.all,
                       ),
                       AppStamp(
                         label: 'clients.filterPoderYes'.tr(),
                         selected: poderFilter == ClientesPoderFilter.withCopy,
-                        onTap: () => ref
-                            .read(clientesPoderFilterProvider.notifier)
-                            .state = ClientesPoderFilter.withCopy,
+                        onTap: () =>
+                            ref
+                                    .read(clientesPoderFilterProvider.notifier)
+                                    .state =
+                                ClientesPoderFilter.withCopy,
                       ),
                       AppStamp(
                         label: 'clients.filterPoderNo'.tr(),
                         selected: poderFilter == ClientesPoderFilter.missing,
-                        onTap: () => ref
-                            .read(clientesPoderFilterProvider.notifier)
-                            .state = ClientesPoderFilter.missing,
+                        onTap: () =>
+                            ref
+                                    .read(clientesPoderFilterProvider.notifier)
+                                    .state =
+                                ClientesPoderFilter.missing,
                       ),
                     ],
                   ),
@@ -248,16 +254,16 @@ class _ClientesScreenState extends ConsumerState<ClientesScreen> {
                                             glance: row.poder,
                                             onOpen: row.poder.canOpenSource
                                                 ? () => openPoderGlanceSource(
-                                                      context: context,
-                                                      glance: row.poder,
-                                                      clienteId: row.id,
-                                                      tenantId: ref
-                                                          .watch(
-                                                            authControllerProvider,
-                                                          )
-                                                          .valueOrNull
-                                                          ?.currentTenantId,
-                                                    )
+                                                    context: context,
+                                                    glance: row.poder,
+                                                    clienteId: row.id,
+                                                    tenantId: ref
+                                                        .watch(
+                                                          authControllerProvider,
+                                                        )
+                                                        .valueOrNull
+                                                        ?.currentTenantId,
+                                                  )
                                                 : null,
                                           ),
                                         ],
@@ -338,6 +344,7 @@ Future<void> _createCliente(BuildContext context, WidgetRef ref) async {
     return;
   }
   final nombre = TextEditingController();
+  final apellidos = TextEditingController();
   final nie = TextEditingController();
   final email = TextEditingController();
   final tel = TextEditingController();
@@ -352,6 +359,11 @@ Future<void> _createCliente(BuildContext context, WidgetRef ref) async {
             controller: nombre,
             autofocus: true,
             decoration: InputDecoration(labelText: 'clients.name'.tr()),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: apellidos,
+            decoration: InputDecoration(labelText: 'clients.apellidos'.tr()),
           ),
           const SizedBox(height: 8),
           TextField(
@@ -385,15 +397,18 @@ Future<void> _createCliente(BuildContext context, WidgetRef ref) async {
     ),
   );
   final name = nombre.text.trim();
+  final family = apellidos.text.trim();
   final nieVal = nie.text.trim();
   final emailVal = email.text.trim();
   final telVal = tel.text.trim();
   nombre.dispose();
+  apellidos.dispose();
   nie.dispose();
   email.dispose();
   tel.dispose();
   if (ok != true || !context.mounted) return;
-  if (name.isEmpty) {
+  final parts = splitPersonName(nombre: name, apellidos: family);
+  if (parts.nombre.isEmpty) {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text('clients.nameRequired'.tr())));
@@ -402,7 +417,8 @@ Future<void> _createCliente(BuildContext context, WidgetRef ref) async {
   try {
     final id = await openCarpetaCompraventa(
       tenantId: tenantId,
-      nombre: name,
+      nombre: parts.nombre,
+      apellidos: parts.apellidos.isEmpty ? null : parts.apellidos,
       nie: nieVal.isEmpty ? null : nieVal,
       email: emailVal.isEmpty ? null : emailVal,
       tel: telVal.isEmpty ? null : telVal,

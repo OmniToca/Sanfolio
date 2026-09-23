@@ -27,7 +27,8 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `printHtmlDocument` | `core/print/office_print.dart` | blob URL + `window.print()`; Safari nesnese about:srcdoc |
 | `AiPanel` / `aiChatProvider` | `features/ai/ai_panel.dart` | trvalý chat; zápis `ai_conversations` + `ai_messages` |
 | `AiPanel` / `aiChatProvider` | `features/ai/ai_panel.dart` | trvalý chat; zápis `ai_conversations` + `ai_messages` |
-| `extract-document` | Edge Function | fotka/PDF → text LLM nebo vision → `ai_drafts`; po LLM `body_text` + jistý album **z první strany PDF**, ne z `scan_01.pdf`; Poder/FACTURA v názvu není escritura; IBI → `sumaId`/`period` rok; podobné zařazené papíry kanceláře (`similar_placed_papers`) jako vzor; Guardar polí desky je gestor |
+| `person_name` | `core/identity/person_name.dart` | split/join jméno + příjmení; save nesmí mazat `apellidos` |
+| `extract-document` | Edge Function | fotka/PDF → text LLM nebo vision → `ai_drafts`; po LLM `body_text` + jistý album **z první strany PDF**, ne z `scan_01.pdf`; Poder/FACTURA v názvu není escritura; kódy mají typ (IBAN/CUPS/NIE ≠ tel); IBI → `sumaId`/`period` rok; podobné zařazené papíry kanceláře (`similar_placed_papers`) jako vzor; Guardar polí desky je gestor |
 | `similar_placed_papers` | SQL RPC | cosine k zařazeným papírům tenantu; extract čte album/tipo/klíče; bez jmen a NIE; AI neukládá |
 | `office_paper_memory` | `office_paper_memory.dart` | konsensus vzorů kanceláře (2 blízké / 1 hodně blízký lidský); redakce PII v promptu |
 | `documentos.extracted` | JSONB na dokladu | uložená pole po Guardar; AI sem nezapisuje |
@@ -95,21 +96,21 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `add_manual_plazo` / `snooze_plazo` | SQL RPC | ruční termín; odklad inboxu, nic se nemaže |
 | `clienteMensajesProvider` | karta klienta | historie draft/sent; zahodit = `discarded` |
 | `set_expediente_estado` | SQL RPC + deska | abierto…archivado; stale v inboxu z nastavení |
-| `open_carpeta_compraventa` | SQL RPC | založení klienta a desky compraventa |
+| `open_carpeta_compraventa` | SQL RPC | založení klienta a desky compraventa; `nombre` + `apellidos` |
 | `clientesListProvider` | `clientes_providers.dart` | seznam / `search_clients` |
 | `OfficeSettingsController` | `office_settings_controller.dart` | `tenant_settings` (název + lhůty z DB) |
 | `FeatureGate` | `core/modules/feature_gate.dart` | schová UI bez licence |
 | `inbox_feed` | SQL RPC | dnešní smyčka (plazos + díry + Pedir) |
 | `pedirAlCliente` | `inbox_providers.dart` / `pedir.dart` | razítko `last_requested_at` + draft; odesílá gestor |
 | `writePedirDrafts` | `pedir.dart` | hromadný Pedir z `/kampane`; kanál i z kontaktu, nudge; AI neodesílá |
-| `ClienteCardController` | `cliente_card_controller.dart` | karta + DNI/pasaporte |
+| `ClienteCardController` | `cliente_card_controller.dart` | karta + DNI/pasaporte; `nombre` a `apellidos` zvlášť |
 | `run_plazo_reminders` | SQL + Edge `plazo-reminders` | 07:00 Madrid drafty; nikdy neodesílá |
 | `cents` | `core/money/cents.dart` | integer cents |
 | `provision_movements` | SQL + deska | ingreso/factura/ajuste; zbývá odvozené |
 | `invite-staff` | Edge Function | owner zve gestor/asistente, bez stropu počtu |
 | `staff_scope_set` | SQL RPC | owner nastaví scoped karty a bloky člena; ownera omezit nelze |
 | `staff_may_create_clientes` | SQL + UI | scoped nezakládá karty ani CSV; inbox/kampaně/AI čtou jen přiřazené |
-| `cliente_audit_log` | SQL RPC + karta | LOPDGDD stopa; `audit_open` při vstupu; jen owner |
+| `cliente_audit_log` | SQL RPC + karta | LOPDGDD stopa; `audit_open` při vstupu; člen s přístupem ke kartě |
 | `tenant_settings` | SQL 1:1 tenant | display_name, offsety, slot_order, send_translated_outbound |
 | `client_contacts` | SQL | druhý kontakt + locale (komunikace, ne vlastnictví) |
 | `inmueble_titulares` | SQL + šanon escritura | spoluvlastníci finca; Guardar založí kartu kupujícího bez carpeta; 210 čte sharePercent; čip strany složky |

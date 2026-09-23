@@ -126,6 +126,12 @@ List<String> fieldsForDocTipo(String tipo) {
         'fields.date',
         'fields.expiry',
       ];
+    case 'justificante_iban':
+      return const [
+        'fields.iban',
+        'fields.holder',
+        'fields.company',
+      ];
     default:
       return const [
         'fields.nombre',

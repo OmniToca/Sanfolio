@@ -103,7 +103,7 @@ Insert jen z triggerů a SECURITY DEFINER funkcí, ne z Flutter klienta (klient 
 | `ip` / `user_agent` | z Edge kde jde |
 | `created_at` | |
 
-**Čtení karty** (`clientes.open`) je povinný audit (LOPDGDD). Flutter volá RPC `audit_open` jednou při vstupu na kartu (`after.surface=card`) nebo na desku (`carpeta`); otevření skenu je `documentos.open` s `tipo` + `original_name`. Změny `clientes` / `mensajes` / `documentos` / `client_contacts` zapisuje trigger `audit_row_change` (ne Flutter) — `after` u dokumentu nese název souboru. Owner čte stopu RPC `cliente_audit_log` (sloupec `detail`). Append-only — mazání logu v UI není.
+**Čtení karty** (`clientes.open`) je povinný audit (LOPDGDD). Flutter volá RPC `audit_open` jednou při vstupu na kartu (`after.surface=card`) nebo na desku (`carpeta`); otevření skenu je `documentos.open` s `tipo` + `original_name`. Změny `clientes` / `mensajes` / `documentos` / `client_contacts` zapisuje trigger `audit_row_change` (ne Flutter) — `after` u dokumentu nese název souboru. Člen s přístupem ke kartě čte stopu RPC `cliente_audit_log` (sloupec `detail`). Append-only — mazání logu v UI není.
 
 Retention: audit se **neanonymizuje** spolu s klientem; po legal hold se v `before/after` nahradí PII za `{"_redacted": true}` funkcí, řádek zůstane.
 

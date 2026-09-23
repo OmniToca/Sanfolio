@@ -426,6 +426,8 @@ class _AiPanelState extends ConsumerState<AiPanel> {
         if (extracted.email != null)
           '${'fields.email'.tr()}: ${extracted.email}',
         if (extracted.tel != null) '${'fields.tel'.tr()}: ${extracted.tel}',
+        if (extracted.iban != null)
+          '${'fields.iban'.tr()}: ${formatIban(extracted.iban!)}',
         if (extracted.nombre != null)
           '${'fields.nombre'.tr()}: ${extracted.nombre}',
       ];

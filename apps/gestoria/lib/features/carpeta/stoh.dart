@@ -92,7 +92,7 @@ String? normalizeStohBloqueKey(String? raw) {
 
 List<String> tiposForStohBloque(String bloqueKey) {
   if (bloqueKey == 'cliente_snapshot') {
-    return const ['dni_nie', 'pasaporte', 'other'];
+    return const ['dni_nie', 'pasaporte', 'justificante_iban', 'other'];
   }
   if (bloqueKey == 'plusvalia') {
     return const [
@@ -177,17 +177,47 @@ StohProposal? _classifyBodyHead(String head, {required bool invoiceName}) {
       tipo: 'certificado_catastral',
     );
   }
+  if (_looksLikeIbanSheet(name: '', head: head, fields: const {})) {
+    return const StohProposal(
+      bloqueKey: 'cliente_snapshot',
+      tipo: 'justificante_iban',
+    );
+  }
   return null;
+}
+
+bool _looksLikeIbanSheet({
+  required String name,
+  required String head,
+  required Map<String, String> fields,
+}) {
+  if (RegExp(
+    r'cta bancaria|cuenta (bancaria|agencia)|bank details',
+  ).hasMatch(name)) {
+    return true;
+  }
+  final bankish = RegExp(
+    r'nombre de la cuenta|account name|beneficiary|bank details|cta bancaria|\bbic\b|swift',
+  ).hasMatch(head);
+  final hasIban = RegExp(r'\biban\b').hasMatch(head) ||
+      looksLikeIban(fields['fields.iban'] ?? '');
+  if (bankish &&
+      hasIban &&
+      !RegExp(r'kwh|cups|suma|hidraqua|iberdrola|factura|escritur').hasMatch(
+        head,
+      )) {
+    return true;
+  }
+  return false;
 }
 
 StohProposal? _classifySupply({
   required String hay,
   required String company,
-  required String cups,
 }) {
   final aguaCo = RegExp(r'hidraqua|aqualia|\bagua\b|canal de isabel');
   final luzHint = RegExp(
-    r'iberdrola|endesa|holaluz|gana energ|\bcups\b|\bkwh\b|\bluz\b',
+    r'iberdrola|endesa|holaluz|gana energ|\bkwh\b|\bluz\b|electric',
   );
   final gazHint = RegExp(r'\bgaz\b|\bgas natural\b|\bgas\b');
   final looksFactura = _stohFacturaName.hasMatch(hay);
@@ -198,26 +228,21 @@ StohProposal? _classifySupply({
       tipo: looksContrato && !looksFactura ? 'contrato_agua' : 'factura_agua',
     );
   }
-  if (cups.isNotEmpty || luzHint.hasMatch(hay) || luzHint.hasMatch(company)) {
-    final gazOnly = gazHint.hasMatch(hay) &&
-        !RegExp(r'\bkwh\b|\bluz\b|electric').hasMatch(hay);
-    if (gazOnly) {
-      return StohProposal(
-        bloqueKey: 'gaz',
-        tipo: looksContrato && !looksFactura ? 'contrato_gaz' : 'factura_gaz',
-      );
-    }
-    return StohProposal(
-      bloqueKey: 'luz',
-      tipo: looksContrato && !looksFactura ? 'contrato_luz' : 'factura_luz',
-    );
-  }
-  if (gazHint.hasMatch(hay) || gazHint.hasMatch(company)) {
+  final looksLuz = luzHint.hasMatch(hay) || luzHint.hasMatch(company);
+  final looksGaz = gazHint.hasMatch(hay) || gazHint.hasMatch(company);
+  if (looksGaz && !looksLuz) {
     return StohProposal(
       bloqueKey: 'gaz',
       tipo: looksContrato && !looksFactura ? 'contrato_gaz' : 'factura_gaz',
     );
   }
+  if (looksLuz) {
+    return StohProposal(
+      bloqueKey: 'luz',
+      tipo: looksContrato && !looksFactura ? 'contrato_luz' : 'factura_luz',
+    );
+  }
+  // CUPS mají elektřina i plyn. Samo o sobě album neuhádne.
   return null;
 }
 
@@ -233,12 +258,18 @@ StohProposal classifyStohPaper({
   final name = originalName.toLowerCase();
   final head = stohBodyHead(bodyText);
   final hay = '$name\n${bodyText.toLowerCase()}';
-  final cups = (fields['fields.cups'] ?? '').trim();
   final company = (fields['fields.company'] ?? '').toLowerCase();
   final invoiceName = _stohFacturaName.hasMatch(name);
 
   if (_stohPoderName.hasMatch(name)) {
     return const StohProposal(bloqueKey: 'poder', tipo: 'copia_poder');
+  }
+
+  if (_looksLikeIbanSheet(name: name, head: head, fields: fields)) {
+    return const StohProposal(
+      bloqueKey: 'cliente_snapshot',
+      tipo: 'justificante_iban',
+    );
   }
 
   final fromHead = _classifyBodyHead(head, invoiceName: invoiceName);
@@ -293,7 +324,7 @@ StohProposal classifyStohPaper({
       tipo: 'declaracion_plusvalia',
     );
   }
-  if (RegExp(r'\bibi\b|\bsuma\b').hasMatch(hay) &&
+  if (RegExp(r'\bibi\b|recibo.?ibi|suma gesti[oó]n|identificaci[oó]n suma').hasMatch(hay) &&
       !RegExp(r'escritur|compravent').hasMatch(head)) {
     return const StohProposal(bloqueKey: 'suma', tipo: 'recibo_ibi');
   }
@@ -311,7 +342,7 @@ StohProposal classifyStohPaper({
     return const StohProposal(bloqueKey: 'alarma', tipo: 'contrato_alarma');
   }
 
-  return _classifySupply(hay: hay, company: company, cups: cups) ??
+  return _classifySupply(hay: hay, company: company) ??
       const StohProposal();
 }
 

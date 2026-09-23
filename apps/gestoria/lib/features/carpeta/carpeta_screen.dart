@@ -1860,7 +1860,7 @@ class _DocumentoFormState extends ConsumerState<_DocumentoForm> {
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
                     child: Text(
-                      '${k.tr()}: ${values[k]}',
+                      '${k.tr()}: ${shownFieldValue(k, values[k]!)}',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ),

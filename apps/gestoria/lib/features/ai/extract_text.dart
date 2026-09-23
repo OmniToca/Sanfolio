@@ -1,23 +1,32 @@
 /// Návrh polí z textu. Nic se nezapisuje do DB — tohle není save.
 class ExtractedFields {
-  const ExtractedFields({this.nie, this.email, this.tel, this.nombre});
+  const ExtractedFields({
+    this.nie,
+    this.email,
+    this.tel,
+    this.nombre,
+    this.iban,
+  });
 
   final String? nie;
   final String? email;
   final String? tel;
   final String? nombre;
+  final String? iban;
 
   bool get isEmpty =>
       (nie == null || nie!.isEmpty) &&
       (email == null || email!.isEmpty) &&
       (tel == null || tel!.isEmpty) &&
-      (nombre == null || nombre!.isEmpty);
+      (nombre == null || nombre!.isEmpty) &&
+      (iban == null || iban!.isEmpty);
 
   Map<String, String> get snapshotFields => {
     if (nie != null && nie!.isNotEmpty) 'fields.nie': nie!,
     if (email != null && email!.isNotEmpty) 'fields.email': email!,
     if (tel != null && tel!.isNotEmpty) 'fields.tel': tel!,
     if (nombre != null && nombre!.isNotEmpty) 'fields.nombre': nombre!,
+    if (iban != null && iban!.isNotEmpty) 'fields.iban': iban!,
   };
 }
 
@@ -70,12 +79,118 @@ bool looksLikeNie(String raw) {
       RegExp(r'^[0-9*]{8}[A-Z]$').hasMatch(v);
 }
 
-/// Telefon 9–15 číslic. Proud nul z PDF není tel.
+/// Telefon je číslo k volání, ne kód. Proud číslic z IBAN/CUPS sem nepatří.
+/// ES 9 číslic (6–9…), 34+9, nebo číslo s +. 13 číslic bez + není tel.
 bool looksLikeTel(String raw) {
+  if (looksLikeIban(raw)) return false;
+  final hasPlus = raw.trim().startsWith('+');
   final digits = raw.replaceAll(RegExp(r'[^\d]'), '');
-  if (digits.length < 9 || digits.length > 15) return false;
+  if (digits.isEmpty) return false;
   final zeros = digits.split('').where((c) => c == '0').length;
-  return zeros <= digits.length ~/ 2;
+  if (zeros > digits.length ~/ 2) return false;
+  if (hasPlus) return digits.length >= 10 && digits.length <= 15;
+  if (digits.length == 9 && RegExp(r'^[6789]').hasMatch(digits)) return true;
+  if (digits.length == 11 &&
+      digits.startsWith('34') &&
+      RegExp(r'^[6789]').hasMatch(digits.substring(2))) {
+    return true;
+  }
+  if (digits.length == 12 && digits.startsWith('420')) return true;
+  return false;
+}
+
+/// ES IBAN má 24 znaků. CUPS (ES + 16 číslic + 2 písmena) sem nepatří.
+bool looksLikeIban(String raw) {
+  final v = compactIban(raw);
+  if (!RegExp(r'^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$').hasMatch(v)) return false;
+  if (v.startsWith('ES')) return v.length == 24;
+  return v.length >= 15 && v.length <= 34;
+}
+
+String compactIban(String raw) =>
+    raw.toUpperCase().replaceAll(RegExp(r'[\s\-]'), '');
+
+/// ES96 2100 9143 9413 0049 8086. Ne polykat BIC na dalším řádku.
+final _iban = RegExp(
+  r'\bES\s*\d{2}(?:[\s\-]?\d{4}){5}\b|\b[A-Z]{2}\d{2}[A-Z0-9]{10,30}\b',
+);
+
+final _ibanCompactEs = RegExp(r'ES\d{22}');
+
+String formatIban(String raw) {
+  final v = compactIban(raw);
+  if (v.length < 15) return raw.trim();
+  final buf = StringBuffer();
+  for (var i = 0; i < v.length; i++) {
+    if (i > 0 && i % 4 == 0) buf.write(' ');
+    buf.write(v[i]);
+  }
+  return buf.toString();
+}
+
+String shownFieldValue(String key, String value) {
+  if (key == 'fields.iban') return formatIban(value);
+  return value;
+}
+
+String? firstIbanIn(String text) {
+  for (final m in _iban.allMatches(text)) {
+    final raw = m.group(0);
+    if (raw != null && looksLikeIban(raw)) return compactIban(raw);
+  }
+  final compact = compactIban(text);
+  final es = _ibanCompactEs.firstMatch(compact)?.group(0);
+  if (es != null && looksLikeIban(es)) return es;
+  return null;
+}
+
+String stripIbans(String text) {
+  return text.replaceAllMapped(_iban, (m) {
+    final raw = m.group(0) ?? '';
+    return looksLikeIban(raw) ? ' ' : raw;
+  });
+}
+
+/// ISO kód v přepisu doplní pole. Ne čtení jednoho názvu souboru.
+Map<String, String> overlayIbanFromBody(
+  Map<String, String> fields, {
+  String? bodyText,
+}) {
+  final body = (bodyText ?? fields['body_text'] ?? '').trim();
+  final next = Map<String, String>.from(fields);
+  if (body.isNotEmpty) {
+    final iban = firstIbanIn(body);
+    if (iban != null && (next['fields.iban'] ?? '').trim().isEmpty) {
+      next['fields.iban'] = iban;
+    }
+  }
+  return sanitizeExtractedFields(next);
+}
+
+const kIdentifierFieldKeys = <String>{
+  'fields.iban',
+  'fields.cups',
+  'fields.nie',
+  'fields.sellerNie',
+  'fields.sumaId',
+  'fields.cadastral',
+  'fields.contractNo',
+  'fields.docNumber',
+  'fields.protocol',
+  'fields.invoiceNo',
+};
+
+/// Stejné číslice v IBAN/CUPS/NIE nejsou telefon — u každého klienta.
+bool telTakenFromIdentifiers(Map<String, String> fields) {
+  final tel = (fields['fields.tel'] ?? '').replaceAll(RegExp(r'[^\d]'), '');
+  if (tel.length < 8) return false;
+  for (final key in kIdentifierFieldKeys) {
+    final id = (fields[key] ?? '')
+        .toUpperCase()
+        .replaceAll(RegExp(r'[\s\-]'), '');
+    if (id.contains(tel)) return true;
+  }
+  return false;
 }
 
 String compactTel(String raw) {
@@ -118,6 +233,8 @@ Map<String, String> sanitizeExtractedFields(Map<String, String> raw) {
         if (looksLikeNie(v)) out[e.key] = v.toUpperCase().replaceAll(' ', '');
       case 'fields.tel':
         if (looksLikeTel(v)) out[e.key] = compactTel(v);
+      case 'fields.iban':
+        if (looksLikeIban(v)) out[e.key] = compactIban(v);
       case 'fields.email':
         if (v.contains('@') && v.length <= 120) out[e.key] = v.toLowerCase();
       case 'body_text':
@@ -126,6 +243,9 @@ Map<String, String> sanitizeExtractedFields(Map<String, String> raw) {
         final max = kLongExtractKeys.contains(e.key) ? 2000 : 200;
         if (v.length <= max) out[e.key] = v;
     }
+  }
+  if (telTakenFromIdentifiers(out)) {
+    out.remove('fields.tel');
   }
   return out;
 }
@@ -139,11 +259,14 @@ class DocumentoTranscript {
 }
 
 DocumentoTranscript splitDocumentoTranscript(Map<String, String> raw) {
-  final fields = Map<String, String>.from(sanitizeExtractedFields(raw));
+  var fields = Map<String, String>.from(sanitizeExtractedFields(raw));
   fields.remove(kExtractStatus);
   fields.remove(kProposedBloqueKey);
   fields.remove(kProposedTipo);
   final body = fields.remove('body_text')?.trim();
+  if (body != null && body.isNotEmpty) {
+    fields = overlayIbanFromBody(fields, bodyText: body);
+  }
   return DocumentoTranscript(
     fields: fields,
     bodyText: body == null || body.isEmpty ? null : body,
@@ -182,18 +305,26 @@ final _email = RegExp(
   r'[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}',
   caseSensitive: false,
 );
-final _tel = RegExp(r'\+?\d[\d \-]{7,14}\d');
+final _telLabeled = RegExp(
+  r'(?:tel[eé]fono|m[oó]vil|\btel\b|phone)[:\s]*(\+?\d[\d \-]{7,14}\d)',
+  caseSensitive: false,
+);
+final _telPlus = RegExp(r'\+\d{9,14}');
 
 ExtractedFields extractFromText(String raw) {
   final text = raw.trim();
   if (text.isEmpty) return const ExtractedFields();
+  final iban = firstIbanIn(text);
+  final withoutIban = stripIbans(text);
   final nieMatch = _nie.firstMatch(text)?.group(0)?.toUpperCase();
   final email = _email.firstMatch(text)?.group(0)?.toLowerCase();
-  final telRaw = _tel.firstMatch(text)?.group(0);
+  final telRaw = _telLabeled.firstMatch(withoutIban)?.group(1) ??
+      _telPlus.firstMatch(withoutIban)?.group(0);
   final tel = telRaw == null ? null : compactTel(telRaw);
   return ExtractedFields(
     nie: nieMatch != null && looksLikeNie(nieMatch) ? nieMatch : null,
     email: email,
     tel: tel != null && looksLikeTel(tel) ? tel : null,
+    iban: iban,
   );
 }

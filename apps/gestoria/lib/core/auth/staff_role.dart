@@ -13,9 +13,11 @@ String? currentOfficeRole(AuthSnapshot snap) {
 
 bool canInviteStaff(AuthSnapshot snap) => currentOfficeRole(snap) == 'owner';
 
-/// Stopa LOPDGDD na kartě: jen owner (impersonace Supportu = owner).
-bool canViewClienteAudit(AuthSnapshot snap) =>
-    currentOfficeRole(snap) == 'owner';
+/// Stopa na kartě: kdo ji smí otevřít. Impersonace Supportu = owner.
+bool canViewClienteAudit(AuthSnapshot snap) {
+  final role = currentOfficeRole(snap);
+  return role == 'owner' || role == 'gestor' || role == 'asistente';
+}
 
 /// Vysypat originál ze Storage: jen owner (impersonace Supportu = owner).
 bool canPurgeDocumento(AuthSnapshot snap) =>

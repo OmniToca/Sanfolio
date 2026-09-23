@@ -27,6 +27,36 @@ void main() {
     expect(plan.bloqueKey, 'agua');
   });
 
+  test('Cta bancaria agencia je IBAN na kartě, ne telefon', () {
+    final proposal = classifyStohPaper(
+      originalName: 'Cta bancaria agencia.pdf',
+      bodyText: '''
+NOMBRE DE LA CUENTA/ACCOUNT NAME: LA MARINA SERVICES INTERNATIONAL
+IBAN: ES96 2100 9143 9413 0049 8086
+BIC: CAIXESBBXXX
+''',
+    );
+    expect(proposal.bloqueKey, 'cliente_snapshot');
+    expect(proposal.tipo, 'justificante_iban');
+  });
+
+  test('scan bez slova Cta: Beneficiary + IBAN je pořád účet', () {
+    final proposal = classifyStohPaper(
+      originalName: 'scan_01.pdf',
+      bodyText: '''
+Beneficiary
+Renata Susicova
+IBAN
+ES10 1583 0001 1190 1063 9767
+BIC/SWIFT code
+REVOESM2
+''',
+      fields: const {'fields.iban': 'ES1015830001119010639767'},
+    );
+    expect(proposal.bloqueKey, 'cliente_snapshot');
+    expect(proposal.tipo, 'justificante_iban');
+  });
+
   test('CUPS a kWh patří na luz; zapnutý blok se znovu nezapíná', () {
     final proposal = classifyStohPaper(
       originalName: 'iberdrola.pdf',
@@ -39,6 +69,38 @@ void main() {
       bloqueCurrentlyEnabled: true,
     );
     expect(plan!.enableBloque, isFalse);
+  });
+
+  test('SUMA TOTAL na faktuře není IBI; CUPS bez kWh není elektřina', () {
+    expect(
+      classifyStohPaper(
+        originalName: 'Hidraqua_factura.pdf',
+        bodyText: 'Hidraqua SUMA TOTAL 88,50 EUR Periodo TRIMESTRAL',
+      ).bloqueKey,
+      'agua',
+    );
+    expect(
+      classifyStohPaper(
+        originalName: 'recibo.pdf',
+        bodyText: 'RECIBO IBI SUMA Gestión Tributaria Ejercicio 2024',
+      ).bloqueKey,
+      'suma',
+    );
+    expect(
+      classifyStohPaper(
+        originalName: 'scan.pdf',
+        fields: const {'fields.cups': 'ES0021000012345678AB'},
+      ).known,
+      isFalse,
+    );
+    expect(
+      classifyStohPaper(
+        originalName: 'contrato_gas.pdf',
+        bodyText: 'Gas natural CUPS ES0212345678901234AB',
+        fields: const {'fields.cups': 'ES0212345678901234AB'},
+      ).bloqueKey,
+      'gaz',
+    );
   });
 
   test('escritura a DNI se nepletou; nejistota zůstane prázdná', () {

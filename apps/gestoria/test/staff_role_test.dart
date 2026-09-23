@@ -34,10 +34,11 @@ void main() {
     expect(canMergeClientes(asistente), isFalse);
   });
 
-  test('audit karty vidí jen owner, ne gestor ani asistente', () {
+  test('audit karty vidí člen kanceláře, ne anonym', () {
     expect(canViewClienteAudit(owner), isTrue);
-    expect(canViewClienteAudit(gestor), isFalse);
-    expect(canViewClienteAudit(asistente), isFalse);
+    expect(canViewClienteAudit(gestor), isTrue);
+    expect(canViewClienteAudit(asistente), isTrue);
+    expect(canViewClienteAudit(const AuthSnapshot(sessionPresent: true)), isFalse);
     expect(canPurgeDocumento(owner), isTrue);
     expect(canPurgeDocumento(gestor), isFalse);
     expect(canManageLegalHold(owner), isTrue);

@@ -6,6 +6,7 @@ import 'package:gestoria_auth/gestoria_auth.dart';
 import '../../core/documents/documento_storage.dart';
 import '../../core/identity/legal_hold.dart';
 import '../../core/identity/nie_persist.dart';
+import '../../core/identity/person_name.dart';
 import '../ai/ai_providers.dart';
 import '../ai/escritura_parties.dart';
 import '../ai/extract_text.dart';
@@ -53,6 +54,7 @@ class ClienteDocumento {
   final Map<String, String> extracted;
   final String? bodyText;
   final bool storagePurged;
+
   /// Album je odkaz, ne druhá kopie. Na kartě žije identita, ne listina.
   final String? bloqueId;
 
@@ -86,10 +88,7 @@ List<ClienteDocumento> trashVisibleOnCard(List<ClienteDocumento> hidden) {
 }
 
 /// Živý papír na kartě — identita. Listina je album, i když leží na hromadě.
-bool isClienteCardLiveDoc({
-  required Object? deletedAt,
-  required String tipo,
-}) {
+bool isClienteCardLiveDoc({required Object? deletedAt, required String tipo}) {
   if (deletedAt != null) return false;
   return clienteCardDocTypes.contains(tipo.trim());
 }
@@ -103,6 +102,8 @@ class ClienteCard {
     required this.id,
     required this.tenantId,
     required this.nombre,
+    required this.givenName,
+    required this.apellidos,
     required this.locale,
     required this.status,
     required this.deleted,
@@ -125,7 +126,11 @@ class ClienteCard {
 
   final String id;
   final String tenantId;
+
+  /// Složené jméno pro hlavičku a seznam.
   final String nombre;
+  final String givenName;
+  final String apellidos;
   final String locale;
   final String status;
   final bool deleted;
@@ -242,10 +247,11 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
       );
     }
 
-    final nombre = [
-      '${row['nombre'] ?? ''}'.trim(),
-      '${row['apellidos'] ?? ''}'.trim(),
-    ].where((s) => s.isNotEmpty).join(' ');
+    final parts = splitPersonName(
+      nombre: '${row['nombre'] ?? ''}',
+      apellidos: '${row['apellidos'] ?? ''}',
+    );
+    final nombre = joinPersonName(parts.nombre, parts.apellidos);
 
     final nie = preferredFiscalRawFromRows(row['client_identifiers']);
 
@@ -305,7 +311,8 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
           raw: Map<String, dynamic>.from(powerHits.first as Map),
           today: DateTime.now(),
           warnDays:
-              ref.watch(officeSettingsProvider).valueOrNull?.poderWarnDays ?? 60,
+              ref.watch(officeSettingsProvider).valueOrNull?.poderWarnDays ??
+              60,
         );
       }
     } on Object {
@@ -316,6 +323,8 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
       id: '${row['id']}',
       tenantId: tenantId,
       nombre: nombre,
+      givenName: parts.nombre,
+      apellidos: parts.apellidos,
       locale: '${row['locale'] ?? 'cs'}',
       status: '${row['status'] ?? 'activo'}',
       deleted: row['deleted_at'] != null,
@@ -339,6 +348,7 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
 
   Future<({bool nieConflict, String typedNie, String keepNie})> save({
     required String nombre,
+    String? apellidos,
     required String locale,
     required String nie,
     String? email,
@@ -351,15 +361,15 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
     if (current == null || current.deleted) return ok;
     final client = trySupabaseClient();
     if (client == null) throw StateError('not configured');
-    final trimmed = nombre.trim();
-    if (trimmed.isEmpty) {
+    final parts = splitPersonName(nombre: nombre, apellidos: apellidos);
+    if (parts.nombre.isEmpty) {
       throw ArgumentError('nombre');
     }
     await client
         .from('clientes')
         .update({
-          'nombre': trimmed,
-          'apellidos': null,
+          'nombre': parts.nombre,
+          'apellidos': _nullIfEmpty(parts.apellidos),
           'locale': locale,
           'email': _nullIfEmpty(email),
           'tel': _nullIfEmpty(tel),
@@ -518,12 +528,16 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
       cardNie: current.nie,
     );
     if (prepared.isEmpty) return;
-    await client.from('documentos').update({
-      'extracted': prepared.fields,
-      if (prepared.bodyText != null) 'body_text': prepared.bodyText,
-      if (prepared.nextTipo != null && prepared.nextTipo != doc?.tipo)
-        'tipo': prepared.nextTipo,
-    }).eq('id', documentId).eq('tenant_id', current.tenantId);
+    await client
+        .from('documentos')
+        .update({
+          'extracted': prepared.fields,
+          if (prepared.bodyText != null) 'body_text': prepared.bodyText,
+          if (prepared.nextTipo != null && prepared.nextTipo != doc?.tipo)
+            'tipo': prepared.nextTipo,
+        })
+        .eq('id', documentId)
+        .eq('tenant_id', current.tenantId);
     await guardarFacturaRecibida(
       documentoId: documentId,
       fields: prepared.fields,
@@ -543,8 +557,7 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
       mime: mimeForOfficeFile(doc.originalName),
       docTipo: doc.tipo,
       bloqueKey: doc.tipo,
-      onDone: (_) =>
-          ref.invalidate(liveAiDraftsProvider(current.id)),
+      onDone: (_) => ref.invalidate(liveAiDraftsProvider(current.id)),
     );
   }
 
@@ -614,9 +627,11 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
     if (current == null) return;
     final client = trySupabaseClient();
     if (client == null) throw StateError('not configured');
-    await client.from('legal_holds').update({
-      'deleted_at': DateTime.now().toUtc().toIso8601String(),
-    }).eq('id', holdId).eq('tenant_id', current.tenantId);
+    await client
+        .from('legal_holds')
+        .update({'deleted_at': DateTime.now().toUtc().toIso8601String()})
+        .eq('id', holdId)
+        .eq('tenant_id', current.tenantId);
     _refresh();
   }
 
@@ -625,10 +640,7 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
     if (current == null) return;
     final client = trySupabaseClient();
     if (client == null) throw StateError('not configured');
-    await client.rpc(
-      'anonymize_cliente',
-      params: {'p_cliente_id': current.id},
-    );
+    await client.rpc('anonymize_cliente', params: {'p_cliente_id': current.id});
     ref.invalidate(carpetaControllerProvider);
     _refresh(list: true);
   }

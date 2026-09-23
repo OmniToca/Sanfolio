@@ -179,23 +179,26 @@ async function finishExtract(args: {
     const isPdf = args.mime === "application/pdf" ||
       /\.pdf$/i.test(args.storagePath);
     const identity = docTipo === "dni_nie" || docTipo === "pasaporte";
+    let identifiers: Record<string, string> = {};
+    let guesses: Record<string, string> = {};
     let fields: Record<string, string> = {};
-    if (!isPdf) {
-      fields = sanitizeFields(fieldsFromText(latinText(bytes)));
-    } else {
+    const isImage = IMAGE_MIME.has(args.mime) || looksLikeImage(args.storagePath);
+    if (isPdf) {
       try {
         const pages = await extractPdfPages(bytes);
         if (pdfTextUsable(pages.text)) {
-          fields = sanitizeFields(fieldsFromText(pages.text));
+          const parsed = splitRegexFields(fieldsFromText(pages.text));
+          identifiers = parsed.identifiers;
+          guesses = parsed.guesses;
           fields.body_text = pages.text.slice(0, 100000);
         }
       } catch (err) {
         console.warn("extract-document: unpdf selhal", err);
       }
     }
+    // JPEG/PNG: latinText z binárky vymýšlí NIE/tel. Čte vision, ne ASCII šum.
 
     const apiKey = Deno.env.get("OPENAI_API_KEY")?.trim();
-    const isImage = IMAGE_MIME.has(args.mime) || looksLikeImage(args.storagePath);
     const needVision = apiKey && (
       isImage ||
       (isPdf && (identity || !fields.body_text))
@@ -211,6 +214,9 @@ async function finishExtract(args: {
       );
       if (vision) {
         const body = fields.body_text;
+        const fromVision = splitRegexFields(sanitizeFields(vision));
+        identifiers = { ...identifiers, ...fromVision.identifiers };
+        guesses = fromVision.guesses;
         fields = { ...fields, ...sanitizeFields(vision) };
         if (body && !fields.body_text) fields.body_text = body;
       }
@@ -241,13 +247,18 @@ async function finishExtract(args: {
       );
       if (llm) {
         const body = fields.body_text;
-        fields = { ...fields, ...sanitizeFields(llm) };
-        fields.body_text = body;
+        fields = {
+          ...identifiers,
+          ...sanitizeFields(llm),
+        };
+        fields.body_text = body ?? "";
+      } else {
+        fields = { ...identifiers, ...guesses, ...fields };
       }
+    } else {
+      fields = { ...identifiers, ...guesses, ...fields };
     }
-    if (fields.body_text) {
-      fields = alignDeedFields(fields, fields.body_text, hint);
-    }
+    let guessTipo = "";
     if (args.classify) {
       const guess = classifyStohPaper(
         args.storagePath,
@@ -255,14 +266,20 @@ async function finishExtract(args: {
         fields,
         officeClassifyConsensus(officeExamples),
       );
+      guessTipo = guess.tipo ?? "";
       if (guess.bloque) fields.proposed_bloque_key = guess.bloque;
+      else delete fields.proposed_bloque_key;
       if (guess.tipo) fields.proposed_tipo = guess.tipo;
+      else delete fields.proposed_tipo;
       if (guess.bloque) {
         await args.userClient.from("ai_drafts").update({
           bloque_key: guess.bloque,
           updated_at: new Date().toISOString(),
         }).eq("id", args.draftId);
       }
+    }
+    if (fields.body_text && shouldAlignDeed(fields.body_text, guessTipo)) {
+      fields = alignDeedFields(fields, fields.body_text, hint);
     }
     const extracted = Object.keys(fields).length > 0 &&
       !(Object.keys(fields).length === 1 && fields.extract_status);
@@ -331,7 +348,9 @@ async function persistLibraryExtract(
     updated_at: new Date().toISOString(),
   };
   if (body) patch.body_text = body;
-  if (guessTipo && guessTipo !== "other") patch.tipo = guessTipo;
+  if (guessTipo && guessTipo !== "other" && STOH_BLOQUES.has(guessBloque)) {
+    patch.tipo = guessTipo;
+  }
   await args.userClient.from("documentos").update(patch).eq("id", docId);
 
   if (body) {
@@ -476,6 +495,7 @@ const FIELD_MAP: Record<string, string> = {
   nombre: "fields.nombre",
   email: "fields.email",
   tel: "fields.tel",
+  iban: "fields.iban",
   docNumber: "fields.docNumber",
   issued: "fields.issued",
   expiry: "fields.expiry",
@@ -547,7 +567,9 @@ function extractSystemPrompt(
     "Do not put the supplier tax id into nie. Titular/cliente → holder/nombre. " +
     "Base imponible → base, IVA cuota → iva, IVA % → ivaRate (21), vencimiento → due, " +
     "concepto → concept. " +
-    "Consumo kWh or m³ → consumption. Compañía / comercializadora → company. Titular → holder. " +
+    "Consumo del periodo / Energía activa / kWh facturados → consumption. " +
+    "Never the first naked kWh from a chart or lectura table. " +
+    "Compañía / comercializadora → company. Titular → holder. " +
     "póliza de seguro / prima: importe or prima anual → amount. Periodo de cobertura → periodFrom and periodTo. " +
     "Dates YYYY-MM-DD. Omit unknown. Do not invent. " +
     "Escritura de compraventa: list ALL sellers in sellers and ALL real buyers in buyers as 'NAME (NIE); NAME (NIE)'. " +
@@ -558,15 +580,20 @@ function extractSystemPrompt(
     "referenceValue = valor de referencia catastral. lawyer = despacho/abogado. " +
     "parcela, registry (Registro de la Propiedad + finca), cadastral, address of the URBANA. " +
     "protocol is the number at the very top (DOS MIL CIENTO DIECISÉIS = 2116), not a later year or poder. " +
-    "Do not put passport numbers into tel." +
+    "Do not put passport numbers into tel. " +
+    "Codes have a type: IBAN, CUPS, NIE/DNI, BIC/SWIFT, cadastral, protocol. " +
+    "Never copy one code's digits into tel. tel is only a labeled phone " +
+    "(teléfono, móvil) or a Spanish 9-digit number starting 6/7/8/9, optionally +34. " +
+    "An unlabeled digit run is not tel. BIC/SWIFT is not iban. " +
     (classify
       ? " proposedBloque = one of cliente_snapshot,escritura,agua,luz,gaz,comunidad,suma,plusvalia,seguro,alarma,nie_tramite,poder (omit if unsure). " +
-        "proposedTipo = dni_nie,pasaporte,copia_escritura,contrato_agua,factura_agua,recibo_agua,contrato_luz,factura_luz,contrato_gaz,factura_gaz,certificado_comunidad,recibo_ibi,declaracion_plusvalia,certificado_catastral,poliza_seguro,contrato_alarma,copia_poder,other (omit if unsure). " +
+        "proposedTipo = dni_nie,pasaporte,copia_escritura,contrato_agua,factura_agua,recibo_agua,contrato_luz,factura_luz,contrato_gaz,factura_gaz,certificado_comunidad,recibo_ibi,declaracion_plusvalia,certificado_catastral,poliza_seguro,contrato_alarma,copia_poder,justificante_iban,other (omit if unsure). " +
         "Title and first page of the PDF first; ignore scan_01.pdf / IMG_1234. " +
         "Poder/apoderado in the filename → poder, never escritura. FACTURA/invoice/recibo in the filename → not escritura even if a clause mentions notario. " +
         "A NIE on a deed is not cliente_snapshot. ESCRITURA DE COMPRAVENTA / AMPLIACIÓN DE OBRA / Ante mí, Notario → escritura. " +
         "CERTIFICACIÓN CATASTRAL DE VALOR DE REFERENCIA → plusvalia (certificado_catastral), not IBI and not the deed. " +
-        "Hidraqua/Aqualia → agua. CUPS/kWh/Iberdrola/Gana Energía → luz. DNI/NIE card photo → cliente_snapshot. Omit proposedBloque if unsure."
+        "Hidraqua/Aqualia → agua. CUPS/kWh/Iberdrola/Gana Energía → luz. DNI/NIE card photo → cliente_snapshot. " +
+        "Bank details (IBAN + BIC/SWIFT or ACCOUNT NAME/Beneficiary, no kWh/CUPS) → cliente_snapshot justificante_iban. Omit proposedBloque if unsure."
       : "") +
     (includeBody
       ? " body_text = readable text with --- Strana n --- page marks, max 20000 chars."
@@ -583,30 +610,90 @@ function mapLlmFields(parsed: Record<string, unknown>): Record<string, string> {
       ? v.toUpperCase()
       : src === "email"
       ? v.toLowerCase()
+      : src === "iban"
+      ? compactIban(v)
       : v;
   }
   return out;
 }
 
+function looksLikeNie(raw: string): boolean {
+  const v = raw.toUpperCase().replace(/[\s\-\./]/g, "");
+  return /^[XYZ][0-9*]{7}[A-Z]$/.test(v) || /^[0-9*]{8}[A-Z]$/.test(v);
+}
+
+function compactIban(raw: string): string {
+  return raw.toUpperCase().replace(/[\s\-]/g, "");
+}
+
+function looksLikeIban(raw: string): boolean {
+  const v = compactIban(raw);
+  if (!/^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(v)) return false;
+  if (v.startsWith("ES")) return v.length === 24;
+  return v.length >= 15 && v.length <= 34;
+}
+
+const IBAN_RE =
+  /\bES\s*\d{2}(?:[\s\-]?\d{4}){5}\b|\b[A-Z]{2}\d{2}[A-Z0-9]{10,30}\b/gi;
+
+function firstIbanIn(text: string): string {
+  const re = new RegExp(IBAN_RE.source, "gi");
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text))) {
+    if (looksLikeIban(m[0])) return compactIban(m[0]);
+  }
+  const compact = compactIban(text);
+  const es = compact.match(/ES\d{22}/);
+  if (es && looksLikeIban(es[0])) return es[0];
+  return "";
+}
+
+function stripIbans(text: string): string {
+  return text.replace(IBAN_RE, (raw) => looksLikeIban(raw) ? " " : raw);
+}
+
+function looksLikeTel(raw: string): boolean {
+  if (looksLikeIban(raw)) return false;
+  const hasPlus = raw.trim().startsWith("+");
+  const digits = raw.replace(/[^\d]/g, "");
+  if (!digits) return false;
+  const zeros = [...digits].filter((c) => c === "0").length;
+  if (zeros > Math.floor(digits.length / 2)) return false;
+  if (hasPlus) return digits.length >= 10 && digits.length <= 15;
+  if (digits.length === 9 && /^[6789]/.test(digits)) return true;
+  if (
+    digits.length === 11 &&
+    digits.startsWith("34") &&
+    /^[6789]/.test(digits.slice(2))
+  ) {
+    return true;
+  }
+  if (digits.length === 12 && digits.startsWith("420")) return true;
+  return false;
+}
+
 function fieldsFromText(text: string): Record<string, string> {
   const out: Record<string, string> = {};
+  const iban = firstIbanIn(text);
+  if (iban) out["fields.iban"] = iban;
+  const rest = stripIbans(text);
   const nie = text.match(/\b(?:[XYZ]\s*-?\s*[0-9*]{7}\s*-?\s*[A-Z]|[0-9*]{8}[A-Z])\b/i);
   if (nie) out["fields.nie"] = nie[0].toUpperCase();
   const email = text.match(/[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}/i);
   if (email) out["fields.email"] = email[0].toLowerCase();
-  const tel = text.match(/\+?\d[\d \-]{7,14}\d/);
+  const telLabeled = rest.match(
+    /(?:tel[eé]fono|m[oó]vil|\btel\b|phone)[:\s]*(\+?\d[\d \-]{7,14}\d)/i,
+  );
+  const telPlus = rest.match(/\+\d{9,14}/);
+  const tel = telLabeled?.[1] ?? telPlus?.[0];
   if (tel) {
-    const compact = tel[0].replace(/[^\d+]/g, "");
+    const compact = tel.replace(/[^\d+]/g, "");
     if (looksLikeTel(compact)) out["fields.tel"] = compact;
   }
   const iso = text.match(/\b(20\d{2}|19\d{2})[-/.](0[1-9]|1[0-2])[-/.](0[1-9]|[12]\d|3[01])\b/);
   if (iso) out["fields.date"] = iso[0].replace(/[/]/g, "-");
-  const kwh = text.match(/(\d+[.,]?\d*)\s*kWh/i);
-  if (kwh) out["fields.consumption"] = kwh[1].replace(",", ".");
-  const m3 = text.match(/(\d+[.,]?\d*)\s*m[³3]/i);
-  if (m3 && !out["fields.consumption"]) {
-    out["fields.consumption"] = m3[1].replace(",", ".");
-  }
+  const consumption = labeledConsumption(text);
+  if (consumption) out["fields.consumption"] = consumption;
   const cups = text.match(
     /\b(ES\s*\d{4}\s*\d{4}\s*\d{4}\s*\d{4}\s*[A-Z]{2})\b/i,
   );
@@ -618,16 +705,41 @@ function fieldsFromText(text: string): Record<string, string> {
   return sanitizeFields(out);
 }
 
-function looksLikeNie(raw: string): boolean {
-  const v = raw.toUpperCase().replace(/[\s\-\./]/g, "");
-  return /^[XYZ][0-9*]{7}[A-Z]$/.test(v) || /^[0-9*]{8}[A-Z]$/.test(v);
+/// První nahé kWh v grafu není spotřeba období.
+function labeledConsumption(text: string): string | undefined {
+  const m = text.match(
+    /(?:consumo(?:\s+(?:del\s+)?(?:periodo|total|facturado))?|energ[ií]a\s+activa|kwh\s+facturados)\s*[:.\s]+(\d{1,3}(?:[.\s]\d{3})*(?:[.,]\d+)?|\d+[.,]?\d*)\s*(?:kWh|m[³3])?/i,
+  );
+  if (!m) return undefined;
+  return m[1].replace(/\s/g, "").replace(",", ".");
 }
 
-function looksLikeTel(raw: string): boolean {
-  const digits = raw.replace(/[^\d]/g, "");
-  if (digits.length < 9 || digits.length > 15) return false;
-  const zeros = [...digits].filter((c) => c === "0").length;
-  return zeros <= Math.floor(digits.length / 2);
+const IDENTIFIER_KEYS = new Set([
+  "fields.iban",
+  "fields.cups",
+  "fields.nie",
+  "fields.email",
+  "fields.sellerNie",
+]);
+const GUESS_KEYS = new Set([
+  "fields.tel",
+  "fields.date",
+  "fields.consumption",
+  "fields.contractNo",
+]);
+
+function splitRegexFields(raw: Record<string, string>): {
+  identifiers: Record<string, string>;
+  guesses: Record<string, string>;
+} {
+  const identifiers: Record<string, string> = {};
+  const guesses: Record<string, string> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    if (!v.trim() || k === "body_text") continue;
+    if (IDENTIFIER_KEYS.has(k)) identifiers[k] = v;
+    else if (GUESS_KEYS.has(k)) guesses[k] = v;
+  }
+  return { identifiers, guesses };
 }
 
 function sanitizeFields(raw: Record<string, string>): Record<string, string> {
@@ -642,6 +754,10 @@ function sanitizeFields(raw: Record<string, string>): Record<string, string> {
     if (key === "fields.supplierNif") {
       const compact = v.toUpperCase().replace(/[\s\-\./]/g, "");
       if (compact.length >= 8 && compact.length <= 12) out[key] = compact;
+      continue;
+    }
+    if (key === "fields.iban") {
+      if (looksLikeIban(v)) out[key] = compactIban(v);
       continue;
     }
     if (key === "fields.tel") {
@@ -663,6 +779,23 @@ function sanitizeFields(raw: Record<string, string>): Record<string, string> {
       key === "fields.lawyer" ||
       key === "fields.attorney";
     if (v.length <= (long ? 2000 : 200)) out[key] = v;
+  }
+  const iban = out["fields.iban"] ?? "";
+  const tel = (out["fields.tel"] ?? "").replace(/[^\d]/g, "");
+  if (tel.length >= 8) {
+    const ids = [
+      iban,
+      out["fields.cups"] ?? "",
+      out["fields.nie"] ?? "",
+      out["fields.sellerNie"] ?? "",
+      out["fields.sumaId"] ?? "",
+      out["fields.cadastral"] ?? "",
+      out["fields.contractNo"] ?? "",
+      out["fields.docNumber"] ?? "",
+      out["fields.protocol"] ?? "",
+      out["fields.invoiceNo"] ?? "",
+    ].map((v) => v.toUpperCase().replace(/[\s\-]/g, ""));
+    if (ids.some((id) => id.includes(tel))) delete out["fields.tel"];
   }
   return out;
 }
@@ -862,7 +995,7 @@ const STOH_BLOQUES = new Set([
 const PODER_NAME = /p[oó]der|apoderad/;
 const FACTURA_NAME = /factura|invoice|recibo/;
 const ESCRITURA_NAME = /escritur|compravent|\besc\b/;
-const LUZ_HINT = /iberdrola|endesa|holaluz|gana energ|\bcups\b|\bkwh\b|\bluz\b/;
+const LUZ_HINT = /iberdrola|endesa|holaluz|gana energ|\bkwh\b|\bluz\b|electric/;
 const BODY_HEAD_CHARS = 4000;
 
 function stohBodyHead(body: string): string {
@@ -900,7 +1033,32 @@ function classifyBodyHead(
   ) {
     return { bloque: "plusvalia", tipo: "certificado_catastral" };
   }
+  if (looksLikeIbanSheet("", head, {})) {
+    return { bloque: "cliente_snapshot", tipo: "justificante_iban" };
+  }
   return null;
+}
+
+function looksLikeIbanSheet(
+  name: string,
+  head: string,
+  fields: Record<string, string>,
+): boolean {
+  if (/cta bancaria|cuenta (bancaria|agencia)|bank details/.test(name)) {
+    return true;
+  }
+  const bankish =
+    /nombre de la cuenta|account name|beneficiary|bank details|cta bancaria|\bbic\b|swift/
+      .test(head);
+  const hasIban = /\biban\b/.test(head) || looksLikeIban(fields["fields.iban"] ?? "");
+  if (
+    bankish &&
+    hasIban &&
+    !/kwh|cups|suma|hidraqua|iberdrola|factura|escritur/.test(head)
+  ) {
+    return true;
+  }
+  return false;
 }
 
 type OfficePaperExample = {
@@ -923,6 +1081,7 @@ function redactOfficeExampleText(raw: string): string {
   let t = raw.trim().replace(/\s+/g, " ");
   t = t.replace(OFFICE_NIE, "[NIE]");
   t = t.replace(OFFICE_EMAIL, "[email]");
+  t = t.replace(IBAN_RE, (m) => looksLikeIban(m) ? "[iban]" : m);
   t = t.replace(OFFICE_TEL, "[tel]");
   return t.length > 120 ? t.slice(0, 120) : t;
 }
@@ -1069,12 +1228,15 @@ function classifyStohPaper(
   const name = (path.split("/").pop() ?? "").toLowerCase();
   const head = stohBodyHead(bodyText);
   const hay = `${name}\n${bodyText.toLowerCase()}`;
-  const cups = (fields["fields.cups"] ?? "").trim();
   const company = (fields["fields.company"] ?? "").toLowerCase();
   const invoiceName = FACTURA_NAME.test(name);
 
   if (PODER_NAME.test(name)) {
     return { bloque: "poder", tipo: "copia_poder" };
+  }
+
+  if (looksLikeIbanSheet(name, head, fields)) {
+    return { bloque: "cliente_snapshot", tipo: "justificante_iban" };
   }
 
   const fromHead = classifyBodyHead(head, invoiceName);
@@ -1121,7 +1283,9 @@ function classifyStohPaper(
   if (/plusval/.test(hay)) {
     return { bloque: "plusvalia", tipo: "declaracion_plusvalia" };
   }
-  if (/\bibi\b|\bsuma\b/.test(hay) && !/escritur|compravent/.test(head)) {
+  if (/\bibi\b|recibo.?ibi|suma gesti[oó]n|identificaci[oó]n suma/.test(hay) &&
+    !/escritur|compravent/.test(head)
+  ) {
     return { bloque: "suma", tipo: "recibo_ibi" };
   }
   if (/comunidad|administrador de fincas/.test(hay) && !/escritur/.test(head)) {
@@ -1144,23 +1308,18 @@ function classifyStohPaper(
       tipo: looksContrato && !looksFactura ? "contrato_agua" : "factura_agua",
     };
   }
-  if (cups || LUZ_HINT.test(hay) || LUZ_HINT.test(company)) {
-    const gazOnly = gazHint.test(hay) && !/\bkwh\b|\bluz\b|electric/.test(hay);
-    if (gazOnly) {
-      return {
-        bloque: "gaz",
-        tipo: looksContrato && !looksFactura ? "contrato_gaz" : "factura_gaz",
-      };
-    }
-    return {
-      bloque: "luz",
-      tipo: looksContrato && !looksFactura ? "contrato_luz" : "factura_luz",
-    };
-  }
-  if (gazHint.test(hay) || gazHint.test(company)) {
+  const looksLuz = LUZ_HINT.test(hay) || LUZ_HINT.test(company);
+  const looksGaz = gazHint.test(hay) || gazHint.test(company);
+  if (looksGaz && !looksLuz) {
     return {
       bloque: "gaz",
       tipo: looksContrato && !looksFactura ? "contrato_gaz" : "factura_gaz",
+    };
+  }
+  if (looksLuz) {
+    return {
+      bloque: "luz",
+      tipo: looksContrato && !looksFactura ? "contrato_luz" : "factura_luz",
     };
   }
   return { bloque: "", tipo: "other" };
@@ -1198,15 +1357,31 @@ async function loadClienteHint(
 
 function looksLikeEscrituraText(text: string): boolean {
   const t = text.toLowerCase();
-  const deed = t.includes("escritura") ||
-    t.includes("compraventa") ||
-    t.includes("notario") ||
-    t.includes("comparecen");
-  const parties = t.includes("vender") ||
-    t.includes("vendedor") ||
-    t.includes("comprar") ||
-    t.includes("comprador");
-  return deed && parties;
+  const parties = t.includes("para vender") ||
+    t.includes("para comprar") ||
+    t.includes("parte vendedora") ||
+    t.includes("parte compradora");
+  return /comparece[n]?/.test(t) && parties;
+}
+
+function shouldAlignDeed(body: string, tipo: string): boolean {
+  if (tipo && tipo !== "copia_escritura") return false;
+  return looksLikeEscrituraText(body);
+}
+
+function namesLikelyMatch(cardName: string, documentName: string): boolean {
+  const a = nameTokens(cardName);
+  const b = nameTokens(documentName);
+  if (!a.size || !b.size) return false;
+  let overlap = 0;
+  for (const t of a) if (b.has(t)) overlap++;
+  if (a.size >= 2) return overlap >= 2;
+  return overlap >= 1;
+}
+
+function nameTokens(raw: string): Set<string> {
+  const folded = raw.toLowerCase().replace(/[^a-záéíóúüñčďěňřšťžý\s]/g, " ");
+  return new Set(folded.split(/\s+/).filter((t) => t.length >= 2));
 }
 
 function normalizeNie(raw: string): string {
@@ -1215,7 +1390,8 @@ function normalizeNie(raw: string): string {
 
 type DeedPerson = { nie: string; name: string; index: number };
 
-const deedNieRe = /\b([XYZ])\s*-?\s*(\d{7})\s*-?\s*([A-Z])\b/gi;
+const deedNieRe =
+  /\b(?:([XYZ])\s*-?\s*(\d{7})\s*-?\s*([A-Z])|(\d{8})-?([A-Z]))\b/gi;
 const dNameRe =
   /(?:^|[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ])(?:D[ªº]\.?|D\.|Doña|Don)\s+([A-ZÁÉÍÓÚÜÑ][A-ZÁÉÍÓÚÜÑa-záéíóúüñ.\-\s]{2,80}?)(?:,|\n|nacida|nacido|mayor|con |de soltera)/gi;
 
@@ -1233,7 +1409,7 @@ function deedPeople(text: string): DeedPerson[] {
   const re = new RegExp(deedNieRe.source, "gi");
   let m: RegExpExecArray | null;
   while ((m = re.exec(text))) {
-    const nie = `${m[1]}${m[2]}${m[3]}`.toUpperCase();
+    const nie = (m[1] ? `${m[1]}${m[2]}${m[3]}` : `${m[4]}${m[5]}`).toUpperCase();
     if (!looksLikeNie(nie)) continue;
     const from = Math.max(0, m.index - 800);
     const window = text.slice(from, m.index);
@@ -1363,11 +1539,17 @@ function extractDeedFacts(text: string): DeedFacts {
   const urbAt = lower.indexOf("urbana");
   const urb = urbAt < 0 ? text : text.slice(urbAt, urbAt + 2200);
   const urbFlat = urb.replace(/\n/g, " ");
-  const hoy = urbFlat.match(/hoy calle\s+([^,\n]+?),\s+n[úu]mero\s+([^\s,]+)/i);
+  const street = urbFlat.match(
+    /(?:hoy\s+)?(calle|avenida|avda\.?|plaza|paseo|camino|carrer)\s+([^,\n]+?)(?:,)?\s+n[úu]mero\s+([^\s,.;:]+)/i,
+  );
   const mun = urbFlat.match(/t[ée]rmino de\s+([A-ZÁÉÍÓÚÜÑa-záéíóúüñ]+)/i);
   let address: string | null = null;
-  if (hoy) {
-    address = tidyName(`calle ${hoy[1]}, ${hoy[2]}${mun ? `, ${mun[1]}` : ""}`);
+  if (street) {
+    address = tidyName(
+      `${street[1].toLowerCase()} ${street[2]}, ${street[3]}${mun ? `, ${mun[1]}` : ""}`,
+    );
+  } else if (mun) {
+    address = tidyName(mun[1]);
   }
   const parcela = urb.match(/parcela\s+([A-Z0-9][A-Z0-9.\-]{1,12})/i);
   const cat = text.replace(/\n/g, " ").match(
@@ -1413,11 +1595,9 @@ function pickDeedClientFromFacts(
     const hit = pool.find((p) => p.nie === wantNie);
     if (hit) return hit;
   }
-  const tokens = hint.nombre.trim().toLowerCase().split(/\s+/).filter((t) =>
-    t.length >= 2
-  );
-  if (tokens.length) {
-    const hit = pool.find((p) => tokens.some((t) => p.name.toLowerCase().includes(t)));
+  const card = hint.nombre.trim();
+  if (card) {
+    const hit = pool.find((p) => namesLikelyMatch(card, p.name));
     if (hit) return hit;
   }
   return facts.buyers[0] ?? pool[0];

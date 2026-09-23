@@ -12,6 +12,7 @@ void main() {
     String sha = '',
     String tipo = 'factura_luz',
     Map<String, String> extracted = const {},
+    String? bodyText,
   }) {
     return CarpetaDocumento(
       id: id,
@@ -19,6 +20,7 @@ void main() {
       storagePath: 't/c/stoh/$id.pdf',
       originalName: name,
       extracted: extracted,
+      bodyText: bodyText,
       contentSha256: sha,
       createdAt: DateTime(2026, 9, 23),
       albumKeys: albums,
@@ -222,5 +224,37 @@ void main() {
       libraryPaperOnDesk(LibraryPaper(document: paper(id: '2'))),
       isFalse,
     );
+  });
+
+  test('CTA bancaria ukáže IBAN, ne telefon z číslic za ES', () {
+    const sheet = '''
+NOMBRE DE LA CUENTA/ACCOUNT NAME: LA MARINA SERVICES INTERNATIONAL
+IBAN: ES96 2100 9143 9413 0049 8086
+BIC: CAIXESBBXXX
+''';
+    final papers = buildLibraryPapers(
+      documents: [
+        paper(
+          id: 'cta',
+          tipo: 'other',
+          name: 'Cta bancaria agencia.pdf',
+          extracted: const {'fields.tel': '9621009143941'},
+          bodyText: sheet,
+        ),
+      ],
+      drafts: const <StohQueueRow>[],
+      inmuebles: const [],
+    );
+    final row = papers.single;
+    expect(libraryPaperTipo(row), 'justificante_iban');
+    expect(row.glanceFields['fields.iban'], 'ES9621009143941300498086');
+    expect(row.glanceFields.containsKey('fields.tel'), isFalse);
+    final summary = libraryPaperAutoSummary(
+      row,
+      tr: (key, {named = const {}}) =>
+          named.isEmpty ? key : named.values.join(),
+    );
+    expect(summary, contains('ES96 2100 9143 9413 0049 8086'));
+    expect(summary, isNot(contains('9621009143941')));
   });
 }

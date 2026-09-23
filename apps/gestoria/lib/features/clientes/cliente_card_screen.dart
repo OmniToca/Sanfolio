@@ -11,6 +11,7 @@ import '../../core/documents/office_attach_button.dart';
 import '../../core/documents/office_file_pick.dart';
 import '../../core/i18n/app_locales.dart';
 import '../../core/identity/legal_hold.dart';
+import '../../core/identity/person_name.dart';
 import '../../core/modules/feature_gate.dart';
 import '../../core/modules/module_catalog.dart';
 import '../../core/presentation/widgets/app_widgets.dart';
@@ -48,6 +49,7 @@ class ClienteCardScreen extends ConsumerStatefulWidget {
 
 class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
   final _nombre = TextEditingController();
+  final _apellidos = TextEditingController();
   final _nie = TextEditingController();
   final _email = TextEditingController();
   final _tel = TextEditingController();
@@ -72,6 +74,7 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
   @override
   void dispose() {
     _nombre.dispose();
+    _apellidos.dispose();
     _nie.dispose();
     _email.dispose();
     _tel.dispose();
@@ -86,7 +89,8 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
       return;
     }
     _filledFor = card.id;
-    _nombre.text = card.nombre;
+    _nombre.text = card.givenName;
+    _apellidos.text = card.apellidos;
     _nie.text = card.nie ?? '';
     _email.text = card.email ?? '';
     _tel.text = card.tel ?? '';
@@ -121,10 +125,12 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
       data: (card) {
         _fill(card);
         _scheduleExtracts(card);
-        final messagingOn = ref.watch(tenantConfigProvider).maybeWhen(
-          data: (c) => c.isOn(GestoriaModule.messaging),
-          orElse: () => false,
-        );
+        final messagingOn = ref
+            .watch(tenantConfigProvider)
+            .maybeWhen(
+              data: (c) => c.isOn(GestoriaModule.messaging),
+              orElse: () => false,
+            );
         return Scaffold(
           body: LayoutBuilder(
             builder: (context, constraints) {
@@ -205,9 +211,7 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
                             else ...[
                               _identityCard(card),
                               const SizedBox(height: 16),
-                              ClientePostaSection(
-                                clienteId: widget.clienteId,
-                              ),
+                              ClientePostaSection(clienteId: widget.clienteId),
                               const SizedBox(height: 16),
                               _documentsCard(card),
                               const SizedBox(height: 16),
@@ -276,11 +280,11 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
               glance: card.poder,
               onOpen: card.poder.canOpenSource
                   ? () => openPoderGlanceSource(
-                        context: context,
-                        glance: card.poder,
-                        clienteId: widget.clienteId,
-                        tenantId: card.tenantId,
-                      )
+                      context: context,
+                      glance: card.poder,
+                      clienteId: widget.clienteId,
+                      tenantId: card.tenantId,
+                    )
                   : null,
             ),
           ],
@@ -301,9 +305,7 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
                             );
                             return;
                           }
-                          context.go(
-                            '/clientes/${widget.clienteId}/carpeta',
-                          );
+                          context.go('/clientes/${widget.clienteId}/carpeta');
                         },
                         icon: const Icon(Icons.folder_open, size: 18),
                         label: Text(
@@ -374,8 +376,13 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
         children: [
           ClienteCardFieldPair(
             left: AppTextField(label: 'clients.name'.tr(), controller: _nombre),
-            right: AppTextField(label: 'fields.nie'.tr(), controller: _nie),
+            right: AppTextField(
+              label: 'clients.apellidos'.tr(),
+              controller: _apellidos,
+            ),
           ),
+          const SizedBox(height: 12),
+          AppTextField(label: 'fields.nie'.tr(), controller: _nie),
           const SizedBox(height: 12),
           ClienteCardFieldPair(
             left: AppTextField(
@@ -996,7 +1003,8 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
         if ((values[k] ?? '').trim().isNotEmpty) k,
     ];
     final nombre = (values['fields.nombre'] ?? '').trim();
-    final mismatch = nombre.isNotEmpty &&
+    final mismatch =
+        nombre.isNotEmpty &&
         !documentFitsCliente(
           cardName: card.nombre,
           cardNie: card.nie,
@@ -1026,9 +1034,7 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
                         ? 'folder.purged'.tr()
                         : 'folder.original'.tr(),
                     icon: const Icon(Icons.open_in_new),
-                    onPressed: doc.storagePurged
-                        ? null
-                        : () => _openDoc(doc),
+                    onPressed: doc.storagePurged ? null : () => _openDoc(doc),
                   ),
                   if (canManageLegalHold(
                         ref.watch(authControllerProvider).valueOrNull ??
@@ -1036,10 +1042,7 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
                       ) &&
                       !doc.storagePurged)
                     IconButton(
-                      tooltip: card.documentoHoldActive(
-                        doc.id,
-                        DateTime.now(),
-                      )
+                      tooltip: card.documentoHoldActive(doc.id, DateTime.now())
                           ? 'clients.legalHoldActive'.tr(
                               namedArgs: {
                                 'date': legalHoldUntilIso(
@@ -1116,7 +1119,11 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(child: Text('${k.tr()}: ${values[k]}')),
+                    Expanded(
+                      child: Text(
+                        '${k.tr()}: ${shownFieldValue(k, values[k]!)}',
+                      ),
+                    ),
                     if (k == 'fields.expiry')
                       _docExpiryBadge(
                         raw: (doc.extracted['fields.expiry'] ?? '').trim(),
@@ -1445,7 +1452,9 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
     if (picked == null || !mounted) return;
     setState(() => _busy = true);
     try {
-      await ref.read(clienteCardProvider(widget.clienteId).notifier).addLegalHold(
+      await ref
+          .read(clienteCardProvider(widget.clienteId).notifier)
+          .addLegalHold(
             until: picked.until,
             reason: picked.reason,
             documentoId: documentoId,
@@ -1477,9 +1486,7 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
       return;
     }
     if (card.clienteHoldActive(today) ||
-        card.holds.any(
-          (h) => legalHoldBlocks(until: h.until, today: today),
-        )) {
+        card.holds.any((h) => legalHoldBlocks(until: h.until, today: today))) {
       _toast('clients.anonymizeBlocked'.tr());
       return;
     }
@@ -1493,10 +1500,7 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
           children: [
             Text('clients.anonymizeConfirm'.tr()),
             const SizedBox(height: 12),
-            AppTextField(
-              controller: typed,
-              label: 'clients.anonymize'.tr(),
-            ),
+            AppTextField(controller: typed, label: 'clients.anonymize'.tr()),
           ],
         ),
         actions: [
@@ -1583,9 +1587,9 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
         const SizedBox(height: 4),
         Text(
           'clients.anonymizeHint'.tr(),
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppTheme.pencil,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: AppTheme.pencil),
         ),
         const SizedBox(height: 8),
       ],
@@ -1593,17 +1597,23 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
   }
 
   Future<void> _save() async {
-    final name = _nombre.text.trim();
-    if (name.isEmpty) {
+    final parts = splitPersonName(
+      nombre: _nombre.text,
+      apellidos: _apellidos.text,
+    );
+    if (parts.nombre.isEmpty) {
       _toast('clients.nameRequired'.tr());
       return;
     }
+    _nombre.text = parts.nombre;
+    _apellidos.text = parts.apellidos;
     setState(() => _busy = true);
     try {
       final saved = await ref
           .read(clienteCardProvider(widget.clienteId).notifier)
           .save(
-            nombre: name,
+            nombre: parts.nombre,
+            apellidos: parts.apellidos,
             locale: _locale,
             nie: _nie.text,
             email: _email.text,
@@ -1614,9 +1624,7 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
       if (!mounted) return;
       if (saved.nieConflict) {
         _nie.text = saved.keepNie;
-        _toast(
-          'folder.nieTaken'.tr(namedArgs: {'nie': saved.typedNie}),
-        );
+        _toast('folder.nieTaken'.tr(namedArgs: {'nie': saved.typedNie}));
         return;
       }
       _toast('clients.saved'.tr());

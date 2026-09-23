@@ -25,6 +25,10 @@ export async function extractPdfPages(
   return { text: marked.trim(), pages: totalPages ?? pages.length };
 }
 
+/// Délka nestačí: binární šum v textové vrstvě taky umí 120 znaků.
 export function pdfTextUsable(text: string): boolean {
-  return text.trim().length >= MIN_USABLE;
+  const t = text.replace(/--- Strana[\s\S]*?---/g, " ").trim();
+  if (t.length < MIN_USABLE) return false;
+  const letters = (t.match(/[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/g) ?? []).length;
+  return letters >= 80 && letters / t.length >= 0.35;
 }
