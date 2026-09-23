@@ -1,3 +1,5 @@
+import '../../core/time/office_date.dart';
+import '../ai/documento_fields.dart';
 import '../ai/extract_queue.dart';
 import '../ai/extract_text.dart';
 import 'carpeta_controller.dart';
@@ -95,6 +97,102 @@ List<MapEntry<String, String>> libraryGlanceEntries(
     if (out.length >= max) break;
   }
   return out;
+}
+
+/// dni_nie vs. factura — ne razítko KLIENT. Other bere návrh z názvu.
+String libraryPaperTipo(LibraryPaper row) {
+  final t = row.document.tipo.trim();
+  if (t.isNotEmpty && t != 'other') return t;
+  final p = row.proposal.tipo.trim();
+  return p.isEmpty ? 'other' : p;
+}
+
+String? _glanceVal(Map<String, String> f, String key) {
+  final v = (f[key] ?? '').trim();
+  return v.isEmpty ? null : v;
+}
+
+String? _glanceDate(Map<String, String> f, String key) {
+  final raw = _glanceVal(f, key);
+  if (raw == null) return null;
+  return toDmyDate(raw) ?? raw;
+}
+
+void _addSummaryBit(List<String> bits, String? value) {
+  final v = (value ?? '').trim();
+  if (v.isEmpty || bits.contains(v)) return;
+  bits.add(v);
+}
+
+/// Věta bez „NIE: … · Jméno: …“. Datum narození u DNI není rok papíru.
+String libraryPaperAutoSummary(
+  LibraryPaper row, {
+  required String Function(String key, {Map<String, String> named}) tr,
+}) {
+  final tipo = libraryPaperTipo(row);
+  final f = row.glanceFields;
+  final bits = <String>[];
+  _addSummaryBit(bits, stohDocumentTitle(
+        row.draftFields['body_text'] ?? row.document.bodyText ?? '',
+      ));
+  if (tipo == 'dni_nie' || tipo == 'pasaporte') {
+    _addSummaryBit(bits, _glanceVal(f, 'fields.nie') ?? _glanceVal(f, 'fields.docNumber'));
+    _addSummaryBit(bits, _glanceVal(f, 'fields.nombre'));
+    final born = _glanceDate(f, 'fields.date');
+    if (born != null) {
+      _addSummaryBit(bits, tr('stoh.born', named: {'date': born}));
+    }
+    _addSummaryBit(bits, _glanceVal(f, 'fields.lawyer'));
+  } else if (tipo == 'copia_escritura') {
+    _addSummaryBit(bits, _glanceVal(f, 'fields.address'));
+    _addSummaryBit(bits, _glanceDate(f, 'fields.date') ?? _glanceDate(f, 'fields.issued'));
+    _addSummaryBit(bits, _glanceVal(f, 'fields.notary'));
+    _addSummaryBit(bits, _glanceVal(f, 'fields.lawyer'));
+    _addSummaryBit(bits, _glanceVal(f, 'fields.buyers'));
+    _addSummaryBit(bits, _glanceVal(f, 'fields.sellers'));
+  } else if (isInvoiceDocTipo(tipo)) {
+    _addSummaryBit(bits, _glanceVal(f, 'fields.company'));
+    _addSummaryBit(bits, _glanceVal(f, 'fields.amount'));
+    final from = _glanceDate(f, 'fields.periodFrom');
+    final to = _glanceDate(f, 'fields.periodTo');
+    if (from != null && to != null) {
+      _addSummaryBit(bits, '$from – $to');
+    } else {
+      _addSummaryBit(bits, from ?? to ?? _glanceDate(f, 'fields.issued'));
+    }
+    _addSummaryBit(bits, _glanceVal(f, 'fields.invoiceNo'));
+  } else if (tipo == 'copia_poder') {
+    _addSummaryBit(
+      bits,
+      _glanceVal(f, 'fields.attorney') ?? _glanceVal(f, 'fields.lawyer'),
+    );
+    final exp = _glanceDate(f, 'fields.expiry');
+    if (exp != null) {
+      _addSummaryBit(bits, tr('stoh.until', named: {'date': exp}));
+    }
+  } else {
+    for (final e in libraryGlanceEntries(f, max: 5)) {
+      if (e.key == 'fields.date' ||
+          e.key == 'fields.issued' ||
+          e.key == 'fields.expiry' ||
+          e.key == 'fields.periodFrom' ||
+          e.key == 'fields.periodTo') {
+        _addSummaryBit(bits, toDmyDate(e.value) ?? e.value);
+      } else {
+        _addSummaryBit(bits, e.value);
+      }
+    }
+  }
+  return bits.join(' · ');
+}
+
+bool libraryShowsYearChip(LibraryPaper row) {
+  final tipo = libraryPaperTipo(row);
+  if (tipo == 'dni_nie' || tipo == 'pasaporte' || tipo == 'copia_poder') {
+    return false;
+  }
+  if (row.proposal.bloqueKey == 'cliente_snapshot') return false;
+  return libraryPaperYear(row) > 0;
 }
 
 /// Čip finca: adresa, catastral, adresa z papíru. Nikdy UUID.
@@ -234,6 +332,7 @@ bool _queryKeeps(LibraryPaper p, String q) {
   final hay = [
     p.document.originalName,
     p.document.bodyText ?? '',
+    p.document.caption,
     p.inmuebleLabel,
     ...p.glanceFields.values,
   ].join('\n').toLowerCase();

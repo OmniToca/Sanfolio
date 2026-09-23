@@ -51,6 +51,46 @@ void main() {
       'pasaporte',
     );
     expect(
+      classifyStohPaper(originalName: 'ESC Final Renata.pdf').bloqueKey,
+      'escritura',
+    );
+    expect(
+      classifyStohPaper(originalName: 'ESC Ampliacion de obra.pdf').tipo,
+      'copia_escritura',
+    );
+    expect(
+      classifyStohPaper(
+        originalName: 'scan_01.pdf',
+        bodyText: '''
+--- Strana 1/45 ---
+ESCRITURA DE COMPRAVENTA
+NÚMERO MIL CIENTO SETENTA Y CINCO
+Ante mí, ALICIA RUIZ TORREGROSA, Notario
+COMPARECEN:
+La parte compradora: RENATA
+''',
+        fields: const {kProposedBloqueKey: 'cliente_snapshot'},
+      ).bloqueKey,
+      'escritura',
+    );
+    expect(
+      classifyStohPaper(
+        originalName: 'scan_02.pdf',
+        bodyText: '''
+ESCRITURA DE AMPLIACIÓN DE OBRA
+NÚMERO CUATROCIENTOS TREINTA Y SIETE
+Ante mí, ALICIA RUIZ TORREGROSA, Notario
+''',
+      ).bloqueKey,
+      'escritura',
+    );
+    expect(
+      stohDocumentTitle(
+        '--- Strana 1/45 ---\n- Folio 1 -\nESCRITURA DE COMPRAVENTA\nNÚMERO MIL',
+      ),
+      'ESCRITURA DE COMPRAVENTA',
+    );
+    expect(
       classifyStohPaper(originalName: 'scan001.pdf').known,
       isFalse,
     );

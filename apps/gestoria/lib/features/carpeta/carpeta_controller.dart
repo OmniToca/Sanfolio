@@ -39,6 +39,7 @@ class CarpetaDocumento {
     this.contentSha256 = '',
     this.createdAt,
     this.albumKeys = const [],
+    this.caption = '',
   });
 
   final String id;
@@ -53,6 +54,8 @@ class CarpetaDocumento {
   final DateTime? createdAt;
   /// template_key živých alb. Prázdné = hromada.
   final List<String> albumKeys;
+  /// Ruční popis. Není extracted — AI a Guardar desky ho nemění.
+  final String caption;
 
   CarpetaDocumento copyWith({
     String? tipo,
@@ -63,6 +66,7 @@ class CarpetaDocumento {
     String? contentSha256,
     DateTime? createdAt,
     List<String>? albumKeys,
+    String? caption,
   }) {
     return CarpetaDocumento(
       id: id,
@@ -76,6 +80,7 @@ class CarpetaDocumento {
       contentSha256: contentSha256 ?? this.contentSha256,
       createdAt: createdAt ?? this.createdAt,
       albumKeys: albumKeys ?? this.albumKeys,
+      caption: caption ?? this.caption,
     );
   }
 }
@@ -410,7 +415,7 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
         .from('documentos')
         .select(
           'id, bloque_id, tipo, storage_path, original_name, extracted, '
-          'body_text, storage_purged_at, inmueble_id, content_sha256, created_at',
+          'body_text, caption, storage_purged_at, inmueble_id, content_sha256, created_at',
         )
         .eq('cliente_id', clienteId)
         .isFilter('deleted_at', null);
@@ -506,6 +511,7 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
         contentSha256: '${raw['content_sha256'] ?? ''}'.trim(),
         createdAt: DateTime.tryParse('${raw['created_at'] ?? ''}'),
         albumKeys: albums,
+        caption: '${raw['caption'] ?? ''}'.trim(),
       );
       libraryDocs.add(doc);
       if (albums.isEmpty) {
@@ -1167,6 +1173,31 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
     );
     ref.invalidateSelf();
     return true;
+  }
+
+  /// Ruční popis knihovny. Extract ani Guardar desky ho nepřepíšou.
+  Future<void> setDocumentoCaption({
+    required String documentId,
+    required String caption,
+  }) async {
+    final view = state.valueOrNull;
+    final client = trySupabaseClient();
+    if (view == null || client == null) return;
+    var text = caption.trim();
+    if (text.length > kLibraryCaptionMax) {
+      text = text.substring(0, kLibraryCaptionMax);
+    }
+    await client.from('documentos').update({
+      'caption': text.isEmpty ? null : text,
+    }).eq('id', documentId);
+    CarpetaDocumento patch(CarpetaDocumento d) =>
+        d.id == documentId ? d.copyWith(caption: text) : d;
+    state = AsyncData(
+      view.copyWith(
+        libraryDocuments: [for (final d in view.libraryDocuments) patch(d)],
+        stohDocuments: [for (final d in view.stohDocuments) patch(d)],
+      ),
+    );
   }
 
   CarpetaDocumento? _libraryDoc(String id) {

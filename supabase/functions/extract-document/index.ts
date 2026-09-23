@@ -533,8 +533,10 @@ function extractSystemPrompt(
     (classify
       ? " proposedBloque = one of cliente_snapshot,escritura,agua,luz,gaz,comunidad,suma,plusvalia,seguro,alarma,nie_tramite,poder (omit if unsure). " +
         "proposedTipo = dni_nie,pasaporte,copia_escritura,contrato_agua,factura_agua,recibo_agua,contrato_luz,factura_luz,contrato_gaz,factura_gaz,certificado_comunidad,recibo_ibi,declaracion_plusvalia,poliza_seguro,contrato_alarma,copia_poder,other (omit if unsure). " +
-        "Filename first: Poder/apoderado → poder, never escritura. FACTURA/invoice/recibo in the filename → not escritura even if the PDF mentions notario or protocolo. " +
-        "Hidraqua/Aqualia → agua. CUPS/kWh/Iberdrola/Gana Energía → luz. Escritura/compraventa in the filename → escritura. DNI/NIE card → cliente_snapshot. Omit proposedBloque if unsure."
+        "Title and first page of the PDF first; ignore scan_01.pdf / IMG_1234. " +
+        "Poder/apoderado in the filename → poder, never escritura. FACTURA/invoice/recibo in the filename → not escritura even if a clause mentions notario. " +
+        "A NIE on a deed is not cliente_snapshot. ESCRITURA DE COMPRAVENTA / AMPLIACIÓN DE OBRA / Ante mí, Notario → escritura. " +
+        "Hidraqua/Aqualia → agua. CUPS/kWh/Iberdrola/Gana Energía → luz. DNI/NIE card photo → cliente_snapshot. Omit proposedBloque if unsure."
       : "") +
     (includeBody
       ? " body_text = readable text with --- Strana n --- page marks, max 20000 chars."
@@ -806,7 +808,7 @@ function json(status: number, body: Record<string, unknown>) {
 function guessTipoFromPath(path: string, declared: string): string {
   if (declared && declared !== "other") return declared;
   const name = path.split("/").pop() ?? "";
-  if (/escritur|compravent|smlouv|notari/i.test(name)) return "copia_escritura";
+  if (/escritur|compravent|smlouv|notari|\besc\b/i.test(name)) return "copia_escritura";
   return declared;
 }
 
@@ -827,69 +829,101 @@ const STOH_BLOQUES = new Set([
 
 const PODER_NAME = /p[oó]der|apoderad/;
 const FACTURA_NAME = /factura|invoice|recibo/;
-const ESCRITURA_NAME = /escritur|compravent/;
-const ESCRITURA_BODY = /escritur|compravent|notari|protocolo/;
+const ESCRITURA_NAME = /escritur|compravent|\besc\b/;
 const LUZ_HINT = /iberdrola|endesa|holaluz|gana energ|\bcups\b|\bkwh\b|\bluz\b/;
+const BODY_HEAD_CHARS = 4000;
 
-/// Stejné pořadí jako Flutter `classifyStohPaper`. Název Poder/FACTURA
-/// přebije notáře v těle i LLM, jinak by extract strčil poder do escritura.
+function stohBodyHead(body: string): string {
+  const t = body.trim();
+  return (t.length <= BODY_HEAD_CHARS ? t : t.slice(0, BODY_HEAD_CHARS)).toLowerCase();
+}
+
+function classifyBodyHead(
+  head: string,
+  invoiceName: boolean,
+): { bloque: string; tipo: string } | null {
+  if (
+    /escritur[ae] de p[oó]der|p[oó]der notarial|poder especial|poder general/.test(head) &&
+    !/escritur[ae] de compravent/.test(head)
+  ) {
+    return { bloque: "poder", tipo: "copia_poder" };
+  }
+  if (
+    !invoiceName &&
+    (/escritur[ae] de compravent|escritur[ae] de ampliaci|obra nueva|declaraci[oó]n de obra|escritur[ae] p[uú]blica/.test(head) ||
+      (/escritur[ae] de/.test(head) && !/p[oó]der/.test(head)) ||
+      (/ante m[ií]/.test(head) && /notari/.test(head)))
+  ) {
+    return { bloque: "escritura", tipo: "copia_escritura" };
+  }
+  if (
+    /documento nacional de identidad|n[uú]mero de identidad de extranjero|tarjeta de (residencia|identidad)/.test(head) &&
+    !/escritur/.test(head)
+  ) {
+    return { bloque: "cliente_snapshot", tipo: "dni_nie" };
+  }
+  return null;
+}
+
+/// Stejné pořadí jako Flutter `classifyStohPaper`. První strana PDF, ne scan_01.
+/// Název Poder/FACTURA je jen veto.
 function classifyStohPaper(
   path: string,
   bodyText: string,
   fields: Record<string, string>,
 ): { bloque: string; tipo: string } {
   const name = (path.split("/").pop() ?? "").toLowerCase();
-  const body = bodyText.toLowerCase();
-  const hay = `${name}\n${body}`;
+  const head = stohBodyHead(bodyText);
+  const hay = `${name}\n${bodyText.toLowerCase()}`;
   const cups = (fields["fields.cups"] ?? "").trim();
   const company = (fields["fields.company"] ?? "").toLowerCase();
+  const invoiceName = FACTURA_NAME.test(name);
 
   if (PODER_NAME.test(name)) {
     return { bloque: "poder", tipo: "copia_poder" };
   }
-  if (/pasaport|passport/.test(name)) {
-    return { bloque: "cliente_snapshot", tipo: "pasaporte" };
-  }
-  if (/\bdni\b|\bnie\b/.test(name) && !ESCRITURA_NAME.test(name) && !FACTURA_NAME.test(name)) {
-    return { bloque: "cliente_snapshot", tipo: "dni_nie" };
-  }
-  if (ESCRITURA_NAME.test(name) && !FACTURA_NAME.test(name)) {
-    return { bloque: "escritura", tipo: "copia_escritura" };
-  }
+
+  const fromHead = classifyBodyHead(head, invoiceName);
+  if (fromHead) return fromHead;
 
   const fromLlmBloque = STOH_BLOQUES.has(fields.proposed_bloque_key ?? "")
     ? fields.proposed_bloque_key!
     : "";
-  const llmEscrituraOnInvoice = fromLlmBloque === "escritura" &&
-    FACTURA_NAME.test(name);
-  if (fromLlmBloque && !llmEscrituraOnInvoice) {
+  const llmEscrituraOnInvoice = fromLlmBloque === "escritura" && invoiceName;
+  const llmIdentityOnDeed = fromLlmBloque === "cliente_snapshot" &&
+    head.length > 0 &&
+    /escritur|compravent|notari/.test(head);
+  if (fromLlmBloque && !llmEscrituraOnInvoice && !llmIdentityOnDeed) {
     return {
       bloque: fromLlmBloque,
       tipo: fields.proposed_tipo || "other",
     };
   }
 
-  if (/pasaport|passport/.test(hay)) {
+  if (/pasaport|passport/.test(name)) {
     return { bloque: "cliente_snapshot", tipo: "pasaporte" };
   }
-  if (PODER_NAME.test(hay)) {
-    return { bloque: "poder", tipo: "copia_poder" };
+  if (/\bdni\b|\bnie\b/.test(name) && !ESCRITURA_NAME.test(name) && !invoiceName) {
+    return { bloque: "cliente_snapshot", tipo: "dni_nie" };
   }
+  if (ESCRITURA_NAME.test(name) && !invoiceName) {
+    return { bloque: "escritura", tipo: "copia_escritura" };
+  }
+
   if (/plusval/.test(hay)) {
     return { bloque: "plusvalia", tipo: "declaracion_plusvalia" };
   }
-  if (/\bibi\b|\bsuma\b|catastral/.test(hay) && !ESCRITURA_NAME.test(hay)) {
+  if (/\bibi\b|\bsuma\b/.test(hay) && !/escritur|compravent/.test(head)) {
     return { bloque: "suma", tipo: "recibo_ibi" };
   }
-  if (/comunidad|administrador de fincas/.test(hay)) {
+  if (/comunidad|administrador de fincas/.test(hay) && !/escritur/.test(head)) {
     return { bloque: "comunidad", tipo: "certificado_comunidad" };
   }
-  if (/p[oó]liza|seguro/.test(hay) && !FACTURA_NAME.test(name)) {
+  if (/p[oó]liza|seguro/.test(hay) && !invoiceName) {
     return { bloque: "seguro", tipo: "poliza_seguro" };
   }
-  if (/alarma/.test(hay)) return { bloque: "alarma", tipo: "contrato_alarma" };
-  if (ESCRITURA_BODY.test(hay) && !FACTURA_NAME.test(name)) {
-    return { bloque: "escritura", tipo: "copia_escritura" };
+  if (/alarma/.test(hay) && !/escritur/.test(head)) {
+    return { bloque: "alarma", tipo: "contrato_alarma" };
   }
 
   const aguaCo = /hidraqua|aqualia|\bagua\b|canal de isabel/;

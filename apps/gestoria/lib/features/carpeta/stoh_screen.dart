@@ -42,6 +42,7 @@ class _StohScreenState extends ConsumerState<StohScreen> {
   final _queue = <PickedOfficeFile>[];
   final _selected = <String>{};
   final _search = TextEditingController();
+  final _captions = <String, TextEditingController>{};
   var _uploading = false;
   var _uploadDone = 0;
   var _uploadTotal = 0;
@@ -58,6 +59,9 @@ class _StohScreenState extends ConsumerState<StohScreen> {
   @override
   void dispose() {
     _search.dispose();
+    for (final c in _captions.values) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -325,21 +329,13 @@ class _StohScreenState extends ConsumerState<StohScreen> {
                 spacing: 8,
                 runSpacing: 6,
                 children: [
-                  for (final key in doc.albumKeys)
-                    _chip('blocks.$key'.tr()),
-                  if (doc.albumKeys.isEmpty)
-                    _chip(
-                      row.proposal.known
-                          ? 'blocks.${row.proposal.bloqueKey}'.tr()
-                          : 'stoh.pile'.tr(),
-                    ),
-                  _chip(
-                    row.inmuebleLabel.isEmpty
-                        ? 'stoh.clientPaper'.tr()
-                        : row.inmuebleLabel,
-                  ),
+                  if (libraryPaperTipo(row) != 'other')
+                    _chip('docs.${libraryPaperTipo(row)}'.tr()),
+                  if (!row.onPile)
+                    for (final key in doc.albumKeys) _chip(_albumLabel(key)),
+                  if (row.inmuebleLabel.isNotEmpty) _chip(row.inmuebleLabel),
                   if (row.dupKind != null) _chip(_dupLabel(row.dupKind!)),
-                  if (libraryPaperYear(row) > 0)
+                  if (libraryShowsYearChip(row))
                     _chip(
                       'stoh.year'.tr(
                         namedArgs: {'year': '${libraryPaperYear(row)}'},
@@ -357,7 +353,20 @@ class _StohScreenState extends ConsumerState<StohScreen> {
                   padding: const EdgeInsets.only(top: 8),
                   child: Text('stoh.failed'.tr()),
                 ),
-              ..._glance(row),
+              ..._summary(row),
+              const SizedBox(height: 8),
+              Focus(
+                onFocusChange: (has) {
+                  if (!has) _saveCaption(row);
+                },
+                child: AppTextField(
+                  label: 'stoh.caption'.tr(),
+                  controller: _captionController(row),
+                  minLines: 1,
+                  maxLines: 3,
+                  alignLabelWithHint: true,
+                ),
+              ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 key: ValueKey('stoh-b-${doc.id}-$bloque'),
@@ -368,7 +377,7 @@ class _StohScreenState extends ConsumerState<StohScreen> {
                   for (final key in kStohBloqueOrder)
                     DropdownMenuItem(
                       value: key,
-                      child: Text('blocks.$key'.tr()),
+                      child: Text(_albumLabel(key)),
                     ),
                 ],
                 onChanged: row.pending
@@ -419,18 +428,38 @@ class _StohScreenState extends ConsumerState<StohScreen> {
     );
   }
 
-  List<Widget> _glance(LibraryPaper row) {
-    final bits = libraryGlanceEntries(row.glanceFields);
-    if (bits.isEmpty) return const [];
+  List<Widget> _summary(LibraryPaper row) {
+    if (row.document.caption.trim().isNotEmpty) return const [];
+    final text = libraryPaperAutoSummary(
+      row,
+      tr: (key, {named = const {}}) => key.tr(namedArgs: named),
+    );
+    if (text.isEmpty) return const [];
     return [
       const SizedBox(height: 8),
       Text(
-        [
-          for (final e in bits) '${e.key.tr()}: ${e.value}',
-        ].join(' · '),
+        text,
         style: const TextStyle(color: AppTheme.pencil, fontSize: 13),
       ),
     ];
+  }
+
+  TextEditingController _captionController(LibraryPaper row) {
+    return _captions.putIfAbsent(
+      row.document.id,
+      () => TextEditingController(text: row.document.caption),
+    );
+  }
+
+  Future<void> _saveCaption(LibraryPaper row) async {
+    final ctrl = _captions[row.document.id];
+    if (ctrl == null) return;
+    final next = ctrl.text.trim();
+    if (next == row.document.caption.trim()) return;
+    await ref.read(carpetaControllerProvider(_target).notifier).setDocumentoCaption(
+          documentId: row.document.id,
+          caption: next,
+        );
   }
 
   Widget _chip(String label) {
@@ -457,10 +486,17 @@ class _StohScreenState extends ConsumerState<StohScreen> {
     };
   }
 
+  String _albumLabel(String key) {
+    final specific = 'stoh.albums.$key';
+    final t = specific.tr();
+    if (t != specific) return t;
+    return 'blocks.$key'.tr();
+  }
+
   String _groupLabel(String key) {
     if (key == PileGroup.mail.key) return 'stoh.groupMail'.tr();
     if (key == PileGroup.unknown.key) return 'stoh.unknown'.tr();
-    if (kStohBloqueKeys.contains(key)) return 'blocks.$key'.tr();
+    if (kStohBloqueKeys.contains(key)) return _albumLabel(key);
     return key;
   }
 
@@ -613,7 +649,7 @@ class _StohScreenState extends ConsumerState<StohScreen> {
     );
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(ok ? 'stoh.saved'.tr() : 'stoh.saveError'.tr())),
+      SnackBar(content: Text(ok ? 'stoh.placed'.tr() : 'stoh.saveError'.tr())),
     );
   }
 
@@ -693,7 +729,7 @@ class _StohScreenState extends ConsumerState<StohScreen> {
               for (final key in kStohBloqueOrder)
                 DropdownMenuItem(
                   value: key,
-                  child: Text('blocks.$key'.tr()),
+                  child: Text(_albumLabel(key)),
                 ),
             ],
             onChanged: (v) => bloque = v ?? '',

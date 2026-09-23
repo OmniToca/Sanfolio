@@ -8,6 +8,9 @@ const kStohFolder = 'stoh';
 /// Jedna dávka ze šanonu. Víc by Edge extract neusnesl najednou.
 const kStohBatchMax = officeFileBatchMax;
 
+/// Ruční popis papíru. Delší by zakryl kartu.
+const kLibraryCaptionMax = 500;
+
 /// Proč floor ne: 1/38 má být 3 %, ne 2 %. Nula totálu je 0, ne NaN.
 int stohUploadPercent({required int done, required int total}) {
   if (total <= 0) return 0;
@@ -101,98 +104,71 @@ List<String> tiposForStohBloque(String bloqueKey) {
 
 final _stohPoderName = RegExp(r'p[oó]der|apoderad');
 final _stohFacturaName = RegExp(r'factura|invoice|recibo');
-final _stohEscrituraName = RegExp(r'escritur|compravent');
-final _stohEscrituraBody = RegExp(r'escritur|compravent|notari|protocolo');
+final _stohEscrituraName = RegExp(r'escritur|compravent|\besc\b');
 
-/// Heuristika + `proposed_*` z extract. Gestor může přepsat dropdownem.
-/// Název souboru a poder/faktura jdou před „notario“ v těle PDF.
-StohProposal classifyStohPaper({
-  required String originalName,
-  String bodyText = '',
-  Map<String, String> fields = const {},
+/// První strana, ne celý 40stránkový PDF — „apoderado“ v klauzuli není poder.
+const kStohBodyHeadChars = 4000;
+
+String stohBodyHead(String body) {
+  final t = body.trim();
+  if (t.length <= kStohBodyHeadChars) return t.toLowerCase();
+  return t.substring(0, kStohBodyHeadChars).toLowerCase();
+}
+
+/// Nadpis z první strany. scan_01 nic neřekne, tahle věta ano.
+String? stohDocumentTitle(String body) {
+  for (final raw in body.split('\n')) {
+    final line = raw.trim().replaceAll(RegExp(r'\s+'), ' ');
+    if (line.length < 10 || line.length > 90) continue;
+    if (line.startsWith('---')) continue;
+    if (RegExp(r'^-\s*folio', caseSensitive: false).hasMatch(line)) continue;
+    if (RegExp(
+      r'^(escritura|factura|recibo|p[oó]liza|poder|dni|nie)\b',
+      caseSensitive: false,
+    ).hasMatch(line)) {
+      return line;
+    }
+  }
+  return null;
+}
+
+StohProposal? _classifyBodyHead(String head, {required bool invoiceName}) {
+  if (RegExp(
+        r'escritur[ae] de p[oó]der|p[oó]der notarial|poder especial|poder general',
+      ).hasMatch(head) &&
+      !RegExp(r'escritur[ae] de compravent').hasMatch(head)) {
+    return const StohProposal(bloqueKey: 'poder', tipo: 'copia_poder');
+  }
+  if (!invoiceName &&
+      (RegExp(
+            r'escritur[ae] de compravent|escritur[ae] de ampliaci|obra nueva|declaraci[oó]n de obra|escritur[ae] p[uú]blica',
+          ).hasMatch(head) ||
+          (RegExp(r'escritur[ae] de').hasMatch(head) &&
+              !RegExp(r'p[oó]der').hasMatch(head)) ||
+          (RegExp(r'ante m[ií]').hasMatch(head) &&
+              RegExp(r'notari').hasMatch(head)))) {
+    return const StohProposal(
+      bloqueKey: 'escritura',
+      tipo: 'copia_escritura',
+    );
+  }
+  if (RegExp(
+        r'documento nacional de identidad|n[uú]mero de identidad de extranjero|tarjeta de (residencia|identidad)',
+      ).hasMatch(head) &&
+      !RegExp(r'escritur').hasMatch(head)) {
+    return const StohProposal(
+      bloqueKey: 'cliente_snapshot',
+      tipo: 'dni_nie',
+    );
+  }
+  return null;
+}
+
+StohProposal? _classifySupply({
+  required String hay,
+  required String company,
+  required String cups,
 }) {
-  final name = originalName.toLowerCase();
-  final body = bodyText.toLowerCase();
-  final hay = '$name\n$body';
-  final cups = (fields['fields.cups'] ?? '').trim();
-  final company = (fields['fields.company'] ?? '').toLowerCase();
-
-  if (_stohPoderName.hasMatch(name)) {
-    return const StohProposal(bloqueKey: 'poder', tipo: 'copia_poder');
-  }
-  if (RegExp(r'pasaport|passport').hasMatch(name)) {
-    return const StohProposal(
-      bloqueKey: 'cliente_snapshot',
-      tipo: 'pasaporte',
-    );
-  }
-  if (RegExp(r'\bdni\b|\bnie\b').hasMatch(name) &&
-      !_stohEscrituraName.hasMatch(name) &&
-      !_stohFacturaName.hasMatch(name)) {
-    return const StohProposal(
-      bloqueKey: 'cliente_snapshot',
-      tipo: 'dni_nie',
-    );
-  }
-  if (_stohEscrituraName.hasMatch(name) && !_stohFacturaName.hasMatch(name)) {
-    return const StohProposal(
-      bloqueKey: 'escritura',
-      tipo: 'copia_escritura',
-    );
-  }
-
-  final fromLlm = proposalFromExtractFields(fields);
-  final llmEscrituraOnInvoice =
-      fromLlm.bloqueKey == 'escritura' && _stohFacturaName.hasMatch(name);
-  if (fromLlm.known && !llmEscrituraOnInvoice) return fromLlm;
-
-  if (RegExp(r'pasaport|passport').hasMatch(hay)) {
-    return const StohProposal(
-      bloqueKey: 'cliente_snapshot',
-      tipo: 'pasaporte',
-    );
-  }
-  if (RegExp(r'\bdni\b|\bnie\b').hasMatch(name) &&
-      !_stohEscrituraName.hasMatch(name) &&
-      !_stohFacturaName.hasMatch(name)) {
-    return const StohProposal(
-      bloqueKey: 'cliente_snapshot',
-      tipo: 'dni_nie',
-    );
-  }
-  if (_stohPoderName.hasMatch(hay)) {
-    return const StohProposal(bloqueKey: 'poder', tipo: 'copia_poder');
-  }
-  if (RegExp(r'plusval').hasMatch(hay)) {
-    return const StohProposal(
-      bloqueKey: 'plusvalia',
-      tipo: 'declaracion_plusvalia',
-    );
-  }
-  if (RegExp(r'\bibi\b|\bsuma\b|catastral').hasMatch(hay) &&
-      !_stohEscrituraName.hasMatch(hay)) {
-    return const StohProposal(bloqueKey: 'suma', tipo: 'recibo_ibi');
-  }
-  if (RegExp(r'comunidad|administrador de fincas').hasMatch(hay)) {
-    return const StohProposal(
-      bloqueKey: 'comunidad',
-      tipo: 'certificado_comunidad',
-    );
-  }
-  if (RegExp(r'p[oó]liza|seguro').hasMatch(hay) &&
-      !_stohFacturaName.hasMatch(name)) {
-    return const StohProposal(bloqueKey: 'seguro', tipo: 'poliza_seguro');
-  }
-  if (RegExp(r'alarma').hasMatch(hay)) {
-    return const StohProposal(bloqueKey: 'alarma', tipo: 'contrato_alarma');
-  }
-  if (_stohEscrituraBody.hasMatch(hay) && !_stohFacturaName.hasMatch(name)) {
-    return const StohProposal(
-      bloqueKey: 'escritura',
-      tipo: 'copia_escritura',
-    );
-  }
-
   final aguaCo = RegExp(r'hidraqua|aqualia|\bagua\b|canal de isabel');
   final luzHint = RegExp(
     r'iberdrola|endesa|holaluz|gana energ|\bcups\b|\bkwh\b|\bluz\b',
@@ -200,7 +176,6 @@ StohProposal classifyStohPaper({
   final gazHint = RegExp(r'\bgaz\b|\bgas natural\b|\bgas\b');
   final looksFactura = _stohFacturaName.hasMatch(hay);
   final looksContrato = RegExp(r'contrato').hasMatch(hay);
-
   if (aguaCo.hasMatch(hay) || aguaCo.hasMatch(company)) {
     return StohProposal(
       bloqueKey: 'agua',
@@ -227,8 +202,87 @@ StohProposal classifyStohPaper({
       tipo: looksContrato && !looksFactura ? 'contrato_gaz' : 'factura_gaz',
     );
   }
+  return null;
+}
 
-  return const StohProposal();
+/// Obsah první strany má přednost před názvem `scan_01.pdf`.
+/// Název Poder / FACTURA jen jako veto: kancelář tak soubory jmenuje schválně.
+StohProposal classifyStohPaper({
+  required String originalName,
+  String bodyText = '',
+  Map<String, String> fields = const {},
+}) {
+  final name = originalName.toLowerCase();
+  final head = stohBodyHead(bodyText);
+  final hay = '$name\n${bodyText.toLowerCase()}';
+  final cups = (fields['fields.cups'] ?? '').trim();
+  final company = (fields['fields.company'] ?? '').toLowerCase();
+  final invoiceName = _stohFacturaName.hasMatch(name);
+
+  if (_stohPoderName.hasMatch(name)) {
+    return const StohProposal(bloqueKey: 'poder', tipo: 'copia_poder');
+  }
+
+  final fromHead = _classifyBodyHead(head, invoiceName: invoiceName);
+  if (fromHead != null) return fromHead;
+
+  final fromLlm = proposalFromExtractFields(fields);
+  final llmEscrituraOnInvoice =
+      fromLlm.bloqueKey == 'escritura' && invoiceName;
+  final llmIdentityOnDeed = fromLlm.bloqueKey == 'cliente_snapshot' &&
+      head.isNotEmpty &&
+      RegExp(r'escritur|compravent|notari').hasMatch(head);
+  if (fromLlm.known && !llmEscrituraOnInvoice && !llmIdentityOnDeed) {
+    return fromLlm;
+  }
+
+  if (RegExp(r'pasaport|passport').hasMatch(name)) {
+    return const StohProposal(
+      bloqueKey: 'cliente_snapshot',
+      tipo: 'pasaporte',
+    );
+  }
+  if (RegExp(r'\bdni\b|\bnie\b').hasMatch(name) &&
+      !_stohEscrituraName.hasMatch(name) &&
+      !invoiceName) {
+    return const StohProposal(
+      bloqueKey: 'cliente_snapshot',
+      tipo: 'dni_nie',
+    );
+  }
+  if (_stohEscrituraName.hasMatch(name) && !invoiceName) {
+    return const StohProposal(
+      bloqueKey: 'escritura',
+      tipo: 'copia_escritura',
+    );
+  }
+
+  if (RegExp(r'plusval').hasMatch(hay)) {
+    return const StohProposal(
+      bloqueKey: 'plusvalia',
+      tipo: 'declaracion_plusvalia',
+    );
+  }
+  if (RegExp(r'\bibi\b|\bsuma\b').hasMatch(hay) &&
+      !RegExp(r'escritur|compravent').hasMatch(head)) {
+    return const StohProposal(bloqueKey: 'suma', tipo: 'recibo_ibi');
+  }
+  if (RegExp(r'comunidad|administrador de fincas').hasMatch(hay) &&
+      !RegExp(r'escritur').hasMatch(head)) {
+    return const StohProposal(
+      bloqueKey: 'comunidad',
+      tipo: 'certificado_comunidad',
+    );
+  }
+  if (RegExp(r'p[oó]liza|seguro').hasMatch(hay) && !invoiceName) {
+    return const StohProposal(bloqueKey: 'seguro', tipo: 'poliza_seguro');
+  }
+  if (RegExp(r'alarma').hasMatch(hay) && !RegExp(r'escritur').hasMatch(head)) {
+    return const StohProposal(bloqueKey: 'alarma', tipo: 'contrato_alarma');
+  }
+
+  return _classifySupply(hay: hay, company: company, cups: cups) ??
+      const StohProposal();
 }
 
 StohProposal proposalFromExtractFields(Map<String, String> fields) {

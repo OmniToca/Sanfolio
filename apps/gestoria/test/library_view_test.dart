@@ -10,11 +10,12 @@ void main() {
     List<String> albums = const [],
     String name = 'a.pdf',
     String sha = '',
+    String tipo = 'factura_luz',
     Map<String, String> extracted = const {},
   }) {
     return CarpetaDocumento(
       id: id,
-      tipo: 'factura_luz',
+      tipo: tipo,
       storagePath: 't/c/stoh/$id.pdf',
       originalName: name,
       extracted: extracted,
@@ -114,5 +115,94 @@ void main() {
       ),
       isEmpty,
     );
+  });
+
+  test('pohled DNI je věta, ne dump polí, rok narození není čip', () {
+    final papers = buildLibraryPapers(
+      documents: [
+        paper(
+          id: '1',
+          tipo: 'dni_nie',
+          name: 'ID y NIE Renata.pdf',
+          extracted: const {
+            'fields.nie': 'Y9908856X',
+            'fields.nombre': 'Renata Sušičová',
+            'fields.date': '1972-03-28',
+          },
+        ),
+      ],
+      drafts: const <StohQueueRow>[],
+      inmuebles: const [],
+    );
+    final row = papers.single;
+    expect(libraryPaperTipo(row), 'dni_nie');
+    expect(libraryShowsYearChip(row), isFalse);
+    final summary = libraryPaperAutoSummary(
+      row,
+      tr: (key, {named = const {}}) =>
+          named.isEmpty ? key : named.values.join(),
+    );
+    expect(summary, contains('Y9908856X'));
+    expect(summary, contains('Renata Sušičová'));
+    expect(summary, contains('28-03-1972'));
+    expect(summary, isNot(contains('fields.nie')));
+  });
+
+  test('faktura má čip roku z vystavení', () {
+    final papers = buildLibraryPapers(
+      documents: [
+        paper(
+          id: '2',
+          name: 'luz.pdf',
+          extracted: const {
+            'fields.company': 'Gana Energía',
+            'fields.amount': '88,50',
+            'fields.issued': '2026-08-01',
+          },
+        ),
+      ],
+      drafts: const <StohQueueRow>[],
+      inmuebles: const [],
+    );
+    expect(libraryShowsYearChip(papers.single), isTrue);
+    expect(libraryPaperYear(papers.single), 2026);
+  });
+
+  test('nadpis z první strany je v pohledu, ne dump NIE', () {
+    final papers = buildLibraryPapers(
+      documents: [
+        paper(
+          id: 'esc',
+          tipo: 'other',
+          name: 'scan_01.pdf',
+          extracted: const {
+            'fields.nie': 'Y9908856X',
+            'fields.nombre': 'Renata Sušičová',
+            'fields.lawyer': 'GARCIA-BRAVO',
+          },
+        ),
+      ],
+      drafts: [
+        StohQueueRow(
+          document: paper(id: 'esc', tipo: 'other', name: 'scan_01.pdf'),
+          draftId: 'd1',
+          fields: const {
+            'body_text':
+                '--- Strana 1/45 ---\nESCRITURA DE COMPRAVENTA\nAnte mí, Notario',
+            'fields.nie': 'Y9908856X',
+          },
+        ),
+      ],
+      inmuebles: const [],
+    );
+    // draft se páruje podle storage_path; helper má stejnou cestu
+    final row = papers.single;
+    expect(row.proposal.bloqueKey, 'escritura');
+    final summary = libraryPaperAutoSummary(
+      row,
+      tr: (key, {named = const {}}) =>
+          named.isEmpty ? key : named.values.join(),
+    );
+    expect(summary, contains('ESCRITURA DE COMPRAVENTA'));
   });
 }
