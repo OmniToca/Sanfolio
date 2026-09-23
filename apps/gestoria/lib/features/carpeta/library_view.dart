@@ -195,6 +195,11 @@ bool libraryShowsYearChip(LibraryPaper row) {
   return libraryPaperYear(row) > 0;
 }
 
+/// Guardar zapsal pole. Prázdné extracted = jen šanon, deska ještě ne.
+bool libraryPaperOnDesk(LibraryPaper row) {
+  return extractProposalFields(row.document.extracted).isNotEmpty;
+}
+
 /// Čip finca: adresa, catastral, adresa z papíru. Nikdy UUID.
 String libraryFincaLabel(
   LibraryInmueble? inm, {

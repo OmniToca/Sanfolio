@@ -263,7 +263,8 @@
     "albums": {
       "cliente_snapshot": "Identité (DNI / NIE)",
       "nie_tramite": "Démarche NIE"
-    }
+    },
+    "onDesk": "Sur le bureau"
   },
   "ofertas": {
     "settingsTitle": "Offres du cabinet",

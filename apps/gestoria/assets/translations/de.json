@@ -263,7 +263,8 @@
     "albums": {
       "cliente_snapshot": "Identität (DNI / NIE)",
       "nie_tramite": "NIE-Verfahren"
-    }
+    },
+    "onDesk": "Auf der Akte"
   },
   "ofertas": {
     "settingsTitle": "Büro-Angebote",

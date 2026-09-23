@@ -298,6 +298,7 @@ class _StohScreenState extends ConsumerState<StohScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: AppCard(
+        stripe: libraryPaperOnDesk(row) ? AppTheme.accent : null,
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -333,6 +334,7 @@ class _StohScreenState extends ConsumerState<StohScreen> {
                     _chip('docs.${libraryPaperTipo(row)}'.tr()),
                   if (!row.onPile)
                     for (final key in doc.albumKeys) _chip(_albumLabel(key)),
+                  if (libraryPaperOnDesk(row)) _chip('stoh.onDesk'.tr()),
                   if (row.inmuebleLabel.isNotEmpty) _chip(row.inmuebleLabel),
                   if (row.dupKind != null) _chip(_dupLabel(row.dupKind!)),
                   if (libraryShowsYearChip(row))
@@ -396,20 +398,27 @@ class _StohScreenState extends ConsumerState<StohScreen> {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  FilledButton(
-                    onPressed: row.pending || bloque.isEmpty
-                        ? null
-                        : () => _place(row, view, bloque, tipo),
-                    child: Text('stoh.place'.tr()),
-                  ),
+                  if (row.onPile)
+                    FilledButton(
+                      onPressed: row.pending || bloque.isEmpty
+                          ? null
+                          : () => _place(row, view, bloque, tipo),
+                      child: Text('stoh.place'.tr()),
+                    ),
                   if (!row.onPile)
                     TextButton(
                       onPressed: () => _unplace(row, view, bloque, tipo),
                       child: Text('stoh.unplace'.tr()),
                     ),
                   TextButton(
-                    onPressed: () => _guardar(row, view, bloque, tipo),
-                    child: Text('stoh.guardar'.tr()),
+                    onPressed: libraryPaperOnDesk(row)
+                        ? null
+                        : () => _guardar(row, view, bloque, tipo),
+                    child: Text(
+                      libraryPaperOnDesk(row)
+                          ? 'stoh.onDesk'.tr()
+                          : 'stoh.guardar'.tr(),
+                    ),
                   ),
                   TextButton(
                     onPressed: () => _open(doc.storagePath),

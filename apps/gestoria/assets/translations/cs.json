@@ -263,7 +263,8 @@
     "albums": {
       "cliente_snapshot": "Identita (DNI / NIE)",
       "nie_tramite": "Vyřízení NIE"
-    }
+    },
+    "onDesk": "Na desce"
   },
   "ofertas": {
     "settingsTitle": "Nabídky kanceláře",

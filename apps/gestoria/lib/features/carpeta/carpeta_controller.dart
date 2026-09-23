@@ -1031,22 +1031,33 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
     } on Object {
       // Junction nesmí zhatit Guardar desky.
     }
-    final placed = doc.copyWith(tipo: plan.tipo);
-    final after = (state.valueOrNull ?? view)
-        .withBloque(
+    final yellow = extractProposalFields(fields);
+    final placed = doc.copyWith(
+      tipo: plan.tipo,
+      albumKeys: {
+        ...doc.albumKeys,
+        plan.bloqueKey,
+      }.toList(),
+      extracted: yellow.isEmpty ? doc.extracted : {...doc.extracted, ...yellow},
+    );
+    final desk = _bloqueLive(plan.bloqueKey);
+    state = AsyncData(
+      _withLibraryPaper(
+        (state.valueOrNull ?? view).withBloque(
           plan.bloqueKey,
-          live.copyWith(
+          desk.copyWith(
             enabled: true,
-            documents: [...live.documents, placed],
+            documents: [
+              for (final d in desk.documents)
+                if (d.id != documentId) d,
+              placed,
+            ],
           ),
-        )
-        .withStoh([
-          for (final d in (state.valueOrNull ?? view).stohDocuments)
-            if (d.id != documentId) d,
-        ]);
-    state = AsyncData(after);
-    final proposal = extractProposalFields(fields);
-    if (proposal.isNotEmpty) {
+        ),
+        placed,
+      ),
+    );
+    if (yellow.isNotEmpty) {
       await saveDocumentoExtracted(
         templateKey: plan.bloqueKey,
         documentId: documentId,
@@ -1056,6 +1067,7 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
       await _persistBloque(plan.bloqueKey);
     }
     await discardAiDraft(draftId);
+    ref.invalidateSelf();
     return true;
   }
 

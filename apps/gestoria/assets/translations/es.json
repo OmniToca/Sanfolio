@@ -263,7 +263,8 @@
     "albums": {
       "cliente_snapshot": "Identidad (DNI / NIE)",
       "nie_tramite": "Trámite NIE"
-    }
+    },
+    "onDesk": "En el tablero"
   },
   "ofertas": {
     "settingsTitle": "Ofertas del despacho",

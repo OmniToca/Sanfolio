@@ -205,4 +205,22 @@ void main() {
     );
     expect(summary, contains('ESCRITURA DE COMPRAVENTA'));
   });
+
+  test('Guardar pozná papír na desce podle extracted, hromada ne', () {
+    expect(
+      libraryPaperOnDesk(
+        LibraryPaper(
+          document: paper(
+            id: '1',
+            extracted: const {'fields.nie': 'Y9908856X'},
+          ),
+        ),
+      ),
+      isTrue,
+    );
+    expect(
+      libraryPaperOnDesk(LibraryPaper(document: paper(id: '2'))),
+      isFalse,
+    );
+  });
 }

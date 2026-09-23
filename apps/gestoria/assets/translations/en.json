@@ -263,7 +263,8 @@
     "albums": {
       "cliente_snapshot": "Identity (DNI / NIE)",
       "nie_tramite": "NIE application"
-    }
+    },
+    "onDesk": "On the desk"
   },
   "ofertas": {
     "settingsTitle": "Office offers",
