@@ -21,6 +21,22 @@ const officeFileMaxBytes = 33554432;
 /// Stoh ze šanonu. Víc by extract na pozadí neusnesl najednou.
 const officeFileBatchMax = 40;
 
+/// Živý seznam z `<input>` se po `value = ''` vyprázdní. Nejdřív kopie.
+List<T> takeIndexedBatch<T>(
+  int length,
+  T? Function(int index) item, {
+  int max = officeFileBatchMax,
+}) {
+  if (length <= 0) return const [];
+  final cap = length > max ? max : length;
+  final out = <T>[];
+  for (var i = 0; i < cap; i++) {
+    final value = item(i);
+    if (value != null) out.add(value);
+  }
+  return out;
+}
+
 class PickedOfficeFile {
   const PickedOfficeFile({
     required this.bytes,

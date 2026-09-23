@@ -10,6 +10,10 @@ import 'office_file_pick.dart';
 /// Skutečný `<input type=file>` přes tlačítko.
 /// Musí mít od rodiče pevnou šířku i výšku, jinak Safari uřízne overlay.
 /// `change` z DOM je mimo Flutter zónu — bez [Zone] Riverpod hodí minified:zt.
+///
+/// FileList je živý: `input.value = ''` ho hned vyprázdní. Soubory se musí
+/// zkopírovat v tom samém synchronním handleru, jinak Přidat/Open nic neudělá
+/// (Safari i Chrome).
 class OfficeFileHitLayer extends StatefulWidget {
   const OfficeFileHitLayer({
     super.key,
@@ -31,11 +35,30 @@ class OfficeFileHitLayer extends StatefulWidget {
 class _OfficeFileHitLayerState extends State<OfficeFileHitLayer> {
   /// Zóna z [initState], ne z JS callbacku.
   late final Zone _zone;
+  late final web.EventListener _onChange;
+  web.HTMLInputElement? _input;
 
   @override
   void initState() {
     super.initState();
     _zone = Zone.current;
+    _onChange = _handleChange.toJS;
+  }
+
+  @override
+  void didUpdateWidget(covariant OfficeFileHitLayer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _input?.multiple = widget.multiple;
+  }
+
+  @override
+  void dispose() {
+    final input = _input;
+    if (input != null) {
+      input.removeEventListener('change', _onChange);
+    }
+    _input = null;
+    super.dispose();
   }
 
   @override
@@ -47,7 +70,12 @@ class _OfficeFileHitLayerState extends State<OfficeFileHitLayer> {
   }
 
   void _bind(Object raw) {
+    final previous = _input;
+    if (previous != null) {
+      previous.removeEventListener('change', _onChange);
+    }
     final input = raw as web.HTMLInputElement;
+    _input = input;
     input
       ..type = 'file'
       ..accept = 'application/pdf,image/*,.pdf,.jpg,.jpeg,.png,.webp,.heic,.heif'
@@ -66,29 +94,29 @@ class _OfficeFileHitLayerState extends State<OfficeFileHitLayer> {
     s.setProperty('font-size', '64px');
     s.setProperty('overflow', 'hidden');
     s.setProperty('box-sizing', 'border-box');
+    input.addEventListener('change', _onChange);
+  }
 
-    input.addEventListener(
-      'change',
-      (web.Event _) {
-        final files = input.files;
-        input.value = '';
-        if (files == null || files.length == 0) return;
-        if (widget.multiple) {
-          final batch = <web.File>[];
-          final n = files.length;
-          final cap = n > officeFileBatchMax ? officeFileBatchMax : n;
-          for (var i = 0; i < cap; i++) {
-            final file = files.item(i);
-            if (file != null) batch.add(file);
-          }
-          if (batch.isEmpty) return;
-          unawaited(_zone.run(() => _readMany(batch)));
-          return;
-        }
-        final file = files.item(0);
-        if (file == null) return;
-        unawaited(_zone.run(() => _read(file)));
-      }.toJS,
+  void _handleChange(web.Event _) {
+    final input = _input;
+    if (input == null) return;
+    final captured = snapshotOfficeFileList(input.files);
+    input.value = '';
+    if (captured.isEmpty) return;
+    final many = widget.onPickedMany;
+    final one = widget.onPicked;
+    final onError = widget.onError;
+    final multiple = widget.multiple;
+    unawaited(
+      _zone.run(
+        () => _deliver(
+          captured,
+          multiple: multiple,
+          onPicked: one,
+          onPickedMany: many,
+          onError: onError,
+        ),
+      ),
     );
   }
 
@@ -98,48 +126,57 @@ class _OfficeFileHitLayerState extends State<OfficeFileHitLayer> {
     return officeFileFromBytes(bytes, file.name);
   }
 
-  Future<void> _read(web.File file) async {
-    try {
-      final picked = await _pickedOf(file);
-      _zone.run(() {
-        if (!mounted) return;
-        widget.onPicked?.call(picked);
-      });
-    } on OfficeFilePickException catch (e) {
-      _emitError(officePickErrorI18n(e.code), e.code.name);
-    } on Object catch (e) {
-      _emitError('folder.fileEmpty', _shortError(e));
+  Future<void> _deliver(
+    List<web.File> files, {
+    required bool multiple,
+    required void Function(PickedOfficeFile file)? onPicked,
+    required void Function(List<PickedOfficeFile> files)? onPickedMany,
+    required void Function(String i18nKey, String code) onError,
+  }) async {
+    if (!multiple) {
+      try {
+        final picked = await _pickedOf(files.first);
+        _zone.run(() => onPicked?.call(picked));
+      } on OfficeFilePickException catch (e) {
+        _emitError(onError, officePickErrorI18n(e.code), e.code.name);
+      } on Object catch (e) {
+        _emitError(onError, 'folder.fileEmpty', _shortError(e));
+      }
+      return;
     }
-  }
-
-  /// Po jednom: 38 PDF naráz by Safari drželo v RAM a UI by vypadalo mrtvě.
-  Future<void> _readMany(List<web.File> files) async {
     var delivered = 0;
     for (final file in files) {
       try {
         final picked = await _pickedOf(file);
         delivered++;
-        _zone.run(() {
-          if (!mounted) return;
-          widget.onPickedMany?.call([picked]);
-        });
+        _zone.run(() => onPickedMany?.call([picked]));
       } on OfficeFilePickException catch (e) {
-        _emitError(officePickErrorI18n(e.code), e.code.name);
+        _emitError(onError, officePickErrorI18n(e.code), e.code.name);
       } on Object catch (e) {
-        _emitError('folder.fileEmpty', _shortError(e));
+        _emitError(onError, 'folder.fileEmpty', _shortError(e));
       }
     }
     if (delivered == 0 && files.isNotEmpty) {
-      _emitError('folder.fileEmpty', 'empty');
+      _emitError(onError, 'folder.fileEmpty', 'empty');
     }
   }
 
-  void _emitError(String key, String code) {
-    _zone.run(() {
-      if (!mounted) return;
-      widget.onError(key, code);
-    });
+  void _emitError(
+    void Function(String i18nKey, String code) onError,
+    String key,
+    String code,
+  ) {
+    _zone.run(() => onError(key, code));
   }
+}
+
+/// FileList po resetu inputu zmizí — nejdřív vlastní seznam [web.File].
+List<web.File> snapshotOfficeFileList(
+  web.FileList? list, {
+  int max = officeFileBatchMax,
+}) {
+  if (list == null) return const [];
+  return takeIndexedBatch(list.length, list.item, max: max);
 }
 
 String _shortError(Object error) {

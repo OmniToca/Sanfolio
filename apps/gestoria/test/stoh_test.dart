@@ -128,4 +128,15 @@ void main() {
     expect(stohUploadPercent(done: 1, total: 0), 0);
     expect(stohUploadFraction(done: 19, total: 38), 0.5);
   });
+
+  test('soubory z dialogu se kopírují dřív, než input spadne', () {
+    final live = ['a.pdf', 'b.pdf', 'c.pdf'];
+    final copy = takeIndexedBatch(live.length, (i) => live[i]);
+    live.clear();
+    expect(copy, ['a.pdf', 'b.pdf', 'c.pdf']);
+    expect(
+      takeIndexedBatch(officeFileBatchMax + 3, (i) => i).length,
+      officeFileBatchMax,
+    );
+  });
 }

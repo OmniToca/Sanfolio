@@ -33,39 +33,18 @@ class OfficeAttachButton extends StatelessWidget {
   final void Function(PickedOfficeFile file)? onPicked;
   final void Function(List<PickedOfficeFile> files)? onPickedMany;
 
-  Future<void> _fallbackPick(BuildContext context) async {
-    try {
-      if (multiple) {
-        final picked = await pickOfficeFiles();
-        if (picked.isNotEmpty) onPickedMany?.call(picked);
-        return;
-      }
-      final picked = await pickOfficeFile();
-      if (picked != null) onPicked?.call(picked);
-    } on OfficeFilePickException catch (e) {
-      if (context.mounted) {
-        showOfficeFileError(
-          context,
-          officePickErrorI18n(e.code),
-          code: e.code.name,
-        );
-      }
-    } on Object {
-      if (context.mounted) {
-        showOfficeFileError(context, 'folder.fileEmpty', code: 'empty');
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     void error(String key, String code) =>
         showOfficeFileError(context, key, code: code);
+    // onPressed musí zůstat non-null, jinak Material šedne. Klik bere HitLayer —
+    // druhý dialog z Flutteru by sebral soubory do jiného inputu a tenhle by
+    // po Přidat zůstal prázdný.
     final visual = wide
         ? Material(
             color: Colors.transparent,
             child: InkWell(
-              onTap: enabled ? () => _fallbackPick(context) : null,
+              onTap: enabled ? () {} : null,
               child: _WideAttachLook(
                 label: label,
                 caption: caption,
@@ -75,17 +54,17 @@ class OfficeAttachButton extends StatelessWidget {
           )
         : outlined
             ? OutlinedButton.icon(
-                onPressed: enabled ? () => _fallbackPick(context) : null,
+                onPressed: enabled ? () {} : null,
                 icon: Icon(icon ?? Icons.attach_file, size: 18),
                 label: Text(label),
               )
             : icon == null
                 ? TextButton(
-                    onPressed: enabled ? () => _fallbackPick(context) : null,
+                    onPressed: enabled ? () {} : null,
                     child: Text(label),
                   )
                 : TextButton.icon(
-                    onPressed: enabled ? () => _fallbackPick(context) : null,
+                    onPressed: enabled ? () {} : null,
                     icon: Icon(icon, size: 18),
                     label: Text(label),
                   );
@@ -95,7 +74,7 @@ class OfficeAttachButton extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          visual,
+          IgnorePointer(child: visual),
           if (enabled)
             OfficeFileHitLayer(
               onPicked: onPicked,

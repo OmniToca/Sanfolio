@@ -112,10 +112,16 @@ class _StohScreenState extends ConsumerState<StohScreen> {
                               child: Text('stoh.skip'.tr()),
                             ),
                           ),
-                        ),
-                      if (_uploading) _uploadProgress(),
+                        )
+                      else
+                        const SizedBox.shrink(),
+                      if (_uploading)
+                        _uploadProgress()
+                      else
+                        const SizedBox.shrink(),
                       const SizedBox(height: 16),
                       OfficeAttachButton(
+                        key: const ValueKey('stoh-attach'),
                         label: 'stoh.attach'.tr(),
                         caption: rows.isEmpty ? 'stoh.empty'.tr() : null,
                         icon: Icons.file_upload_outlined,

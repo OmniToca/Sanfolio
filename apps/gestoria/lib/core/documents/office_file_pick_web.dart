@@ -28,9 +28,9 @@ Future<RawOfficeFile?> openOfficeFileDialog() async {
     (Event _) {
       if (chosen.isCompleted) return;
       final files = input.files;
-      chosen.complete(
-        files != null && files.length > 0 ? files.item(0) : null,
-      );
+      final file = files != null && files.length > 0 ? files.item(0) : null;
+      input.value = '';
+      chosen.complete(file);
     }.toJS,
   );
 
@@ -62,24 +62,30 @@ Future<List<RawOfficeFile>?> openOfficeFilesDialog() async {
   s.setProperty('top', '0');
   document.body?.appendChild(input);
 
-  final chosen = Completer<FileList?>();
+  final chosen = Completer<List<File>>();
   input.addEventListener(
     'change',
     (Event _) {
       if (chosen.isCompleted) return;
-      chosen.complete(input.files);
+      final list = input.files;
+      final captured = <File>[];
+      if (list != null) {
+        for (var i = 0; i < list.length; i++) {
+          final file = list.item(i);
+          if (file != null) captured.add(file);
+        }
+      }
+      input.value = '';
+      chosen.complete(captured);
     }.toJS,
   );
 
   input.click();
   final files = await chosen.future;
   try {
-    if (files == null || files.length == 0) return null;
+    if (files.isEmpty) return null;
     final out = <RawOfficeFile>[];
-    final n = files.length;
-    for (var i = 0; i < n; i++) {
-      final file = files.item(i);
-      if (file == null) continue;
+    for (final file in files) {
       final buffer = await file.arrayBuffer().toDart;
       out.add(
         RawOfficeFile(
