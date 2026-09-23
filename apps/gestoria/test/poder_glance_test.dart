@@ -50,10 +50,37 @@ void main() {
 
   test('RPC řádek se čte stejně', () {
     final g = poderGlanceFromRpc(
-      raw: {'has_copy': true, 'expiry_raw': '2028-03-01'},
+      raw: {
+        'has_copy': true,
+        'expiry_raw': '2028-03-01',
+        'documento_id': 'doc-1',
+        'storage_path': 't/c/stoh/p.pdf',
+        'original_name': 'poder.pdf',
+      },
       today: today,
       warnDays: 60,
     );
     expect(g.kind, PoderGlanceKind.present);
+    expect(g.documentoId, 'doc-1');
+    expect(g.storagePath, 't/c/stoh/p.pdf');
+    expect(g.canOpenSource, isTrue);
+  });
+
+  test('čip s datem má jiný i18n klíč', () {
+    expect(
+      poderStampI18nKey(
+        poderGlanceOf(
+          hasCopy: true,
+          expiryRaw: '2026-01-01',
+          today: today,
+          warnDays: 60,
+        ),
+      ),
+      'clients.poderExpiredUntil',
+    );
+    expect(
+      poderStampI18nKey(PoderGlance.missing),
+      'clients.poderMissing',
+    );
   });
 }

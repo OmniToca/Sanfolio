@@ -57,4 +57,22 @@ void main() {
       isFalse,
     );
   });
+
+  test('scoped nezakládá nové karty', () {
+    expect(
+      staffMayCreateClientes(isOwner: true, scope: scoped),
+      isTrue,
+    );
+    expect(
+      staffMayCreateClientes(
+        isOwner: false,
+        scope: StaffAccessScope.open,
+      ),
+      isTrue,
+    );
+    expect(
+      staffMayCreateClientes(isOwner: false, scope: scoped),
+      isFalse,
+    );
+  });
 }

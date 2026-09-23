@@ -659,6 +659,27 @@ class BloqueScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     _listenCarpetaNotice(context, ref, _target);
+    final staffScope =
+        ref.watch(myStaffScopeProvider).valueOrNull ?? StaffAccessScope.open;
+    final isOwner = currentOfficeRole(
+          ref.watch(authControllerProvider).valueOrNull ??
+              AuthSnapshot.signedOut,
+        ) ==
+        'owner';
+    if (!staffMaySeeBloque(
+      isOwner: isOwner,
+      scope: staffScope,
+      templateKey: bloqueKey,
+    )) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) {
+          context.go(carpetaRoute(clienteId, expedienteId: expedienteId));
+        }
+      });
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
     final async = ref.watch(carpetaControllerProvider(_target));
     BloqueTemplate? template;
     for (final t in compraventaBloques) {

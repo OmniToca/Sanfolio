@@ -8,7 +8,7 @@ Vzory z OmniToca (Support ≠ Cloud, impersonace s důvodem) a LeoDejvIT (soft-d
 | --- | --- | --- | --- |
 | `www` | veřejnost | statický web | žádné JWT |
 | `support` | náš tým | Flutter web | `is_support`, žádní klienti bez impersonace |
-| `gestoria` | kancelář | Flutter web | RLS na `tenant_id` |
+| `gestoria` | kancelář | Flutter web | RLS na `tenant_id`; scoped člen ještě `can_access_cliente` |
 | `cliente` | klienti kanceláře | portál #1 na `docs/vyvoj.md` | zatím se nestaví; RLS oddělená od staff |
 
 Cross-app URL: `GESTORIA_BASE_URL`, `SUPPORT_APP_URL`. Release zakazuje localhost. Handoff **vždy** nese `refresh_token` v hash (dvě origin = dvě localStorage). Produkční build na Netlify: env `SUPABASE_*`; URL default `$URL` (viz root `netlify.toml`). Vlastní doména: `GESTORIA_BASE_URL=https://sanfolio.app`.
@@ -35,6 +35,7 @@ Helper RLS (SECURITY DEFINER, `stable`):
 - `auth_is_support_user()`
 - `auth_tenant_ids()` → uuid[] živých memberships
 - `auth_has_role(tenant, roles[])`
+- `can_access_cliente` / `can_use_bloque_template` — owner vše; scoped jen přiřazené karty a bloky
 
 Žádné `FOR DELETE` na business tabulkách. Aplikace jen `UPDATE deleted_at`. Postgres role `authenticated` nemá table DELETE (kromě výjimek, které nechceme).
 

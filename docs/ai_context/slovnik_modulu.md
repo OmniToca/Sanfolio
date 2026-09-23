@@ -65,7 +65,7 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `stoh` | `features/carpeta/stoh_*.dart`, `/stoh` | sken bez bloku; classify; Guardar zapne blok; AI neukládá |
 | `documento_library` | `documento_library.dart`, SQL 0062–0065 | knihovna u klienta; alba `documento_bloques`; finca; duplicita; spojení fotek; AI place jen album |
 | `library_view` | `library_view.dart`, `/stoh` | filtry hromady, pohled bez dump, hromadný výběr |
-| `cliente_poder_glance` | SQL RPC + čip seznam/karta | máme kopii poderu? deska datum; AI neukládá |
+| `cliente_poder_glance` | SQL RPC + čip seznam/karta | kopie + datum z desky; klik otevře papír; AI neukládá |
 | `documento_chunks` | SQL 0065 | kousky `body_text` + embedding; tenant scoped; AI jen čte |
 | `merge-document-pages` | Edge Function | 2–20 JPG/PNG → jedno PDF; zdroje soft-delete; AI nespojuje |
 | `pickOfficeFiles` | `office_file_pick.dart` | multi-select šanonu, max 40 |
@@ -108,6 +108,7 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `provision_movements` | SQL + deska | ingreso/factura/ajuste; zbývá odvozené |
 | `invite-staff` | Edge Function | owner zve gestor/asistente, bez stropu počtu |
 | `staff_scope_set` | SQL RPC | owner nastaví scoped karty a bloky člena; ownera omezit nelze |
+| `staff_may_create_clientes` | SQL + UI | scoped nezakládá karty ani CSV; inbox/kampaně/AI čtou jen přiřazené |
 | `cliente_audit_log` | SQL RPC + karta | LOPDGDD stopa; `audit_open` při vstupu; jen owner |
 | `tenant_settings` | SQL 1:1 tenant | display_name, offsety, slot_order, send_translated_outbound |
 | `client_contacts` | SQL | druhý kontakt + locale (komunikace, ne vlastnictví) |

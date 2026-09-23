@@ -33,3 +33,11 @@ bool staffMaySeeCliente({
   if (isOwner || !scope.scoped) return true;
   return scope.clienteIds.contains(clienteId);
 }
+
+/// Novou kartu a import CSV zakládá owner a nescopovaný člen.
+bool staffMayCreateClientes({
+  required bool isOwner,
+  required StaffAccessScope scope,
+}) {
+  return isOwner || !scope.scoped;
+}

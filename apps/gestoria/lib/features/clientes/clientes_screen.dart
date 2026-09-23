@@ -6,10 +6,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gestoria_auth/gestoria_auth.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/auth/staff_access.dart';
 import '../../core/auth/staff_role.dart';
 import '../../core/presentation/widgets/app_widgets.dart';
 import '../../core/theme/app_theme.dart';
 import '../settings/office_settings_controller.dart';
+import '../settings/office_team_controller.dart';
 import '../carpeta/carpeta_routes.dart';
 import 'clientes_providers.dart';
 import 'poder_stamp.dart';
@@ -39,12 +41,16 @@ class _ClientesScreenState extends ConsumerState<ClientesScreen> {
         ref.watch(officeSettingsProvider).valueOrNull?.displayName ?? '';
     final filter = ref.watch(clientesFilterProvider);
     final poderFilter = ref.watch(clientesPoderFilterProvider);
-    final showDeleted = canRestoreDeleted(
-      ref.watch(authControllerProvider).valueOrNull ?? AuthSnapshot.signedOut,
+    final auth =
+        ref.watch(authControllerProvider).valueOrNull ?? AuthSnapshot.signedOut;
+    final showDeleted = canRestoreDeleted(auth);
+    final staffScope =
+        ref.watch(myStaffScopeProvider).valueOrNull ?? StaffAccessScope.open;
+    final canCreate = staffMayCreateClientes(
+      isOwner: currentOfficeRole(auth) == 'owner',
+      scope: staffScope,
     );
-    final canMerge = canMergeClientes(
-      ref.watch(authControllerProvider).valueOrNull ?? AuthSnapshot.signedOut,
-    );
+    final canMerge = canMergeClientes(auth) && canCreate;
     final wide = MediaQuery.sizeOf(context).width >= 720;
     final allRows = list.valueOrNull ?? const <ClienteRow>[];
     final rows = [
@@ -73,18 +79,19 @@ class _ClientesScreenState extends ConsumerState<ClientesScreen> {
                       namedArgs: {'count': '${rows.length}'},
                     ),
                     actions: [
-                      if (wide)
-                        OutlinedButton.icon(
-                          onPressed: () => context.go('/clientes/import'),
-                          icon: const Icon(Icons.upload_file, size: 18),
-                          label: Text('clients.import'.tr()),
-                        )
-                      else
-                        IconButton.outlined(
-                          tooltip: 'clients.import'.tr(),
-                          onPressed: () => context.go('/clientes/import'),
-                          icon: const Icon(Icons.upload_file),
-                        ),
+                      if (canCreate)
+                        if (wide)
+                          OutlinedButton.icon(
+                            onPressed: () => context.go('/clientes/import'),
+                            icon: const Icon(Icons.upload_file, size: 18),
+                            label: Text('clients.import'.tr()),
+                          )
+                        else
+                          IconButton.outlined(
+                            tooltip: 'clients.import'.tr(),
+                            onPressed: () => context.go('/clientes/import'),
+                            icon: const Icon(Icons.upload_file),
+                          ),
                       if (canMerge)
                         if (wide)
                           OutlinedButton.icon(
@@ -98,18 +105,19 @@ class _ClientesScreenState extends ConsumerState<ClientesScreen> {
                             onPressed: () => context.go('/clientes/sloucit'),
                             icon: const Icon(Icons.merge_type),
                           ),
-                      if (wide)
-                        FilledButton.icon(
-                          onPressed: () => _createCliente(context, ref),
-                          icon: const Icon(Icons.add, size: 18),
-                          label: Text('clients.newFolder'.tr()),
-                        )
-                      else
-                        IconButton.filled(
-                          tooltip: 'clients.newFolder'.tr(),
-                          onPressed: () => _createCliente(context, ref),
-                          icon: const Icon(Icons.add),
-                        ),
+                      if (canCreate)
+                        if (wide)
+                          FilledButton.icon(
+                            onPressed: () => _createCliente(context, ref),
+                            icon: const Icon(Icons.add, size: 18),
+                            label: Text('clients.newFolder'.tr()),
+                          )
+                        else
+                          IconButton.filled(
+                            tooltip: 'clients.newFolder'.tr(),
+                            onPressed: () => _createCliente(context, ref),
+                            icon: const Icon(Icons.add),
+                          ),
                     ],
                     bottom: AppTextField(
                       label: 'clients.searchHint'.tr(),
@@ -236,7 +244,22 @@ class _ClientesScreenState extends ConsumerState<ClientesScreen> {
                                         spacing: 8,
                                         runSpacing: 4,
                                         children: [
-                                          PoderStamp(glance: row.poder),
+                                          PoderStamp(
+                                            glance: row.poder,
+                                            onOpen: row.poder.canOpenSource
+                                                ? () => openPoderGlanceSource(
+                                                      context: context,
+                                                      glance: row.poder,
+                                                      clienteId: row.id,
+                                                      tenantId: ref
+                                                          .watch(
+                                                            authControllerProvider,
+                                                          )
+                                                          .valueOrNull
+                                                          ?.currentTenantId,
+                                                    )
+                                                : null,
+                                          ),
                                         ],
                                       ),
                                       if (row.isCoOwnerOnly) ...[

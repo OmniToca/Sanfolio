@@ -272,7 +272,17 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
           title: card.nombre.isEmpty ? 'clients.cardTitle'.tr() : card.nombre,
           subtitle: subtitle.isEmpty ? null : subtitle,
           actions: [
-            PoderStamp(glance: card.poder),
+            PoderStamp(
+              glance: card.poder,
+              onOpen: card.poder.canOpenSource
+                  ? () => openPoderGlanceSource(
+                        context: context,
+                        glance: card.poder,
+                        clienteId: widget.clienteId,
+                        tenantId: card.tenantId,
+                      )
+                  : null,
+            ),
           ],
           bottom: card.deleted
               ? null

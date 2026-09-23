@@ -223,7 +223,7 @@ Support **bez** impersonace nečte klienty kanceláře.
 | Role | Smí |
 | --- | --- |
 | `owner` | Vše v tenantu včetně obnovy soft-delete, týmu a rozsahu kolegů |
-| `gestor` | Default: všichni klienti. Owner smí omezit na karty + bloky (voda/elektřina). Ne správa licence |
+| `gestor` | Default: všichni klienti. Owner smí omezit na karty + bloky (voda/elektřina). Inbox, pošta a AI jen v tom rozsahu. Ne správa licence |
 | `asistente` | Stejné čtení v rámci svého rozsahu; neschová expediente |
 
 Portál klienta (`cliente_final`) je na [seznamu vývoje](vyvoj.md); model zpráv už počítá s originálem + překladem.
