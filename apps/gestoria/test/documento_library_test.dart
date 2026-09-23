@@ -114,6 +114,26 @@ void main() {
       ),
       'i2',
     );
+    expect(
+      guessDocumentoInmueble(
+        proposedBloque: 'suma',
+        properties: const [
+          LibraryInmueble(
+            id: 'i1',
+            direccion: 'Plaza Tolosa',
+            catastral: '4244203YH0244S0003RX',
+          ),
+          LibraryInmueble(
+            id: 'i2',
+            direccion: 'C/ Dr. Luis Rivera 14',
+            catastral: '1111111YH0111S0001AA',
+          ),
+        ],
+        address: 'AV SAN FULGENCIO-MARINA 3',
+        catastral: '4244203YH0244S0003RX',
+      ),
+      'i1',
+    );
   });
 
   test('hromada se seskupí podle návrhu, mail a neznámé na konci', () {

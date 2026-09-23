@@ -94,6 +94,13 @@ List<String> tiposForStohBloque(String bloqueKey) {
   if (bloqueKey == 'cliente_snapshot') {
     return const ['dni_nie', 'pasaporte', 'other'];
   }
+  if (bloqueKey == 'plusvalia') {
+    return const [
+      'declaracion_plusvalia',
+      'certificado_catastral',
+      'other',
+    ];
+  }
   for (final t in compraventaBloques) {
     if (t.key != bloqueKey) continue;
     if (t.requiredDocTypes.isEmpty) return const ['other'];
@@ -123,7 +130,7 @@ String? stohDocumentTitle(String body) {
     if (line.startsWith('---')) continue;
     if (RegExp(r'^-\s*folio', caseSensitive: false).hasMatch(line)) continue;
     if (RegExp(
-      r'^(escritura|factura|recibo|p[oó]liza|poder|dni|nie)\b',
+      r'^(escritura|factura|recibo|p[oó]liza|poder|dni|nie|certificaci[oó]n|valor de referenc)',
       caseSensitive: false,
     ).hasMatch(line)) {
       return line;
@@ -159,6 +166,15 @@ StohProposal? _classifyBodyHead(String head, {required bool invoiceName}) {
     return const StohProposal(
       bloqueKey: 'cliente_snapshot',
       tipo: 'dni_nie',
+    );
+  }
+  if (RegExp(
+        r'valor de referenc|certificaci[oó]n catastral',
+      ).hasMatch(head) &&
+      !RegExp(r'escritur[ae] de').hasMatch(head)) {
+    return const StohProposal(
+      bloqueKey: 'plusvalia',
+      tipo: 'certificado_catastral',
     );
   }
   return null;
@@ -254,6 +270,12 @@ StohProposal classifyStohPaper({
     return const StohProposal(
       bloqueKey: 'escritura',
       tipo: 'copia_escritura',
+    );
+  }
+  if (RegExp(r'valor de referenc').hasMatch(name)) {
+    return const StohProposal(
+      bloqueKey: 'plusvalia',
+      tipo: 'certificado_catastral',
     );
   }
 

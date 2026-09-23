@@ -1396,7 +1396,10 @@ class _PaperStackOverview extends StatelessWidget {
                       ),
                 ),
               ],
-              if (glance.effectiveUnitCents != null) ...[
+              if (glance.effectiveUnitCents != null &&
+                  (bloqueKey == 'luz' ||
+                      bloqueKey == 'gaz' ||
+                      bloqueKey == 'agua')) ...[
                 const SizedBox(height: 4),
                 Text(
                   'folder.stackUnit'.tr(
@@ -1411,7 +1414,8 @@ class _PaperStackOverview extends StatelessWidget {
                 ),
               ],
               if (glance.annualCentsEstimate != null &&
-                  glance.invoiceCount > 0) ...[
+                  glance.invoiceCount > 0 &&
+                  bloqueKey != 'suma') ...[
                 const SizedBox(height: 4),
                 Text(
                   'folder.stackYear'.tr(

@@ -1031,7 +1031,16 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
     } on Object {
       // Junction nesmí zhatit Guardar desky.
     }
-    final yellow = extractProposalFields(fields);
+    final yellow = extractProposalFields({
+      ...doc.extracted,
+      ...fields,
+    });
+    final guessedFinca = guessDocumentoInmueble(
+      proposedBloque: plan.bloqueKey,
+      properties: view.inmuebles,
+      address: yellow['fields.address'] ?? '',
+      catastral: yellow['fields.cadastral'] ?? '',
+    );
     final placed = doc.copyWith(
       tipo: plan.tipo,
       albumKeys: {
@@ -1039,6 +1048,7 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
         plan.bloqueKey,
       }.toList(),
       extracted: yellow.isEmpty ? doc.extracted : {...doc.extracted, ...yellow},
+      inmuebleId: guessedFinca ?? doc.inmuebleId,
     );
     final desk = _bloqueLive(plan.bloqueKey);
     state = AsyncData(
@@ -1061,10 +1071,26 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
       await saveDocumentoExtracted(
         templateKey: plan.bloqueKey,
         documentId: documentId,
-        fields: fields,
+        fields: {
+          ...doc.extracted,
+          ...fields,
+        },
       );
     } else {
       await _persistBloque(plan.bloqueKey);
+    }
+    if (guessedFinca != null && guessedFinca != (doc.inmuebleId ?? '')) {
+      try {
+        await client.rpc(
+          'set_documento_inmueble',
+          params: {
+            'p_documento_id': documentId,
+            'p_inmueble_id': guessedFinca,
+          },
+        );
+      } on Object {
+        // Finca je nápověda, Guardar desky bez ní platí.
+      }
     }
     await discardAiDraft(draftId);
     ref.invalidateSelf();
@@ -1352,6 +1378,9 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
         cardNie: cardNie,
       );
     }
+    if (templateKey == 'suma') {
+      paper = alignSumaPaperToDesk(paper);
+    }
     final merged = (deed && !belongs)
         ? bloque.values
         : promotePaperToDesk(
@@ -1476,10 +1505,22 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
     final protocol =
         (desk['fields.protocol'] ?? paper['fields.protocol'] ?? '').trim();
     if (protocol.isNotEmpty) patch['protocolo'] = protocol;
+    final current = await client
+        .from('inmuebles')
+        .select('direccion, referencia_catastral')
+        .eq('id', inmuebleId)
+        .maybeSingle();
+    final existingDir = '${current?['direccion'] ?? ''}'.trim();
+    final existingCat = '${current?['referencia_catastral'] ?? ''}'.trim();
     final cat = (paper['fields.cadastral'] ?? '').trim();
-    if (cat.isNotEmpty) patch['referencia_catastral'] = cat;
+    if (cat.isNotEmpty && existingCat.isEmpty) {
+      patch['referencia_catastral'] = cat;
+    }
     final addr = (paper['fields.address'] ?? '').trim();
-    if (addr.isNotEmpty) patch['direccion'] = addr;
+    // Tužka / už zapsaná finca. První domicilio na listině často není URBANA.
+    if (addr.isNotEmpty && existingDir.isEmpty) {
+      patch['direccion'] = addr;
+    }
     if (patch.isEmpty) return;
     await client.from('inmuebles').update(patch).eq('id', inmuebleId);
   }

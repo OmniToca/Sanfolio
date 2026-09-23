@@ -27,7 +27,7 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `printHtmlDocument` | `core/print/office_print.dart` | blob URL + `window.print()`; Safari nesnese about:srcdoc |
 | `AiPanel` / `aiChatProvider` | `features/ai/ai_panel.dart` | trvalý chat; zápis `ai_conversations` + `ai_messages` |
 | `AiPanel` / `aiChatProvider` | `features/ai/ai_panel.dart` | trvalý chat; zápis `ai_conversations` + `ai_messages` |
-| `extract-document` | Edge Function | fotka/PDF → text LLM nebo vision → `ai_drafts`; po LLM `body_text` + jistý album **z první strany PDF**, ne z `scan_01.pdf`; Poder/FACTURA v názvu není escritura; Guardar polí desky je gestor |
+| `extract-document` | Edge Function | fotka/PDF → text LLM nebo vision → `ai_drafts`; po LLM `body_text` + jistý album **z první strany PDF**, ne z `scan_01.pdf`; Poder/FACTURA v názvu není escritura; IBI → `sumaId`/`period` rok; Guardar polí desky je gestor |
 | `documentos.extracted` | JSONB na dokladu | uložená pole po Guardar; AI sem nezapisuje |
 | `documentos.body_text` | TEXT na dokladu | přepis PDF po extractu (i bez alba) |
 | `documentos.caption` | TEXT na dokladu | ruční „co v souboru je“ v knihovně; AI nezapisuje; není extracted |

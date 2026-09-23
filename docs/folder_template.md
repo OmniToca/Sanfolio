@@ -132,6 +132,8 @@ V Alicante: [Suma Gestión Tributaria](https://www.suma.es/). Není dodavatel en
 Dokument: `recibo_ibi`.  
 Plazo: `ibi_anual` — datum a dny upozornění **jen** z `tenant_settings` (žádné zadrátované 1. 11.).
 
+Guardar z recibo zkopíruje na desku jen `sumaId` / `directDebit` / `period`. Rok IBI se bere z `periodTo` / `issued`, identifikace jen když OCR vidí číslo SUMA (ne číslo účtenky, ne NIE). Adresa finca z listiny se vyplní, jen když je prázdná — první domicilio na deed často není URBANA. Druhou nemovitost systém nezakládá; papír k finca přiřadí podle katastru / adresy, až existují **dvě** `inmuebles`.
+
 Stejný blok používá expediente `impuestos_ibi`.
 
 ### 3.5 `plusvalia`

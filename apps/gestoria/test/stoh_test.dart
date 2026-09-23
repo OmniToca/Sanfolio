@@ -91,6 +91,21 @@ Ante mí, ALICIA RUIZ TORREGROSA, Notario
       'ESCRITURA DE COMPRAVENTA',
     );
     expect(
+      classifyStohPaper(
+        originalName: 'Valor de referencia.pdf',
+        bodyText: '''
+CERTIFICACIÓN CATASTRAL
+DE VALOR DE REFERENCIA
+Referencia catastral:
+''',
+      ).tipo,
+      'certificado_catastral',
+    );
+    expect(
+      classifyStohPaper(originalName: 'Valor de referenci.pdf').bloqueKey,
+      'plusvalia',
+    );
+    expect(
       classifyStohPaper(originalName: 'scan001.pdf').known,
       isFalse,
     );

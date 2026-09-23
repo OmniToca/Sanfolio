@@ -220,6 +220,22 @@ List<String> extraPaperFieldKeys(Map<String, String> fields, {String tipo = ''})
     'fields.folderLado',
   };
   if (tipo == 'copia_escritura') skip.remove('fields.nombre');
+  if (tipo == 'recibo_ibi') {
+    skip.addAll({
+      'fields.protocol',
+      'fields.nie',
+      'fields.tel',
+      'fields.email',
+      'fields.lawyer',
+      'fields.notary',
+      'fields.iva',
+      'fields.ivaRate',
+      'fields.supplierNif',
+      'fields.base',
+      'fields.nombre',
+      'fields.consumption',
+    });
+  }
   return [
     for (final e in fields.entries)
       if (e.value.trim().isNotEmpty && !skip.contains(e.key)) e.key,

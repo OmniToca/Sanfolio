@@ -95,6 +95,19 @@ List<String> fieldsForDocTipo(String tipo) {
         'fields.date',
         'fields.appointment',
       ];
+    case 'recibo_ibi':
+      return const [
+        'fields.invoiceNo',
+        'fields.issued',
+        'fields.periodFrom',
+        'fields.periodTo',
+        'fields.amount',
+        'fields.cadastral',
+        'fields.address',
+        'fields.sumaId',
+        'fields.period',
+        'fields.directDebit',
+      ];
     case 'poliza_seguro':
     case 'contrato_alarma':
       return const [
@@ -203,6 +216,41 @@ Map<String, String> promotePaperToDesk({
     for (final key in deskFieldKeys)
       if ((paper[key] ?? '').trim().isNotEmpty) key: paper[key]!.trim(),
   };
+}
+
+/// Recibo má období a číslo účtenky. Deska SUMA chce rok, identifikaci a inkaso.
+Map<String, String> alignSumaPaperToDesk(Map<String, String> paper) {
+  final next = Map<String, String>.from(paper);
+  if ((next['fields.period'] ?? '').trim().isEmpty) {
+    for (final key in const [
+      'fields.periodTo',
+      'fields.issued',
+      'fields.periodFrom',
+      'fields.date',
+    ]) {
+      final year = RegExp(r'(20\d{2}|19\d{2})').firstMatch(next[key] ?? '');
+      if (year != null) {
+        next['fields.period'] = year.group(1)!;
+        break;
+      }
+    }
+  }
+  if ((next['fields.sumaId'] ?? '').trim().isEmpty) {
+    final clientNo = (next['fields.clientNo'] ?? '').trim();
+    if (RegExp(r'^\d{4,}$').hasMatch(clientNo)) {
+      next['fields.sumaId'] = clientNo;
+    }
+  }
+  if ((next['fields.directDebit'] ?? '').trim().isEmpty) {
+    final hay =
+        '${next['fields.concept'] ?? ''} ${next['body_text'] ?? ''}'.toLowerCase();
+    if (RegExp(r'domicili').hasMatch(hay)) {
+      next['fields.directDebit'] = 'true';
+    } else if (RegExp(r'aplazamiento|fraccionamiento').hasMatch(hay)) {
+      next['fields.directDebit'] = 'false';
+    }
+  }
+  return next;
 }
 
 bool isInvoiceDocTipo(String tipo) {

@@ -162,6 +162,61 @@ void main() {
     expect(desk.containsKey('fields.amount'), isFalse);
   });
 
+  test('Guardar IBI doplní rok SUMA, ne číslo účtenky', () {
+    final paper = alignSumaPaperToDesk({
+      'fields.invoiceNo': '0133875',
+      'fields.periodFrom': '2024-01-01',
+      'fields.periodTo': '2024-12-31',
+      'fields.issued': '2024-02-02',
+      'fields.amount': '76.78',
+      'fields.cadastral': '4244203YH0244S0003RX',
+      'fields.concept': 'Aplazamiento/Fraccionamiento de deuda',
+    });
+    expect(paper['fields.period'], '2024');
+    expect(paper['fields.directDebit'], 'false');
+    expect(paper.containsKey('fields.sumaId'), isFalse);
+    final desk = promotePaperToDesk(
+      deskFieldKeys: const [
+        'fields.sumaId',
+        'fields.directDebit',
+        'fields.period',
+      ],
+      desk: const {},
+      paper: paper,
+    );
+    expect(desk['fields.period'], '2024');
+    expect(desk['fields.directDebit'], 'false');
+    expect(desk.containsKey('fields.sumaId'), isFalse);
+    expect(desk.containsKey('fields.invoiceNo'), isFalse);
+  });
+
+  test('číselné nº cliente na IBI je identifikace SUMA', () {
+    final paper = alignSumaPaperToDesk({
+      'fields.clientNo': '6949519',
+      'fields.issued': '2025-08-20',
+      'fields.concept': 'IBI domiciliado',
+    });
+    expect(paper['fields.sumaId'], '6949519');
+    expect(paper['fields.period'], '2025');
+    expect(paper['fields.directDebit'], 'true');
+  });
+
+  test('IBI pohled neshazuje protokol z listiny', () {
+    expect(
+      extraPaperFieldKeys(
+        {
+          'fields.protocol': '2116',
+          'fields.nie': 'Y9908856X',
+          'fields.cadastral': '4244203YH0244S0003RX',
+          'fields.address': 'AV SAN FULGENCIO-MARINA 3',
+          'fields.amount': '76.78',
+        },
+        tipo: 'recibo_ibi',
+      ),
+      ['fields.cadastral', 'fields.address'],
+    );
+  });
+
   test('stoh faktur sečte kladné částky a dobropis vynechá', () {
     final glance = stackGlanceOf([
       (

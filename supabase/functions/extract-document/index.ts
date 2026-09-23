@@ -491,6 +491,8 @@ const FIELD_MAP: Record<string, string> = {
   registry: "fields.registry",
   salePrice: "fields.salePrice",
   referenceValue: "fields.referenceValue",
+  sumaId: "fields.sumaId",
+  directDebit: "fields.directDebit",
   body_text: "body_text",
 };
 
@@ -511,6 +513,11 @@ function extractSystemPrompt(
     ". " +
     "Nº de contrato / póliza → contractNo. Nº de cliente → clientNo. Nº factura → invoiceNo. " +
     "Periodo de facturación → periodFrom and periodTo (YYYY-MM-DD), not period (period is IBI year only). " +
+    "IBI / SUMA recibo: period = ejercicio year (2024), never the payment window. " +
+    "Identificación SUMA / nº objeto → sumaId (not recibo number, not NIE). " +
+    "Domiciliado sí → directDebit true, no or aplazamiento → false. " +
+    "address = the inmueble (objeto / finca), never the SUMA office letterhead " +
+    "(C/ Dr. Luis Rivera, Guardamar) and never a seller's professional domicilio. " +
     "Agua (Hidraqua, Aqualia, Canal…): billing period is usually ~3 months (trimestral / TRIMESTRAL). " +
     "Use that full Periodo de facturación, never a single month from the consumo chart or lectura table. " +
     "Fecha de emisión → issued. Importe total → amount as 188.85 (dot, no currency). " +
@@ -532,10 +539,11 @@ function extractSystemPrompt(
     "Do not put passport numbers into tel." +
     (classify
       ? " proposedBloque = one of cliente_snapshot,escritura,agua,luz,gaz,comunidad,suma,plusvalia,seguro,alarma,nie_tramite,poder (omit if unsure). " +
-        "proposedTipo = dni_nie,pasaporte,copia_escritura,contrato_agua,factura_agua,recibo_agua,contrato_luz,factura_luz,contrato_gaz,factura_gaz,certificado_comunidad,recibo_ibi,declaracion_plusvalia,poliza_seguro,contrato_alarma,copia_poder,other (omit if unsure). " +
+        "proposedTipo = dni_nie,pasaporte,copia_escritura,contrato_agua,factura_agua,recibo_agua,contrato_luz,factura_luz,contrato_gaz,factura_gaz,certificado_comunidad,recibo_ibi,declaracion_plusvalia,certificado_catastral,poliza_seguro,contrato_alarma,copia_poder,other (omit if unsure). " +
         "Title and first page of the PDF first; ignore scan_01.pdf / IMG_1234. " +
         "Poder/apoderado in the filename → poder, never escritura. FACTURA/invoice/recibo in the filename → not escritura even if a clause mentions notario. " +
         "A NIE on a deed is not cliente_snapshot. ESCRITURA DE COMPRAVENTA / AMPLIACIÓN DE OBRA / Ante mí, Notario → escritura. " +
+        "CERTIFICACIÓN CATASTRAL DE VALOR DE REFERENCIA → plusvalia (certificado_catastral), not IBI and not the deed. " +
         "Hidraqua/Aqualia → agua. CUPS/kWh/Iberdrola/Gana Energía → luz. DNI/NIE card photo → cliente_snapshot. Omit proposedBloque if unsure."
       : "") +
     (includeBody
@@ -862,6 +870,12 @@ function classifyBodyHead(
   ) {
     return { bloque: "cliente_snapshot", tipo: "dni_nie" };
   }
+  if (
+    /valor de referenc|certificaci[oó]n catastral/.test(head) &&
+    !/escritur[ae] de/.test(head)
+  ) {
+    return { bloque: "plusvalia", tipo: "certificado_catastral" };
+  }
   return null;
 }
 
@@ -908,6 +922,9 @@ function classifyStohPaper(
   }
   if (ESCRITURA_NAME.test(name) && !invoiceName) {
     return { bloque: "escritura", tipo: "copia_escritura" };
+  }
+  if (/valor de referenc/.test(name)) {
+    return { bloque: "plusvalia", tipo: "certificado_catastral" };
   }
 
   if (/plusval/.test(hay)) {
