@@ -89,7 +89,6 @@ class _StohScreenState extends ConsumerState<StohScreen> {
                         subtitle: widget.afterCreate
                             ? 'stoh.newHint'.tr()
                             : 'stoh.subtitle'.tr(),
-                        actions: [_attachButton()],
                       ),
                       Text(
                         'stoh.hint'.tr(),
@@ -115,45 +114,48 @@ class _StohScreenState extends ConsumerState<StohScreen> {
                           ),
                         ),
                       if (_uploading) _uploadProgress(),
-                      Expanded(
-                        child: rows.isEmpty && !_uploading
-                            ? Padding(
-                                padding: const EdgeInsets.only(top: 48),
-                                child: Text('stoh.empty'.tr()),
-                              )
-                            : ListView(
-                                padding: const EdgeInsets.only(
-                                  top: 16,
-                                  bottom: 48,
-                                ),
-                                children: [
-                                  for (final row in rows)
-                                    Padding(
-                                      padding: const EdgeInsets.only(bottom: 16),
-                                      child: _StohCard(
-                                        row: row,
-                                        view: view,
-                                        bloque: _bloqueChoice[row.document.id] ??
-                                            row.proposal.bloqueKey,
-                                        tipo: _tipoChoice[row.document.id] ??
-                                            row.proposal.tipo,
-                                        onBloque: (v) => setState(() {
-                                          _bloqueChoice[row.document.id] = v;
-                                          _tipoChoice[row.document.id] =
-                                              tiposForStohBloque(v).first;
-                                        }),
-                                        onTipo: (v) => setState(
-                                          () => _tipoChoice[row.document.id] = v,
-                                        ),
-                                        onGuardar: () => _guardar(row, view),
-                                        onDiscard: () => _discard(row),
-                                        onOpen: () =>
-                                            _open(row.document.storagePath),
-                                      ),
-                                    ),
-                                ],
-                              ),
+                      const SizedBox(height: 16),
+                      OfficeAttachButton(
+                        label: 'stoh.attach'.tr(),
+                        caption: rows.isEmpty ? 'stoh.empty'.tr() : null,
+                        icon: Icons.file_upload_outlined,
+                        outlined: true,
+                        wide: rows.isEmpty,
+                        multiple: true,
+                        onPickedMany: _enqueue,
                       ),
+                      if (rows.isNotEmpty)
+                        Expanded(
+                          child: ListView(
+                            padding: const EdgeInsets.only(top: 16, bottom: 48),
+                            children: [
+                              for (final row in rows)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 16),
+                                  child: _StohCard(
+                                    row: row,
+                                    view: view,
+                                    bloque: _bloqueChoice[row.document.id] ??
+                                        row.proposal.bloqueKey,
+                                    tipo: _tipoChoice[row.document.id] ??
+                                        row.proposal.tipo,
+                                    onBloque: (v) => setState(() {
+                                      _bloqueChoice[row.document.id] = v;
+                                      _tipoChoice[row.document.id] =
+                                          tiposForStohBloque(v).first;
+                                    }),
+                                    onTipo: (v) => setState(
+                                      () => _tipoChoice[row.document.id] = v,
+                                    ),
+                                    onGuardar: () => _guardar(row, view),
+                                    onDiscard: () => _discard(row),
+                                    onOpen: () =>
+                                        _open(row.document.storagePath),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -210,16 +212,6 @@ class _StohScreenState extends ConsumerState<StohScreen> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _attachButton() {
-    return OfficeAttachButton(
-      label: 'stoh.attach'.tr(),
-      icon: Icons.file_upload_outlined,
-      outlined: true,
-      multiple: true,
-      onPickedMany: _enqueue,
     );
   }
 

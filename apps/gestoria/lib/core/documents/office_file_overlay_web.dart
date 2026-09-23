@@ -8,8 +8,7 @@ import 'package:web/web.dart' as web;
 import 'office_file_pick.dart';
 
 /// Skutečný `<input type=file>` přes tlačítko.
-/// `isVisible: false` vyřízne díru v canvasu — jinak Safari v ListView
-/// klikne do Flutteru a dialog se neotevře.
+/// Musí mít od rodiče pevnou šířku i výšku, jinak Safari uřízne overlay.
 /// `change` z DOM je mimo Flutter zónu — bez [Zone] Riverpod hodí minified:zt.
 class OfficeFileHitLayer extends StatefulWidget {
   const OfficeFileHitLayer({
@@ -43,7 +42,6 @@ class _OfficeFileHitLayerState extends State<OfficeFileHitLayer> {
   Widget build(BuildContext context) {
     return HtmlElementView.fromTagName(
       tagName: 'input',
-      isVisible: false,
       onElementCreated: _bind,
     );
   }
@@ -66,7 +64,8 @@ class _OfficeFileHitLayerState extends State<OfficeFileHitLayer> {
     s.setProperty('position', 'absolute');
     s.setProperty('inset', '0');
     s.setProperty('font-size', '64px');
-    s.setProperty('pointer-events', 'auto');
+    s.setProperty('overflow', 'hidden');
+    s.setProperty('box-sizing', 'border-box');
 
     input.addEventListener(
       'change',
