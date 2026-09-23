@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/documents/documento_storage.dart';
 import '../../core/documents/office_attach_button.dart';
 import '../../core/documents/office_file_pick.dart';
 import '../../core/modules/feature_gate.dart';
@@ -11,13 +12,14 @@ import '../../core/modules/module_catalog.dart';
 import '../../core/presentation/widgets/app_widgets.dart';
 import '../../core/theme/app_theme.dart';
 import '../ai/ai_providers.dart';
-import '../ai/extract_queue.dart';
 import 'carpeta_controller.dart';
 import 'carpeta_routes.dart';
+import 'documento_library.dart';
+import 'library_view.dart';
 import 'stoh.dart';
 import 'stoh_queue.dart';
 
-/// Sklad skenů u klienta. AI navrhne blok, Guardar zařadí.
+/// Knihovna skenů u klienta. AI zařadí album, desku ukládá gestor.
 class StohScreen extends ConsumerStatefulWidget {
   const StohScreen({
     super.key,
@@ -38,15 +40,26 @@ class _StohScreenState extends ConsumerState<StohScreen> {
   final _bloqueChoice = <String, String>{};
   final _tipoChoice = <String, String>{};
   final _queue = <PickedOfficeFile>[];
+  final _selected = <String>{};
+  final _search = TextEditingController();
   var _uploading = false;
   var _uploadDone = 0;
   var _uploadTotal = 0;
   var _draining = false;
+  var _scope = LibraryScope.all;
+  String? _inmuebleId;
+  var _query = '';
 
   CarpetaTarget get _target => CarpetaTarget(
         clienteId: widget.clienteId,
         expedienteId: widget.expedienteId,
       );
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -68,10 +81,26 @@ class _StohScreenState extends ConsumerState<StohScreen> {
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (_, _) => Center(child: Text('folder.loadError'.tr())),
           data: (view) {
-            final rows = mergeStohQueue(
-              documents: view.stohDocuments,
+            final queue = mergeStohQueue(
+              documents: view.libraryDocuments.isEmpty
+                  ? view.stohDocuments
+                  : view.libraryDocuments,
               drafts: drafts.valueOrNull ?? const [],
             );
+            final papers = filterLibraryPapers(
+              papers: buildLibraryPapers(
+                documents: view.libraryDocuments.isEmpty
+                    ? view.stohDocuments
+                    : view.libraryDocuments,
+                drafts: queue,
+                inmuebles: view.inmuebles,
+              ),
+              scope: _scope,
+              inmuebleId: _inmuebleId,
+              query: _query,
+            );
+            final pile = groupPilePapers(papers);
+            final placed = [for (final p in papers) if (!p.onPile) p];
             return Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(
@@ -112,9 +141,7 @@ class _StohScreenState extends ConsumerState<StohScreen> {
                               child: Text('stoh.skip'.tr()),
                             ),
                           ),
-                        )
-                      else
-                        const SizedBox.shrink(),
+                        ),
                       if (_uploading)
                         _uploadProgress()
                       else
@@ -123,42 +150,35 @@ class _StohScreenState extends ConsumerState<StohScreen> {
                       OfficeAttachButton(
                         key: const ValueKey('stoh-attach'),
                         label: 'stoh.attach'.tr(),
-                        caption: rows.isEmpty ? 'stoh.empty'.tr() : null,
+                        caption: papers.isEmpty && !_uploading
+                            ? 'stoh.empty'.tr()
+                            : null,
                         icon: Icons.file_upload_outlined,
                         outlined: true,
-                        wide: rows.isEmpty,
+                        wide: papers.isEmpty && !_uploading,
                         multiple: true,
                         onPickedMany: _enqueue,
                       ),
-                      if (rows.isNotEmpty)
+                      const SizedBox(height: 12),
+                      _filters(view),
+                      if (_selected.isNotEmpty) _bulkBar(view),
+                      if (papers.isNotEmpty)
                         Expanded(
                           child: ListView(
-                            padding: const EdgeInsets.only(top: 16, bottom: 48),
+                            padding: const EdgeInsets.only(top: 12, bottom: 48),
                             children: [
-                              for (final row in rows)
-                                Padding(
-                                  padding: const EdgeInsets.only(bottom: 16),
-                                  child: _StohCard(
-                                    row: row,
-                                    view: view,
-                                    bloque: _bloqueChoice[row.document.id] ??
-                                        row.proposal.bloqueKey,
-                                    tipo: _tipoChoice[row.document.id] ??
-                                        row.proposal.tipo,
-                                    onBloque: (v) => setState(() {
-                                      _bloqueChoice[row.document.id] = v;
-                                      _tipoChoice[row.document.id] =
-                                          tiposForStohBloque(v).first;
-                                    }),
-                                    onTipo: (v) => setState(
-                                      () => _tipoChoice[row.document.id] = v,
-                                    ),
-                                    onGuardar: () => _guardar(row, view),
-                                    onDiscard: () => _discard(row),
-                                    onOpen: () =>
-                                        _open(row.document.storagePath),
-                                  ),
-                                ),
+                              for (final e in pile.entries) ...[
+                                _groupTitle(_groupLabel(e.key)),
+                                for (final row in e.value)
+                                  _paperCard(row, view),
+                              ],
+                              if (placed.isNotEmpty &&
+                                  _scope != LibraryScope.pile) ...[
+                                if (pile.isNotEmpty)
+                                  _groupTitle('stoh.filterPlaced'.tr()),
+                                for (final row in placed)
+                                  _paperCard(row, view),
+                              ],
                             ],
                           ),
                         ),
@@ -171,6 +191,281 @@ class _StohScreenState extends ConsumerState<StohScreen> {
         ),
       ),
     );
+  }
+
+  Widget _filters(CarpetaView view) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AppTextField(
+          label: 'stoh.searchHint'.tr(),
+          prefixIcon: const Icon(Icons.search),
+          controller: _search,
+          onChanged: (v) => setState(() => _query = v),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final scope in LibraryScope.values)
+              AppStamp(
+                label: _scopeLabel(scope),
+                selected: _scope == scope,
+                onTap: () => setState(() => _scope = scope),
+              ),
+            for (final inm in view.inmuebles)
+              AppStamp(
+                label: inm.direccion.isEmpty
+                    ? inm.id
+                    : inm.direccion,
+                selected: _inmuebleId == inm.id,
+                onTap: () => setState(() {
+                  _inmuebleId = _inmuebleId == inm.id ? null : inm.id;
+                }),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _bulkBar(CarpetaView view) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          Text(
+            'stoh.selected'.tr(
+              namedArgs: {'count': '${_selected.length}'},
+            ),
+          ),
+          TextButton(
+            onPressed: () => _bulkPlace(view),
+            child: Text('stoh.bulkPlace'.tr()),
+          ),
+          TextButton(
+            onPressed: () => _bulkUnplace(view),
+            child: Text('stoh.bulkUnplace'.tr()),
+          ),
+          if (view.inmuebles.isNotEmpty)
+            TextButton(
+              onPressed: () => _bulkFinca(view),
+              child: Text('stoh.bulkFinca'.tr()),
+            ),
+          TextButton(
+            onPressed: () => _bulkMerge(view),
+            child: Text('stoh.merge'.tr()),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _groupTitle(String label) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 12, bottom: 8),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontWeight: FontWeight.w700,
+          color: AppTheme.pencil,
+        ),
+      ),
+    );
+  }
+
+  Widget _paperCard(LibraryPaper row, CarpetaView view) {
+    final doc = row.document;
+    final bloque = _bloqueChoice[doc.id] ??
+        (doc.albumKeys.isNotEmpty
+            ? doc.albumKeys.first
+            : row.proposal.bloqueKey);
+    final tipo = _tipoChoice[doc.id] ??
+        (doc.tipo != 'other' ? doc.tipo : row.proposal.tipo);
+    final checked = _selected.contains(doc.id);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: AppCard(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Checkbox(
+                    value: checked,
+                    onChanged: (_) => setState(() {
+                      if (checked) {
+                        _selected.remove(doc.id);
+                      } else {
+                        _selected.add(doc.id);
+                      }
+                    }),
+                  ),
+                  Expanded(
+                    child: Text(
+                      doc.originalName,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: [
+                  for (final key in doc.albumKeys)
+                    _chip('blocks.$key'.tr()),
+                  if (doc.albumKeys.isEmpty)
+                    _chip(
+                      row.proposal.known
+                          ? 'blocks.${row.proposal.bloqueKey}'.tr()
+                          : 'stoh.pile'.tr(),
+                    ),
+                  _chip(
+                    row.inmuebleLabel.isEmpty
+                        ? 'stoh.clientPaper'.tr()
+                        : row.inmuebleLabel,
+                  ),
+                  if (row.dupKind != null) _chip(_dupLabel(row.dupKind!)),
+                  if (libraryPaperYear(row) > 0)
+                    _chip(
+                      'stoh.year'.tr(
+                        namedArgs: {'year': '${libraryPaperYear(row)}'},
+                      ),
+                    ),
+                ],
+              ),
+              if (row.pending)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text('stoh.pending'.tr()),
+                ),
+              if (row.failed)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text('stoh.failed'.tr()),
+                ),
+              ..._glance(row),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                key: ValueKey('stoh-b-${doc.id}-$bloque'),
+                initialValue: bloque.isEmpty ? null : bloque,
+                decoration: InputDecoration(labelText: 'stoh.bloque'.tr()),
+                hint: Text('stoh.unknown'.tr()),
+                items: [
+                  for (final key in kStohBloqueOrder)
+                    DropdownMenuItem(
+                      value: key,
+                      child: Text('blocks.$key'.tr()),
+                    ),
+                ],
+                onChanged: row.pending
+                    ? null
+                    : (v) {
+                        if (v != null) {
+                          setState(() {
+                            _bloqueChoice[doc.id] = v;
+                            _tipoChoice[doc.id] = tiposForStohBloque(v).first;
+                          });
+                        }
+                      },
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  FilledButton(
+                    onPressed: row.pending || bloque.isEmpty
+                        ? null
+                        : () => _place(row, view, bloque, tipo),
+                    child: Text('stoh.place'.tr()),
+                  ),
+                  if (!row.onPile)
+                    TextButton(
+                      onPressed: () => _unplace(row, view, bloque, tipo),
+                      child: Text('stoh.unplace'.tr()),
+                    ),
+                  TextButton(
+                    onPressed: () => _guardar(row, view, bloque, tipo),
+                    child: Text('stoh.guardar'.tr()),
+                  ),
+                  TextButton(
+                    onPressed: () => _open(doc.storagePath),
+                    child: Text('folder.original'.tr()),
+                  ),
+                  TextButton(
+                    onPressed: () => _discard(row),
+                    child: Text('stoh.discardFile'.tr()),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _glance(LibraryPaper row) {
+    final bits = libraryGlanceEntries(row.glanceFields);
+    if (bits.isEmpty) return const [];
+    return [
+      const SizedBox(height: 8),
+      Text(
+        [
+          for (final e in bits) '${e.key.tr()}: ${e.value}',
+        ].join(' · '),
+        style: const TextStyle(color: AppTheme.pencil, fontSize: 13),
+      ),
+    ];
+  }
+
+  Widget _chip(String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceMuted,
+        borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(fontSize: 11, color: AppTheme.pencil),
+      ),
+    );
+  }
+
+  String _scopeLabel(LibraryScope scope) {
+    return switch (scope) {
+      LibraryScope.all => 'stoh.filterAll'.tr(),
+      LibraryScope.pile => 'stoh.filterPile'.tr(),
+      LibraryScope.placed => 'stoh.filterPlaced'.tr(),
+      LibraryScope.duplicates => 'stoh.filterDup'.tr(),
+      LibraryScope.unknown => 'stoh.filterUnknown'.tr(),
+    };
+  }
+
+  String _groupLabel(String key) {
+    if (key == PileGroup.mail.key) return 'stoh.groupMail'.tr();
+    if (key == PileGroup.unknown.key) return 'stoh.unknown'.tr();
+    if (kStohBloqueKeys.contains(key)) return 'blocks.$key'.tr();
+    return key;
+  }
+
+  String _dupLabel(DocumentoDupKind kind) {
+    return switch (kind) {
+      DocumentoDupKind.bytes => 'stoh.dupBytes'.tr(),
+      DocumentoDupKind.invoice => 'stoh.dupInvoice'.tr(),
+      DocumentoDupKind.name => 'stoh.dupName'.tr(),
+    };
   }
 
   Widget _uploadProgress() {
@@ -299,15 +594,57 @@ class _StohScreenState extends ConsumerState<StohScreen> {
     if (mounted) setState(() => _uploading = false);
   }
 
-  Future<void> _guardar(StohQueueRow row, CarpetaView view) async {
-    final bloque = _bloqueChoice[row.document.id] ?? row.proposal.bloqueKey;
-    final tipo = _tipoChoice[row.document.id] ?? row.proposal.tipo;
-    if (row.pending || planStohGuardar(
-          selectedBloqueKey: bloque,
-          selectedTipo: tipo,
-          bloqueCurrentlyEnabled: view.bloques[bloque]?.enabled ?? false,
-        ) ==
-        null) {
+  Future<void> _place(
+    LibraryPaper row,
+    CarpetaView view,
+    String bloque,
+    String tipo,
+  ) async {
+    final ctrl = ref.read(carpetaControllerProvider(_target).notifier);
+    final ok = await ctrl.setLibraryPlacement(
+      documentId: row.document.id,
+      bloqueKey: bloque,
+      tipo: tipo.isEmpty ? row.proposal.tipo : tipo,
+      on: true,
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(ok ? 'stoh.saved'.tr() : 'stoh.saveError'.tr())),
+    );
+  }
+
+  Future<void> _unplace(
+    LibraryPaper row,
+    CarpetaView view,
+    String bloque,
+    String tipo,
+  ) async {
+    final key = bloque.isEmpty
+        ? (row.document.albumKeys.isEmpty ? '' : row.document.albumKeys.first)
+        : bloque;
+    if (key.isEmpty) return;
+    final ctrl = ref.read(carpetaControllerProvider(_target).notifier);
+    await ctrl.setLibraryPlacement(
+      documentId: row.document.id,
+      bloqueKey: key,
+      tipo: tipo,
+      on: false,
+    );
+  }
+
+  Future<void> _guardar(
+    LibraryPaper row,
+    CarpetaView view,
+    String bloque,
+    String tipo,
+  ) async {
+    if (row.pending ||
+        planStohGuardar(
+              selectedBloqueKey: bloque,
+              selectedTipo: tipo,
+              bloqueCurrentlyEnabled: view.bloques[bloque]?.enabled ?? false,
+            ) ==
+            null) {
       return;
     }
     final ctrl = ref.read(carpetaControllerProvider(_target).notifier);
@@ -315,29 +652,257 @@ class _StohScreenState extends ConsumerState<StohScreen> {
       documentId: row.document.id,
       bloqueKey: bloque,
       tipo: tipo,
-      fields: row.fields,
+      fields: row.draftFields,
       draftId: row.draftId,
     );
     if (!mounted) return;
     ref.invalidate(liveAiDraftsProvider(widget.clienteId));
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(ok ? 'stoh.saved'.tr() : 'stoh.saveError'.tr()),
-      ),
+      SnackBar(content: Text(ok ? 'stoh.saved'.tr() : 'stoh.saveError'.tr())),
     );
   }
 
-  Future<void> _discard(StohQueueRow row) async {
+  Future<void> _discard(LibraryPaper row) async {
     final ctrl = ref.read(carpetaControllerProvider(_target).notifier);
     await ctrl.discardStohDocumento(
       documentId: row.document.id,
       draftId: row.draftId,
     );
+    _selected.remove(row.document.id);
     ref.invalidate(liveAiDraftsProvider(widget.clienteId));
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('stoh.discarded'.tr())),
     );
+  }
+
+  Future<void> _bulkPlace(CarpetaView view) async {
+    var bloque = '';
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: Text('stoh.bulkPlace'.tr()),
+          content: DropdownButtonFormField<String>(
+            decoration: InputDecoration(labelText: 'stoh.bloque'.tr()),
+            items: [
+              for (final key in kStohBloqueOrder)
+                DropdownMenuItem(
+                  value: key,
+                  child: Text('blocks.$key'.tr()),
+                ),
+            ],
+            onChanged: (v) => bloque = v ?? '',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text('clients.cancel'.tr()),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text('stoh.place'.tr()),
+            ),
+          ],
+        );
+      },
+    );
+    if (ok != true || bloque.isEmpty) return;
+    final ctrl = ref.read(carpetaControllerProvider(_target).notifier);
+    final ids = _selected.toList();
+    for (final id in ids) {
+      await ctrl.setLibraryPlacement(
+        documentId: id,
+        bloqueKey: bloque,
+        tipo: tiposForStohBloque(bloque).first,
+        on: true,
+      );
+    }
+    if (mounted) setState(() => _selected.clear());
+  }
+
+  Future<void> _bulkUnplace(CarpetaView view) async {
+    final ctrl = ref.read(carpetaControllerProvider(_target).notifier);
+    final ids = _selected.toList();
+    for (final id in ids) {
+      CarpetaDocumento? doc;
+      for (final d in view.libraryDocuments) {
+        if (d.id == id) doc = d;
+      }
+      final key = doc != null && doc.albumKeys.isNotEmpty
+          ? doc.albumKeys.first
+          : '';
+      if (key.isEmpty) continue;
+      await ctrl.setLibraryPlacement(
+        documentId: id,
+        bloqueKey: key,
+        tipo: doc?.tipo ?? 'other',
+        on: false,
+      );
+    }
+    if (mounted) setState(() => _selected.clear());
+  }
+
+  Future<void> _bulkFinca(CarpetaView view) async {
+    String? chosen;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: Text('stoh.bulkFinca'.tr()),
+          content: DropdownButtonFormField<String>(
+            decoration: InputDecoration(labelText: 'stoh.setFinca'.tr()),
+            items: [
+              DropdownMenuItem(
+                value: '',
+                child: Text('stoh.noFinca'.tr()),
+              ),
+              for (final inm in view.inmuebles)
+                DropdownMenuItem(
+                  value: inm.id,
+                  child: Text(
+                    inm.direccion.isEmpty ? inm.id : inm.direccion,
+                  ),
+                ),
+            ],
+            onChanged: (v) => chosen = v,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text('clients.cancel'.tr()),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text('stoh.setFinca'.tr()),
+            ),
+          ],
+        );
+      },
+    );
+    if (ok != true) return;
+    final ctrl = ref.read(carpetaControllerProvider(_target).notifier);
+    final ids = _selected.toList();
+    for (final id in ids) {
+      await ctrl.setLibraryInmueble(
+        documentId: id,
+        inmuebleId: (chosen ?? '').isEmpty ? null : chosen,
+      );
+    }
+    if (mounted) setState(() => _selected.clear());
+  }
+
+  Future<void> _bulkMerge(CarpetaView view) async {
+    final papers = <CarpetaDocumento>[
+      for (final id in _selected)
+        for (final d in view.libraryDocuments)
+          if (d.id == id) d,
+    ];
+    final reason = libraryMergeBlockReason(
+      count: papers.length,
+      allImages: papers.every(
+        (d) => isLibraryMergeImageName(d.originalName, d.storagePath),
+      ),
+    );
+    if (reason != null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(reason.tr())),
+        );
+      }
+      return;
+    }
+    var order = [...papers];
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setLocal) {
+            return AlertDialog(
+              title: Text('stoh.mergeTitle'.tr()),
+              content: SizedBox(
+                width: 420,
+                child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text('stoh.mergeHint'.tr()),
+                    const SizedBox(height: 12),
+                    for (var i = 0; i < order.length; i++)
+                      ListTile(
+                        dense: true,
+                        title: Text(order[i].originalName),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              tooltip: 'stoh.mergeUp'.tr(),
+                              onPressed: i == 0
+                                  ? null
+                                  : () => setLocal(() {
+                                        final a = order[i - 1];
+                                        order[i - 1] = order[i];
+                                        order[i] = a;
+                                      }),
+                              icon: const Icon(Icons.arrow_upward),
+                            ),
+                            IconButton(
+                              tooltip: 'stoh.mergeDown'.tr(),
+                              onPressed: i == order.length - 1
+                                  ? null
+                                  : () => setLocal(() {
+                                        final a = order[i + 1];
+                                        order[i + 1] = order[i];
+                                        order[i] = a;
+                                      }),
+                              icon: const Icon(Icons.arrow_downward),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: Text('clients.cancel'.tr()),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: Text('stoh.mergeRun'.tr()),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    if (ok != true) return;
+    try {
+      await ref
+          .read(carpetaControllerProvider(_target).notifier)
+          .mergeLibraryImages([for (final d in order) d.id]);
+      if (mounted) {
+        setState(() => _selected.clear());
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('stoh.mergeOk'.tr())),
+        );
+      }
+    } on OfficeUploadException catch (e) {
+      if (!mounted) return;
+      final key = switch (e.code) {
+        'need_photos' => 'stoh.mergeNeedPhotos',
+        'too_many' => 'stoh.mergeTooMany',
+        'duplicate' => 'stoh.duplicateFile',
+        _ => 'stoh.mergeError',
+      };
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(key.tr())),
+      );
+    }
   }
 
   Future<void> _open(String path) async {
@@ -352,136 +917,5 @@ class _StohScreenState extends ConsumerState<StohScreen> {
       return;
     }
     await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-  }
-}
-
-class _StohCard extends StatelessWidget {
-  const _StohCard({
-    required this.row,
-    required this.view,
-    required this.bloque,
-    required this.tipo,
-    required this.onBloque,
-    required this.onTipo,
-    required this.onGuardar,
-    required this.onDiscard,
-    required this.onOpen,
-  });
-
-  final StohQueueRow row;
-  final CarpetaView view;
-  final String bloque;
-  final String tipo;
-  final ValueChanged<String> onBloque;
-  final ValueChanged<String> onTipo;
-  final VoidCallback onGuardar;
-  final VoidCallback onDiscard;
-  final VoidCallback onOpen;
-
-  @override
-  Widget build(BuildContext context) {
-    final tipos = tiposForStohBloque(bloque.isEmpty ? 'agua' : bloque);
-    final canSave = !row.pending &&
-        planStohGuardar(
-              selectedBloqueKey: bloque,
-              selectedTipo: tipo,
-              bloqueCurrentlyEnabled: view.bloques[bloque]?.enabled ?? false,
-            ) !=
-            null;
-    final proposal = extractProposalFields(row.fields);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              row.document.originalName,
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-            if (row.pending)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text('stoh.pending'.tr()),
-              ),
-            if (row.failed)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text('stoh.failed'.tr()),
-              ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              key: ValueKey('stoh-b-${row.document.id}-$bloque'),
-              initialValue: bloque.isEmpty ? null : bloque,
-              decoration: InputDecoration(labelText: 'stoh.bloque'.tr()),
-              hint: Text('stoh.unknown'.tr()),
-              items: [
-                for (final key in kStohBloqueOrder)
-                  DropdownMenuItem(
-                    value: key,
-                    child: Text('blocks.$key'.tr()),
-                  ),
-              ],
-              onChanged: row.pending
-                  ? null
-                  : (v) {
-                      if (v != null) onBloque(v);
-                    },
-            ),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              key: ValueKey('stoh-t-${row.document.id}-$tipo-$bloque'),
-              initialValue: tipos.contains(tipo) ? tipo : tipos.first,
-              decoration: InputDecoration(labelText: 'stoh.tipo'.tr()),
-              items: [
-                for (final t in tipos)
-                  DropdownMenuItem(
-                    value: t,
-                    child: Text('docs.$t'.tr()),
-                  ),
-              ],
-              onChanged: row.pending || bloque.isEmpty
-                  ? null
-                  : (v) {
-                      if (v != null) onTipo(v);
-                    },
-            ),
-            if (proposal.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  proposal.entries
-                      .take(6)
-                      .map((e) => '${e.key}: ${e.value}')
-                      .join(' · '),
-                  style: const TextStyle(
-                    color: AppTheme.pencil,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                FilledButton(
-                  onPressed: canSave ? onGuardar : null,
-                  child: Text('stoh.guardar'.tr()),
-                ),
-                TextButton(
-                  onPressed: onOpen,
-                  child: Text('folder.original'.tr()),
-                ),
-                TextButton(
-                  onPressed: onDiscard,
-                  child: Text('stoh.discardFile'.tr()),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }

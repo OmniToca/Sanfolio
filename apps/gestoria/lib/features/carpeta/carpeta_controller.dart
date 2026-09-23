@@ -21,6 +21,7 @@ import '../clientes/cliente_audit.dart';
 import '../clientes/clientes_providers.dart';
 import '../facturacion/facturacion_providers.dart';
 import 'bloque_template.dart';
+import 'documento_library.dart';
 import 'stoh.dart';
 
 enum BloqueUiStatus { off, missingData, missingDocument, watching, done }
@@ -34,6 +35,10 @@ class CarpetaDocumento {
     this.extracted = const {},
     this.bodyText,
     this.storagePurged = false,
+    this.inmuebleId,
+    this.contentSha256 = '',
+    this.createdAt,
+    this.albumKeys = const [],
   });
 
   final String id;
@@ -43,12 +48,21 @@ class CarpetaDocumento {
   final Map<String, String> extracted;
   final String? bodyText;
   final bool storagePurged;
+  final String? inmuebleId;
+  final String contentSha256;
+  final DateTime? createdAt;
+  /// template_key živých alb. Prázdné = hromada.
+  final List<String> albumKeys;
 
   CarpetaDocumento copyWith({
     String? tipo,
     Map<String, String>? extracted,
     String? bodyText,
     bool? storagePurged,
+    String? inmuebleId,
+    String? contentSha256,
+    DateTime? createdAt,
+    List<String>? albumKeys,
   }) {
     return CarpetaDocumento(
       id: id,
@@ -58,6 +72,10 @@ class CarpetaDocumento {
       extracted: extracted ?? this.extracted,
       bodyText: bodyText ?? this.bodyText,
       storagePurged: storagePurged ?? this.storagePurged,
+      inmuebleId: inmuebleId ?? this.inmuebleId,
+      contentSha256: contentSha256 ?? this.contentSha256,
+      createdAt: createdAt ?? this.createdAt,
+      albumKeys: albumKeys ?? this.albumKeys,
     );
   }
 }
@@ -175,6 +193,8 @@ class CarpetaView {
     this.movements = const [],
     this.titulares = const [],
     this.stohDocuments = const [],
+    this.libraryDocuments = const [],
+    this.inmuebles = const [],
   });
 
   final String clienteId;
@@ -187,10 +207,20 @@ class CarpetaView {
   final Map<String, BloqueState> bloques;
   final List<ProvisionMovement> movements;
   final List<InmuebleTitular> titulares;
-  /// Skeny ze šanonu bez bloku. DNI na kartě sem nepatří.
+  /// Skeny ze šanonu bez alba. DNI na kartě sem nepatří.
   final List<CarpetaDocumento> stohDocuments;
+  /// Celá knihovna klienta, i zařazené.
+  final List<CarpetaDocumento> libraryDocuments;
+  final List<LibraryInmueble> inmuebles;
 
-  CarpetaView withBloque(String key, BloqueState bloque) {
+  CarpetaView copyWith({
+    Map<String, BloqueState>? bloques,
+    List<ProvisionMovement>? movements,
+    List<InmuebleTitular>? titulares,
+    List<CarpetaDocumento>? stohDocuments,
+    List<CarpetaDocumento>? libraryDocuments,
+    List<LibraryInmueble>? inmuebles,
+  }) {
     return CarpetaView(
       clienteId: clienteId,
       tenantId: tenantId,
@@ -199,59 +229,29 @@ class CarpetaView {
       expedienteEstado: expedienteEstado,
       inmuebleId: inmuebleId,
       inmuebleDireccion: inmuebleDireccion,
-      bloques: {...bloques, key: bloque},
-      movements: movements,
-      titulares: titulares,
-      stohDocuments: stohDocuments,
+      bloques: bloques ?? this.bloques,
+      movements: movements ?? this.movements,
+      titulares: titulares ?? this.titulares,
+      stohDocuments: stohDocuments ?? this.stohDocuments,
+      libraryDocuments: libraryDocuments ?? this.libraryDocuments,
+      inmuebles: inmuebles ?? this.inmuebles,
     );
+  }
+
+  CarpetaView withBloque(String key, BloqueState bloque) {
+    return copyWith(bloques: {...bloques, key: bloque});
   }
 
   CarpetaView withMovements(List<ProvisionMovement> next) {
-    return CarpetaView(
-      clienteId: clienteId,
-      tenantId: tenantId,
-      nombre: nombre,
-      expedienteId: expedienteId,
-      expedienteEstado: expedienteEstado,
-      inmuebleId: inmuebleId,
-      inmuebleDireccion: inmuebleDireccion,
-      bloques: bloques,
-      movements: next,
-      titulares: titulares,
-      stohDocuments: stohDocuments,
-    );
+    return copyWith(movements: next);
   }
 
   CarpetaView withTitulares(List<InmuebleTitular> next) {
-    return CarpetaView(
-      clienteId: clienteId,
-      tenantId: tenantId,
-      nombre: nombre,
-      expedienteId: expedienteId,
-      expedienteEstado: expedienteEstado,
-      inmuebleId: inmuebleId,
-      inmuebleDireccion: inmuebleDireccion,
-      bloques: bloques,
-      movements: movements,
-      titulares: next,
-      stohDocuments: stohDocuments,
-    );
+    return copyWith(titulares: next);
   }
 
   CarpetaView withStoh(List<CarpetaDocumento> next) {
-    return CarpetaView(
-      clienteId: clienteId,
-      tenantId: tenantId,
-      nombre: nombre,
-      expedienteId: expedienteId,
-      expedienteEstado: expedienteEstado,
-      inmuebleId: inmuebleId,
-      inmuebleDireccion: inmuebleDireccion,
-      bloques: bloques,
-      movements: movements,
-      titulares: titulares,
-      stohDocuments: next,
-    );
+    return copyWith(stohDocuments: next);
   }
 }
 
@@ -362,30 +362,131 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
         .from('documentos')
         .select(
           'id, bloque_id, tipo, storage_path, original_name, extracted, '
-          'body_text, storage_purged_at',
+          'body_text, storage_purged_at, inmueble_id, content_sha256, created_at',
         )
         .eq('cliente_id', clienteId)
         .isFilter('deleted_at', null);
-    final docsByBloque = <String, List<CarpetaDocumento>>{};
+
+    final inmRows = await client
+        .from('inmuebles')
+        .select('id, direccion, referencia_catastral')
+        .eq('cliente_id', clienteId)
+        .isFilter('deleted_at', null);
+    final inmuebles = <LibraryInmueble>[];
+    for (final raw in inmRows as List) {
+      if (raw is! Map) continue;
+      inmuebles.add(
+        LibraryInmueble(
+          id: '${raw['id']}',
+          direccion: '${raw['direccion'] ?? ''}'.trim(),
+          catastral: '${raw['referencia_catastral'] ?? ''}'.trim(),
+        ),
+      );
+    }
+
+    final allExp = await client
+        .from('expedientes')
+        .select('id')
+        .eq('cliente_id', clienteId)
+        .eq('tenant_id', tenantId)
+        .isFilter('deleted_at', null);
+    final expIds = <String>[
+      for (final raw in allExp as List)
+        if (raw is Map) '${raw['id']}',
+    ];
+    final bloqueKeyById = <String, String>{};
+    if (expIds.isNotEmpty) {
+      final allBloquesRaw = await client
+          .from('bloques')
+          .select('id, template_key')
+          .inFilter('expediente_id', expIds)
+          .isFilter('deleted_at', null);
+      for (final raw in allBloquesRaw as List) {
+        if (raw is! Map) continue;
+        bloqueKeyById['${raw['id']}'] = '${raw['template_key']}';
+      }
+    }
+
+    final albumsByDoc = <String, List<String>>{};
+    final placementsByDoc = <String, List<AlbumHit>>{};
+    final docIds = <String>[
+      for (final raw in docsRows as List)
+        if (raw is Map) '${raw['id']}',
+    ];
+    if (docIds.isNotEmpty) {
+      final placeRows = await client
+          .from('documento_bloques')
+          .select('documento_id, bloque_id, tipo')
+          .inFilter('documento_id', docIds)
+          .isFilter('deleted_at', null);
+      for (final raw in placeRows as List) {
+        if (raw is! Map) continue;
+        final bid = '${raw['bloque_id']}';
+        final key = bloqueKeyById[bid] ?? '';
+        final did = '${raw['documento_id']}';
+        placementsByDoc.putIfAbsent(did, () => []).add(
+              AlbumHit(bloqueId: bid, tipo: '${raw['tipo'] ?? ''}'),
+            );
+        if (key.isEmpty) continue;
+        final list = albumsByDoc.putIfAbsent(did, () => []);
+        if (!list.contains(key)) list.add(key);
+      }
+    }
+
     final stohDocs = <CarpetaDocumento>[];
+    final libraryDocs = <CarpetaDocumento>[];
     for (final raw in docsRows as List) {
       if (raw is! Map) continue;
       final t = transcriptFromDocumentoRow(raw);
+      final id = '${raw['id']}';
+      final bid = '${raw['bloque_id'] ?? ''}'.trim();
+      var albums = List<String>.from(albumsByDoc[id] ?? const []);
+      if (albums.isEmpty && bid.isNotEmpty && bid != 'null') {
+        final k = bloqueKeyById[bid];
+        if (k != null) albums = [k];
+      }
+      final inmRaw = '${raw['inmueble_id'] ?? ''}'.trim();
       final doc = CarpetaDocumento(
-        id: '${raw['id']}',
+        id: id,
         tipo: '${raw['tipo']}',
         storagePath: '${raw['storage_path']}',
         originalName: '${raw['original_name'] ?? raw['tipo']}',
         extracted: t.fields,
         bodyText: t.bodyText,
         storagePurged: storagePurgedFromRow(raw),
+        inmuebleId: inmRaw.isEmpty || inmRaw == 'null' ? null : inmRaw,
+        contentSha256: '${raw['content_sha256'] ?? ''}'.trim(),
+        createdAt: DateTime.tryParse('${raw['created_at'] ?? ''}'),
+        albumKeys: albums,
       );
-      if (isStohStoragePath(doc.storagePath)) {
+      libraryDocs.add(doc);
+      if (albums.isEmpty) {
         stohDocs.add(doc);
-        continue;
       }
-      final bid = '${raw['bloque_id']}';
-      docsByBloque.putIfAbsent(bid, () => []).add(doc);
+    }
+
+    final docsByBloque = documentsByAlbumBloque(
+      papers: libraryDocs,
+      placementsByDocId: placementsByDoc,
+    );
+    for (final raw in docsRows as List) {
+      if (raw is! Map) continue;
+      final id = '${raw['id']}';
+      if (placementsByDoc.containsKey(id)) continue;
+      final bid = '${raw['bloque_id'] ?? ''}'.trim();
+      if (bid.isEmpty || bid == 'null') continue;
+      CarpetaDocumento? paper;
+      for (final d in libraryDocs) {
+        if (d.id == id) {
+          paper = d;
+          break;
+        }
+      }
+      if (paper == null) continue;
+      docsByBloque.putIfAbsent(bid, () => []);
+      if (!docsByBloque[bid]!.any((d) => d.id == id)) {
+        docsByBloque[bid]!.add(paper);
+      }
     }
 
     final bloques = <String, BloqueState>{
@@ -469,6 +570,8 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
       movements: movements,
       titulares: liveTitulares,
       stohDocuments: stohDocs,
+      libraryDocuments: libraryDocs,
+      inmuebles: inmuebles,
     );
   }
 
@@ -638,6 +741,76 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
       alreadyHave: {for (final d in bloque.documents) d.tipo},
       originalName: originalName,
     );
+    final client = trySupabaseClient()!;
+    final hash = documentoContentSha256(bytes);
+    var existing = _libraryDocByHash(hash);
+    if (existing == null) {
+      final dup = await client
+          .from('documentos')
+          .select(
+            'id, tipo, storage_path, original_name, inmueble_id, content_sha256',
+          )
+          .eq('tenant_id', view.tenantId)
+          .eq('cliente_id', view.clienteId)
+          .eq('content_sha256', hash)
+          .isFilter('deleted_at', null)
+          .maybeSingle();
+      if (dup != null) {
+        final inm = '${dup['inmueble_id'] ?? ''}'.trim();
+        existing = _libraryDoc('${dup['id']}') ??
+            CarpetaDocumento(
+              id: '${dup['id']}',
+              tipo: '${dup['tipo'] ?? tipo}',
+              storagePath: '${dup['storage_path'] ?? ''}',
+              originalName: '${dup['original_name'] ?? originalName}',
+              inmuebleId: inm.isEmpty || inm == 'null' ? null : inm,
+              contentSha256: hash,
+            );
+      }
+    }
+    if (existing != null) {
+      await client.rpc(
+        'set_documento_placement',
+        params: {
+          'p_documento_id': existing.id,
+          'p_bloque_id': bloqueId,
+          'p_tipo': tipo,
+          'p_on': true,
+        },
+      );
+      if ((view.inmuebleId ?? '').isNotEmpty &&
+          (existing.inmuebleId ?? '').isEmpty) {
+        await client.rpc(
+          'set_documento_inmueble',
+          params: {
+            'p_documento_id': existing.id,
+            'p_inmueble_id': view.inmuebleId,
+          },
+        );
+      }
+      final placed = existing.copyWith(
+        tipo: tipo,
+        albumKeys: {
+          ...existing.albumKeys,
+          templateKey,
+        }.toList(),
+        inmuebleId: existing.inmuebleId ?? view.inmuebleId,
+      );
+      final already = bloque.documents.any((d) => d.id == placed.id);
+      final next = bloque.copyWith(
+        documents: already
+            ? [
+                for (final d in bloque.documents)
+                  if (d.id == placed.id) placed else d,
+              ]
+            : [...bloque.documents, placed],
+      );
+      state = AsyncData(
+        _withLibraryPaper(view.withBloque(templateKey, next), placed),
+      );
+      await _persistBloque(templateKey);
+      return placed;
+    }
     final path = documentoStoragePath(
       tenantId: view.tenantId,
       clienteId: view.clienteId,
@@ -657,18 +830,39 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
       originalName: originalName,
       bloqueId: bloqueId,
       createdBy: auth?.profile?.id,
+      contentSha256: hash,
+      inmuebleId: view.inmuebleId,
     );
+    try {
+      await client.rpc(
+        'set_documento_placement',
+        params: {
+          'p_documento_id': id,
+          'p_bloque_id': bloqueId,
+          'p_tipo': tipo,
+          'p_on': true,
+        },
+      );
+    } on Object {
+      // Řádek už má bloque_id. Junction nesmí zhatit nahrání.
+    }
     final doc = CarpetaDocumento(
       id: id,
       tipo: tipo,
       storagePath: path,
       originalName: originalName,
+      contentSha256: hash,
+      inmuebleId: view.inmuebleId,
+      createdAt: DateTime.now().toUtc(),
+      albumKeys: [templateKey],
     );
     final next = bloque.copyWith(
       enabled: true,
       documents: [...bloque.documents, doc],
     );
-    state = AsyncData(view.withBloque(templateKey, next));
+    state = AsyncData(
+      _withLibraryPaper(view.withBloque(templateKey, next), doc),
+    );
     await _persistBloque(templateKey);
     return doc;
   }
@@ -682,6 +876,19 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
     final auth = ref.read(authControllerProvider).valueOrNull;
     if (view == null || trySupabaseClient() == null) {
       throw OfficeUploadException('not_configured');
+    }
+    final client = trySupabaseClient()!;
+    final hash = documentoContentSha256(bytes);
+    final dup = await client
+        .from('documentos')
+        .select('id')
+        .eq('tenant_id', view.tenantId)
+        .eq('cliente_id', view.clienteId)
+        .eq('content_sha256', hash)
+        .isFilter('deleted_at', null)
+        .maybeSingle();
+    if (dup != null) {
+      throw OfficeUploadException('duplicate');
     }
     final path = documentoStoragePath(
       tenantId: view.tenantId,
@@ -701,14 +908,22 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
       storagePath: path,
       originalName: originalName,
       createdBy: auth?.profile?.id,
+      contentSha256: hash,
     );
     final doc = CarpetaDocumento(
       id: id,
       tipo: 'other',
       storagePath: path,
       originalName: originalName,
+      contentSha256: hash,
+      createdAt: DateTime.now().toUtc(),
     );
-    state = AsyncData(view.withStoh([...view.stohDocuments, doc]));
+    state = AsyncData(
+      view.copyWith(
+        stohDocuments: [...view.stohDocuments, doc],
+        libraryDocuments: [...view.libraryDocuments, doc],
+      ),
+    );
     return doc;
   }
 
@@ -730,6 +945,7 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
         break;
       }
     }
+    doc ??= _libraryDoc(documentId);
     if (doc == null) return false;
     final current = _bloqueLive(bloqueKey);
     final plan = planStohGuardar(
@@ -748,6 +964,19 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
       'bloque_id': bloqueId,
       'tipo': plan.tipo,
     }).eq('id', documentId);
+    try {
+      await client.rpc(
+        'set_documento_placement',
+        params: {
+          'p_documento_id': documentId,
+          'p_bloque_id': bloqueId,
+          'p_tipo': plan.tipo,
+          'p_on': true,
+        },
+      );
+    } on Object {
+      // Junction nesmí zhatit Guardar desky.
+    }
     final placed = doc.copyWith(tipo: plan.tipo);
     final after = (state.valueOrNull ?? view)
         .withBloque(
@@ -788,11 +1017,180 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
     }).eq('id', documentId);
     await discardAiDraft(draftId);
     state = AsyncData(
-      view.withStoh([
-        for (final d in view.stohDocuments)
-          if (d.id != documentId) d,
-      ]),
+      view.copyWith(
+        stohDocuments: [
+          for (final d in view.stohDocuments)
+            if (d.id != documentId) d,
+        ],
+        libraryDocuments: [
+          for (final d in view.libraryDocuments)
+            if (d.id != documentId) d,
+        ],
+      ),
     );
+  }
+
+  /// Fotky v pořadí → jeden PDF. AI nespojuje.
+  Future<void> mergeLibraryImages(List<String> documentIds) async {
+    final view = state.valueOrNull;
+    final client = trySupabaseClient();
+    if (view == null || client == null) {
+      throw OfficeUploadException('not_configured');
+    }
+    final papers = <CarpetaDocumento>[];
+    for (final id in documentIds) {
+      final d = _libraryDoc(id);
+      if (d == null) throw OfficeUploadException('need_photos');
+      papers.add(d);
+    }
+    final reason = libraryMergeBlockReason(
+      count: papers.length,
+      allImages: papers.every(
+        (d) => isLibraryMergeImageName(d.originalName, d.storagePath),
+      ),
+    );
+    if (reason != null) {
+      throw OfficeUploadException(
+        reason == 'stoh.mergeTooMany' ? 'too_many' : 'need_photos',
+      );
+    }
+    final response = await client.functions.invoke(
+      'merge-document-pages',
+      body: {
+        'tenant_id': view.tenantId,
+        'cliente_id': view.clienteId,
+        'documento_ids': documentIds,
+      },
+    );
+    final data = response.data;
+    if (data is! Map || data['ok'] != true) {
+      final err = data is Map ? '${data['error'] ?? ''}' : '';
+      throw OfficeUploadException(err.isEmpty ? 'merge' : err);
+    }
+    ref.invalidateSelf();
+  }
+
+  /// Album v knihovně. Desku nezapíná, pole neukládá.
+  Future<bool> setLibraryPlacement({
+    required String documentId,
+    required String bloqueKey,
+    required String tipo,
+    required bool on,
+  }) async {
+    final view = state.valueOrNull;
+    final client = trySupabaseClient();
+    if (view == null || client == null) return false;
+    var bloqueId = view.bloques[bloqueKey]?.id;
+    final paper = _libraryDoc(documentId);
+    if (paper != null &&
+        (paper.inmuebleId ?? '').isNotEmpty &&
+        paper.inmuebleId != view.inmuebleId) {
+      bloqueId = await _bloqueIdOnInmueble(
+        templateKey: bloqueKey,
+        inmuebleId: paper.inmuebleId!,
+      );
+    }
+    if (bloqueId == null || bloqueId.isEmpty) return false;
+    await client.rpc(
+      'set_documento_placement',
+      params: {
+        'p_documento_id': documentId,
+        'p_bloque_id': bloqueId,
+        'p_tipo': tipo.isEmpty ? paper?.tipo ?? 'other' : tipo,
+        'p_on': on,
+      },
+    );
+    ref.invalidateSelf();
+    return true;
+  }
+
+  Future<bool> setLibraryInmueble({
+    required String documentId,
+    String? inmuebleId,
+  }) async {
+    final client = trySupabaseClient();
+    if (client == null) return false;
+    await client.rpc(
+      'set_documento_inmueble',
+      params: {
+        'p_documento_id': documentId,
+        'p_inmueble_id': inmuebleId,
+      },
+    );
+    ref.invalidateSelf();
+    return true;
+  }
+
+  CarpetaDocumento? _libraryDoc(String id) {
+    final view = state.valueOrNull;
+    if (view == null) return null;
+    for (final d in view.libraryDocuments) {
+      if (d.id == id) return d;
+    }
+    for (final d in view.stohDocuments) {
+      if (d.id == id) return d;
+    }
+    return null;
+  }
+
+  CarpetaDocumento? _libraryDocByHash(String hash) {
+    final want = hash.trim().toLowerCase();
+    if (want.isEmpty) return null;
+    final view = state.valueOrNull;
+    if (view == null) return null;
+    for (final d in view.libraryDocuments) {
+      if (d.contentSha256.trim().toLowerCase() == want) return d;
+    }
+    for (final d in view.stohDocuments) {
+      if (d.contentSha256.trim().toLowerCase() == want) return d;
+    }
+    return null;
+  }
+
+  /// Po přiložení na desku: knihovna i hromada musí znát stejný papír.
+  CarpetaView _withLibraryPaper(CarpetaView view, CarpetaDocumento paper) {
+    final library = <CarpetaDocumento>[
+      for (final d in view.libraryDocuments)
+        if (d.id == paper.id) paper else d,
+    ];
+    if (!library.any((d) => d.id == paper.id)) {
+      library.add(paper);
+    }
+    final pile = [
+      for (final d in view.stohDocuments)
+        if (d.id != paper.id) d,
+    ];
+    return view.copyWith(
+      libraryDocuments: library,
+      stohDocuments: paper.albumKeys.isEmpty ? [...pile, paper] : pile,
+    );
+  }
+
+  Future<String?> _bloqueIdOnInmueble({
+    required String templateKey,
+    required String inmuebleId,
+  }) async {
+    final client = trySupabaseClient();
+    final view = state.valueOrNull;
+    if (client == null || view == null) return null;
+    final exp = await client
+        .from('expedientes')
+        .select('id')
+        .eq('cliente_id', view.clienteId)
+        .eq('inmueble_id', inmuebleId)
+        .isFilter('deleted_at', null)
+        .maybeSingle();
+    final expId = '${exp?['id'] ?? ''}'.trim();
+    if (expId.isEmpty) return null;
+    final row = await client
+        .from('bloques')
+        .select('id')
+        .eq('expediente_id', expId)
+        .eq('template_key', templateKey)
+        .isFilter('deleted_at', null)
+        .maybeSingle();
+    final id = '${row?['id'] ?? ''}'.trim();
+    return id.isEmpty ? null : id;
   }
 
   /// Gestor ukládá návrh z dokladu. AI sem nesmí.
@@ -1552,6 +1950,44 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
       ),
     );
   }
+}
+
+/// Album desky. Tipo z junction, ne z documentos.tipo (stejný PDF ve dvou albech).
+class AlbumHit {
+  const AlbumHit({required this.bloqueId, this.tipo = ''});
+
+  final String bloqueId;
+  final String tipo;
+}
+
+/// Papíry na konkrétní blok této desky. Jedno album = jeden seznam, bez duplicit id.
+Map<String, List<CarpetaDocumento>> documentsByAlbumBloque({
+  required List<CarpetaDocumento> papers,
+  required Map<String, List<AlbumHit>> placementsByDocId,
+}) {
+  final out = <String, List<CarpetaDocumento>>{};
+  void add(String bloqueId, CarpetaDocumento doc) {
+    final id = bloqueId.trim();
+    if (id.isEmpty || id == 'null') return;
+    final list = out.putIfAbsent(id, () => []);
+    if (list.any((d) => d.id == doc.id)) return;
+    list.add(doc);
+  }
+
+  for (final paper in papers) {
+    final places = placementsByDocId[paper.id] ?? const <AlbumHit>[];
+    if (places.isEmpty) continue;
+    for (final p in places) {
+      final tipo = p.tipo.trim();
+      add(
+        p.bloqueId,
+        tipo.isNotEmpty && tipo != paper.tipo
+            ? paper.copyWith(tipo: tipo)
+            : paper,
+      );
+    }
+  }
+  return out;
 }
 
 /// Snackbar z persist desky (konflikt NIE). Klíč i18n už přeložený.

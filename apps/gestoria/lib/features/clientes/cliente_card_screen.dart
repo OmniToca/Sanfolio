@@ -35,6 +35,7 @@ import '../inbox/inbox_providers.dart';
 import '../mensajes/mensaje_history.dart';
 import '../posta/posta_cliente_section.dart';
 import '../settings/office_settings_controller.dart';
+import 'poder_stamp.dart';
 
 class ClienteCardScreen extends ConsumerStatefulWidget {
   const ClienteCardScreen({super.key, required this.clienteId});
@@ -270,6 +271,9 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
           kicker: nie == null || nie.isEmpty ? 'clients.cardTitle'.tr() : nie,
           title: card.nombre.isEmpty ? 'clients.cardTitle'.tr() : card.nombre,
           subtitle: subtitle.isEmpty ? null : subtitle,
+          actions: [
+            PoderStamp(glance: card.poder),
+          ],
           bottom: card.deleted
               ? null
               : Row(

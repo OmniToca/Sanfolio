@@ -27,9 +27,9 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `printHtmlDocument` | `core/print/office_print.dart` | blob URL + `window.print()`; Safari nesnese about:srcdoc |
 | `AiPanel` / `aiChatProvider` | `features/ai/ai_panel.dart` | trvalý chat; zápis `ai_conversations` + `ai_messages` |
 | `AiPanel` / `aiChatProvider` | `features/ai/ai_panel.dart` | trvalý chat; zápis `ai_conversations` + `ai_messages` |
-| `extract-document` | Edge Function | fotka/PDF → text LLM nebo vision → `ai_drafts`; compraventa: všichni kupující/prodávající, cena, finca, právník; Guardar je gestor |
+| `extract-document` | Edge Function | fotka/PDF → text LLM nebo vision → `ai_drafts`; po LLM `body_text` + jistý album; Guardar polí desky je gestor |
 | `documentos.extracted` | JSONB na dokladu | uložená pole po Guardar; AI sem nezapisuje |
-| `documentos.body_text` | TEXT na dokladu | přepis PDF po Guardar |
+| `documentos.body_text` | TEXT na dokladu | přepis PDF po extractu (i bez alba) |
 | `purge_documento_storage` | SQL RPC | owner vysype blob schovaného dokumentu; `legal_hold` když drží hold |
 | `legal_holds` | SQL | zákaz purge/anonymizace do `until` (date Madrid) |
 | `anonymize_cliente` | SQL RPC + karta | owner; PII → ANON; blob pryč; hold blokuje; bez cronu |
@@ -52,12 +52,18 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `copy_channel_from_contact` | SQL RPC | prázdný e-mail/tel/locale z kontaktu; platný locale se nepřepíše |
 | `suggest_cliente_duplicates` / `merge_clientes` | SQL RPC + `/clientes/sloucit` | e-mail/tel/jméno; dvě živá NIE ne; owner/gestor; soft-delete |
 | `season_ibi` | SQL RPC + `/kampane` | SUMA bez recibo nebo plazo v `ibi_warn_days`; prázdné bez splatnosti |
-| `ai_get_cliente` | SQL RPC | snapshot karty + díry + doklady + titular finca (složka, salePrice, cuota); žádný save |
+| `ai_get_cliente` | SQL RPC | snapshot karty + díry + doklady (`albums` [] = hromada, finca) + titular finca; žádný save |
 | `query_suministro` / `query_plazos_office` / `query_escritura` | SQL RPC | office-wide čtení desky; escritura i notář / strana v `inmueble_titulares` / catastral |
+| `search_document_text` | SQL RPC + Edge hybrid | FTS v `body_text` i bez alba; cosine `documento_chunks`; `albums` [] = hromada |
 | `ai-assistant` | Edge Function | whitelist tools; žádný save/send |
 | `roadmap_dokumenty_ai` | `docs/roadmap_dokumenty_ai.md` | Fáze A–G + FTS v `body_text`; vektory později |
 | `ai-draft-message` | Edge Function | díry složky → `mensajes.draft`; odesílá gestor |
 | `stoh` | `features/carpeta/stoh_*.dart`, `/stoh` | sken bez bloku; classify; Guardar zapne blok; AI neukládá |
+| `documento_library` | `documento_library.dart`, SQL 0062–0065 | knihovna u klienta; alba `documento_bloques`; finca; duplicita; spojení fotek; AI place jen album |
+| `library_view` | `library_view.dart`, `/stoh` | filtry hromady, pohled bez dump, hromadný výběr |
+| `cliente_poder_glance` | SQL RPC + čip seznam/karta | máme kopii poderu? deska datum; AI neukládá |
+| `documento_chunks` | SQL 0065 | kousky `body_text` + embedding; tenant scoped; AI jen čte |
+| `merge-document-pages` | Edge Function | 2–20 JPG/PNG → jedno PDF; zdroje soft-delete; AI nespojuje |
 | `pickOfficeFiles` | `office_file_pick.dart` | multi-select šanonu, max 40 |
 | `client_portal` | není | #1 na `docs/vyvoj.md`; čte `mensajes.translations`; klient nenahrazuje Guardar |
 | `gestoria_auth` | `packages/gestoria_auth` | login, PortalUrls, hash `setSession` |
@@ -73,7 +79,7 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `OfficeModulesSection` | Nastavení kanceláře | read-only: název balíčku + měsíční poplatek |
 | `start_impersonation` | SQL RPC | auditní session 8 h |
 | `apps/support` | Flutter web | HQ kanceláře, Impersonar |
-| `CarpetaController` | `carpeta_controller.dart` | tužka, `bloques`, `clientes`, `documentos` |
+| `CarpetaController` | `carpeta_controller.dart` | tužka, `bloques`, `clientes`, `documentos`; přiložení na blok = album, ne druhý blob |
 | `TitularesPanel` | `carpeta_titulares.dart` | spoluvlastníci na desce; mimo obří `carpeta_screen` |
 | `bloqueStatusFill` | `carpeta_controller.dart` | sémantika chipu; zelená jen `done` |
 | `bloqueDocsHint` | kryt bloku | any = text bez 2/3; all + 2 typy = lišta chybějících |

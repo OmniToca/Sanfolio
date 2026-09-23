@@ -12,6 +12,7 @@ import '../../core/theme/app_theme.dart';
 import '../settings/office_settings_controller.dart';
 import '../carpeta/carpeta_routes.dart';
 import 'clientes_providers.dart';
+import 'poder_stamp.dart';
 
 class ClientesScreen extends ConsumerStatefulWidget {
   const ClientesScreen({super.key});
@@ -37,6 +38,7 @@ class _ClientesScreenState extends ConsumerState<ClientesScreen> {
     final office =
         ref.watch(officeSettingsProvider).valueOrNull?.displayName ?? '';
     final filter = ref.watch(clientesFilterProvider);
+    final poderFilter = ref.watch(clientesPoderFilterProvider);
     final showDeleted = canRestoreDeleted(
       ref.watch(authControllerProvider).valueOrNull ?? AuthSnapshot.signedOut,
     );
@@ -44,7 +46,16 @@ class _ClientesScreenState extends ConsumerState<ClientesScreen> {
       ref.watch(authControllerProvider).valueOrNull ?? AuthSnapshot.signedOut,
     );
     final wide = MediaQuery.sizeOf(context).width >= 720;
-    final rows = list.valueOrNull ?? const <ClienteRow>[];
+    final allRows = list.valueOrNull ?? const <ClienteRow>[];
+    final rows = [
+      for (final row in allRows)
+        if (poderFilter == ClientesPoderFilter.all ||
+            (poderFilter == ClientesPoderFilter.withCopy &&
+                row.poder.hasCopy) ||
+            (poderFilter == ClientesPoderFilter.missing &&
+                !row.poder.hasCopy))
+          row,
+    ];
     return Scaffold(
       body: ListView(
         padding: const EdgeInsets.fromLTRB(24, 12, 24, 48),
@@ -143,6 +154,34 @@ class _ClientesScreenState extends ConsumerState<ClientesScreen> {
                         ),
                     ],
                   ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      AppStamp(
+                        label: 'clients.filterPoderAll'.tr(),
+                        selected: poderFilter == ClientesPoderFilter.all,
+                        onTap: () => ref
+                            .read(clientesPoderFilterProvider.notifier)
+                            .state = ClientesPoderFilter.all,
+                      ),
+                      AppStamp(
+                        label: 'clients.filterPoderYes'.tr(),
+                        selected: poderFilter == ClientesPoderFilter.withCopy,
+                        onTap: () => ref
+                            .read(clientesPoderFilterProvider.notifier)
+                            .state = ClientesPoderFilter.withCopy,
+                      ),
+                      AppStamp(
+                        label: 'clients.filterPoderNo'.tr(),
+                        selected: poderFilter == ClientesPoderFilter.missing,
+                        onTap: () => ref
+                            .read(clientesPoderFilterProvider.notifier)
+                            .state = ClientesPoderFilter.missing,
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 20),
                   if (list.isLoading)
                     const Padding(
@@ -191,6 +230,14 @@ class _ClientesScreenState extends ConsumerState<ClientesScreen> {
                                         style: Theme.of(
                                           context,
                                         ).textTheme.titleMedium,
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Wrap(
+                                        spacing: 8,
+                                        runSpacing: 4,
+                                        children: [
+                                          PoderStamp(glance: row.poder),
+                                        ],
                                       ),
                                       if (row.isCoOwnerOnly) ...[
                                         const SizedBox(height: 4),

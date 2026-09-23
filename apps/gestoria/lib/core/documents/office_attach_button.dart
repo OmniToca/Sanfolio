@@ -157,6 +157,7 @@ void showOfficeUploadFailure(BuildContext context, Object error) {
     final key = switch (error.code) {
       'too_big' => 'folder.fileTooBig',
       'bad_type' => 'folder.fileType',
+      'duplicate' => 'stoh.duplicateFile',
       _ => 'folder.uploadError',
     };
     showOfficeFileError(context, key, code: error.code);

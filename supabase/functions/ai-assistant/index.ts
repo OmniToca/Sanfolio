@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
+import { embedTexts } from "../_shared/embed_chunks.ts";
 
 /**
  * Chat kanceláře. Whitelist tools, žádný save/delete/send.
@@ -31,7 +32,7 @@ const tools = [
     function: {
       name: "get_cliente",
       description:
-        "Read one client card, blocks, document fields, and titular_inmuebles (folder sale price + share). Empty own desk is not 'no house'.",
+        "Read one client card, blocks, documents (albums [] = unfiled pile, inmueble/direccion = finca), and titular_inmuebles (folder sale price + share). Empty own desk is not 'no house'.",
       parameters: {
         type: "object",
         properties: { cliente_id: { type: "string" } },
@@ -94,7 +95,7 @@ const tools = [
     function: {
       name: "search_document_text",
       description:
-        "Search saved PDF transcripts (body_text) for a phrase like arras or cláusula. Empty transcript is not proof the clause is missing.",
+        "Search saved PDF transcripts by meaning or exact words (kauci = arras, IBI clause). Returns albums (empty = pile) and inmueble. Empty transcript is not proof the clause is missing. Use for human questions, not only legal terms.",
       parameters: {
         type: "object",
         properties: { q: { type: "string" } },
@@ -171,9 +172,10 @@ Deno.serve(async (req) => {
         "Prázdné pole na desce ≠ neexistuje smlouva — řekni, že to na desce není vyplněné. " +
         "Částka na desce dodávky není součet faktur. Součet je invoice_glance / fields.amount na dokumentech (kladné; dobropis ne). " +
         "Office otázky (dodavatel, seguro, notář, právník, catastral, strana ve smlouvě) = query_* tools. " +
-        "Věta / doložka ve 40stránkové smlouvě = search_document_text (uložený přepis). " +
+        "Věta / doložka ve smlouvě = search_document_text (přepis; rozumí i lidské otázce, nemusí to být přesný právní termín). " +
         "Když body_text chybí, neříkej že ve smlouvě věta není — přepis ještě není uložený. " +
         "get_cliente.titular_inmuebles: spoluvlastník na finca složky folder_cliente_id. " +
+        "search_document_text a get_cliente.documentos: albums [] = hromada; jinak template_key alb. inmueble_id / direccion = finca. Stejný PDF může být ve víc albech jedné finca. " +
         "Cena domu = sale_price celé listiny; podíl = share_percent. Prázdné documentos[] na kartě titulare ≠ dům nemáme. " +
         "Open = deska složky folder_cliente_id (/carpeta), ne šanon escritura (může být vypnutý) a ne prázdná karta spoluvlastníka. " +
         (clienteId ? `Otevřená karta: ${clienteId}. ` : ""),
@@ -227,6 +229,7 @@ Deno.serve(async (req) => {
         call.function.name,
         args,
         opens,
+        apiKey,
       );
       messages.push({
         role: "tool",
@@ -274,6 +277,7 @@ async function runTool(
     carpeta: boolean;
     bloque_key?: string;
   }>,
+  apiKey: string,
 ): Promise<unknown> {
   switch (name) {
     case "search_clients": {
@@ -325,14 +329,7 @@ async function runTool(
     }
     case "search_document_text": {
       const q = str(args.q);
-      const { data, error } = await client.rpc("search_document_text", {
-        p_tenant_id: tenantId,
-        p_q: q,
-        p_limit: 20,
-      });
-      if (error) return { error: error.message };
-      collectOpens(data, opens);
-      return data;
+      return await searchDocumentHybrid(client, tenantId, q, apiKey, opens);
     }
     default:
       return { error: "unknown_tool" };
@@ -478,6 +475,85 @@ function parseAmountCents(raw: string): number {
 
 function str(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
+}
+
+async function searchDocumentHybrid(
+  client: SupabaseClient,
+  tenantId: string,
+  q: string,
+  apiKey: string,
+  opens: Array<{
+    cliente_id: string;
+    label: string;
+    carpeta: boolean;
+    bloque_key?: string;
+  }>,
+): Promise<unknown> {
+  let fts: Record<string, unknown> | null = null;
+  if (q.trim().length >= 3) {
+    const { data, error } = await client.rpc("search_document_text", {
+      p_tenant_id: tenantId,
+      p_q: q,
+      p_limit: 20,
+    });
+    if (!error && data && typeof data === "object") {
+      fts = data as Record<string, unknown>;
+    }
+  }
+
+  let semantic: Record<string, unknown> | null = null;
+  try {
+    const [emb] = await embedTexts(apiKey, [q]);
+    const { data, error } = await client.rpc("search_document_chunks", {
+      p_tenant_id: tenantId,
+      p_query_embedding: emb,
+      p_limit: 12,
+    });
+    if (!error && data && typeof data === "object") {
+      semantic = data as Record<string, unknown>;
+    }
+  } catch (err) {
+    console.warn("search_document_chunks", err);
+  }
+
+  const merged = mergeSearchHits(fts, semantic);
+  collectOpens(merged, opens);
+  return merged;
+}
+
+function mergeSearchHits(
+  fts: Record<string, unknown> | null,
+  semantic: Record<string, unknown> | null,
+): Record<string, unknown> {
+  const byId = new Map<string, Record<string, unknown>>();
+  const take = (raw: unknown, via: string) => {
+    if (!Array.isArray(raw)) return;
+    for (const row of raw) {
+      if (!row || typeof row !== "object") continue;
+      const item = row as Record<string, unknown>;
+      const id = `${item.document_id ?? ""}`;
+      if (!id) continue;
+      const prev = byId.get(id);
+      if (!prev) {
+        byId.set(id, { ...item, via: item.via ?? via });
+        continue;
+      }
+      const snippet = `${prev.snippet ?? ""}`;
+      const next = `${item.snippet ?? ""}`;
+      if (snippet.length < next.length) prev.snippet = item.snippet;
+      if (!prev.via) prev.via = via;
+      if (via === "vector" && prev.via === "fts") prev.via = "hybrid";
+    }
+  };
+  take(fts?.items, "fts");
+  take(semantic?.items, "vector");
+  const filled = fts?.filled_on_desk !== false ||
+    semantic?.filled_on_desk !== false;
+  return {
+    total: byId.size,
+    filled_on_desk: filled,
+    items: [...byId.values()],
+  };
 }
 
 function supabaseUrl(): string {

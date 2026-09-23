@@ -1,10 +1,12 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { extractPdfPages, pdfTextUsable } from "../_shared/pdf_extract.ts";
+import { replaceDocumentoChunks } from "../_shared/embed_chunks.ts";
 
 /**
- * Fotka / PDF → návrh do ai_drafts. Nikdy neukládá klienta ani neodesílá.
- * HTTP vrátí pending hned; LLM doběhne na pozadí (waitUntil). Guardar je gestor.
+ * Fotka / PDF → návrh do ai_drafts. body_text na documentos.
+ * Jistý classify zapíše album (place_documento_ai), ne pole desky.
+ * HTTP vrátí pending hned; LLM doběhne na pozadí (waitUntil). Guardar polí je gestor.
  */
 
 const corsHeaders: Record<string, string> = {
@@ -251,6 +253,13 @@ async function finishExtract(args: {
       args.draftId,
       extracted ? fields : { extract_status: "failed" },
     );
+    if (extracted) {
+      try {
+        await persistLibraryExtract(args, fields);
+      } catch (err) {
+        console.warn("extract-document: library persist", err);
+      }
+    }
     const admin = createClient(supabaseUrl(), serviceRoleKey(), {
       auth: { autoRefreshToken: false, persistSession: false },
     });
@@ -266,6 +275,160 @@ async function finishExtract(args: {
     console.warn("extract-document: pozadí", err);
     await markDraft(args.userClient, args.draftId, { extract_status: "failed" });
   }
+}
+
+async function persistLibraryExtract(
+  args: {
+    userClient: ReturnType<typeof createClient>;
+    tenantId: string;
+    clienteId: string;
+    draftId: string;
+    storagePath: string;
+    classify: boolean;
+  },
+  fields: Record<string, string>,
+) {
+  const { data: draft } = await args.userClient
+    .from("ai_drafts")
+    .select("documento_id")
+    .eq("id", args.draftId)
+    .maybeSingle();
+  let docId = typeof draft?.documento_id === "string" ? draft.documento_id : "";
+  if (!docId) {
+    const { data: docRow } = await args.userClient
+      .from("documentos")
+      .select("id")
+      .eq("tenant_id", args.tenantId)
+      .eq("storage_path", args.storagePath)
+      .is("deleted_at", null)
+      .maybeSingle();
+    docId = typeof docRow?.id === "string" ? docRow.id : "";
+  }
+  if (!docId) return;
+
+  const body = (fields.body_text ?? "").trim();
+  const guessBloque = (fields.proposed_bloque_key ?? "").trim();
+  const guessTipo = (fields.proposed_tipo ?? "").trim() || "other";
+  const patch: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
+  };
+  if (body) patch.body_text = body;
+  if (guessTipo && guessTipo !== "other") patch.tipo = guessTipo;
+  await args.userClient.from("documentos").update(patch).eq("id", docId);
+
+  if (body) {
+    const apiKey = Deno.env.get("OPENAI_API_KEY")?.trim();
+    if (apiKey) {
+      try {
+        await replaceDocumentoChunks({
+          userClient: args.userClient,
+          documentoId: docId,
+          body,
+          apiKey,
+        });
+      } catch (err) {
+        console.warn("extract-document: embed chunks", err);
+      }
+    }
+  }
+
+  if (!args.classify || !STOH_BLOQUES.has(guessBloque)) return;
+  if (PERSON_BLOQUES.has(guessBloque)) return;
+
+  const found = await findBloqueForGuess(
+    args.userClient,
+    args.clienteId,
+    guessBloque,
+    fields,
+  );
+  if (found.inmuebleId) {
+    await args.userClient.from("documentos").update({
+      inmueble_id: found.inmuebleId,
+      updated_at: new Date().toISOString(),
+    }).eq("id", docId);
+  }
+  if (!found.bloqueId) return;
+  await args.userClient.rpc("place_documento_ai", {
+    p_documento_id: docId,
+    p_bloque_id: found.bloqueId,
+    p_tipo: guessTipo,
+  });
+}
+
+const PERSON_BLOQUES = new Set(["cliente_snapshot", "nie_tramite", "poder"]);
+const FINCA_BLOQUES = new Set([
+  "escritura",
+  "agua",
+  "luz",
+  "gaz",
+  "comunidad",
+  "suma",
+  "plusvalia",
+  "seguro",
+  "alarma",
+]);
+
+async function findBloqueForGuess(
+  userClient: ReturnType<typeof createClient>,
+  clienteId: string,
+  templateKey: string,
+  fields: Record<string, string>,
+): Promise<{ bloqueId: string | null; inmuebleId: string }> {
+  const { data: inms } = await userClient
+    .from("inmuebles")
+    .select("id, direccion, referencia_catastral")
+    .eq("cliente_id", clienteId)
+    .is("deleted_at", null);
+  const properties = (inms ?? []) as Array<{
+    id: string;
+    direccion?: string;
+    referencia_catastral?: string;
+  }>;
+  const guessed = guessInmueble(templateKey, properties, fields);
+
+  const { data: rows } = await userClient
+    .from("bloques")
+    .select("id, expedientes!inner(cliente_id, inmueble_id, deleted_at)")
+    .eq("template_key", templateKey)
+    .eq("expedientes.cliente_id", clienteId)
+    .is("deleted_at", null)
+    .is("expedientes.deleted_at", null);
+  const matches = (rows ?? []).filter((raw) => {
+    const exp = raw.expedientes as {
+      inmueble_id?: string | null;
+    } | Array<{ inmueble_id?: string | null }>;
+    const one = Array.isArray(exp) ? exp[0] : exp;
+    if (!guessed) return true;
+    return (one?.inmueble_id ?? "") === guessed;
+  });
+  const bloqueId = matches.length === 1 && typeof matches[0].id === "string"
+    ? matches[0].id
+    : null;
+  return { bloqueId, inmuebleId: guessed };
+}
+
+function guessInmueble(
+  bloque: string,
+  properties: Array<{
+    id: string;
+    direccion?: string;
+    referencia_catastral?: string;
+  }>,
+  fields: Record<string, string>,
+): string {
+  if (!FINCA_BLOQUES.has(bloque) || properties.length === 0) return "";
+  const addr = (fields["fields.address"] ?? "").trim().toLowerCase();
+  const cat = (fields["fields.cadastral"] ?? "").trim().toLowerCase().replaceAll(" ", "");
+  const hits = properties.filter((p) => {
+    const d = (p.direccion ?? "").trim().toLowerCase();
+    const c = (p.referencia_catastral ?? "").trim().toLowerCase().replaceAll(" ", "");
+    const byCat = cat.length > 0 && c.length > 0 && (c === cat || cat.includes(c) || c.includes(cat));
+    const byAddr = addr.length > 0 && d.length > 0 && (addr.includes(d) || d.includes(addr));
+    return byCat || byAddr;
+  });
+  if (hits.length === 1) return hits[0].id;
+  if (properties.length === 1) return properties[0].id;
+  return "";
 }
 
 async function markDraft(

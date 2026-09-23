@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gestoria_auth/gestoria_auth.dart';
 
 import '../../core/identity/nie_persist.dart';
+import '../settings/office_settings_controller.dart';
+import 'poder_glance.dart';
 
 /// Filtr seznamu: neaktivní schovat, nesmazat. Smazané jen owner.
 enum ClientesListFilter { activo, inactivo, deleted }
@@ -26,6 +28,7 @@ class ClienteRow {
     this.deleted = false,
     this.coOwnerNombre,
     this.coOwnerAddress,
+    this.poder = PoderGlance.missing,
   });
 
   final String id;
@@ -37,6 +40,7 @@ class ClienteRow {
   final bool deleted;
   final String? coOwnerNombre;
   final String? coOwnerAddress;
+  final PoderGlance poder;
 
   bool get isCoOwnerOnly =>
       (coOwnerNombre ?? '').isNotEmpty || (coOwnerAddress ?? '').isNotEmpty;
@@ -61,6 +65,22 @@ class ClienteRow {
       deleted: deleted,
       coOwnerNombre: nombre,
       coOwnerAddress: address,
+      poder: poder,
+    );
+  }
+
+  ClienteRow withPoder(PoderGlance next) {
+    return ClienteRow(
+      id: id,
+      nombre: nombre,
+      status: status,
+      nie: nie,
+      email: email,
+      tel: tel,
+      deleted: deleted,
+      coOwnerNombre: coOwnerNombre,
+      coOwnerAddress: coOwnerAddress,
+      poder: next,
     );
   }
 }
@@ -68,6 +88,13 @@ class ClienteRow {
 final clientesQueryProvider = StateProvider<String>((ref) => '');
 final clientesFilterProvider = StateProvider<ClientesListFilter>(
   (ref) => ClientesListFilter.activo,
+);
+
+/// Filtr poderu nad už načteným seznamem. Není to druhá evidence.
+enum ClientesPoderFilter { all, withCopy, missing }
+
+final clientesPoderFilterProvider = StateProvider<ClientesPoderFilter>(
+  (ref) => ClientesPoderFilter.all,
 );
 
 final clientesListProvider = FutureProvider<List<ClienteRow>>((ref) async {
@@ -140,10 +167,16 @@ final clientesListProvider = FutureProvider<List<ClienteRow>>((ref) async {
       return orderedIds.indexOf(a.id).compareTo(orderedIds.indexOf(b.id));
     });
   }
-  return _withCoOwnerHints(
+  final hinted = await _withCoOwnerHints(
     client: client,
     tenantId: tenantId,
     rows: out,
+  );
+  return _withPoderGlances(
+    client: client,
+    tenantId: tenantId,
+    warnDays: ref.watch(officeSettingsProvider).valueOrNull?.poderWarnDays ?? 60,
+    rows: hinted,
   );
 });
 
@@ -276,6 +309,42 @@ Future<List<ClienteRow>> _withCoOwnerHints({
             address: addr.isEmpty ? null : addr,
           );
         }(),
+    ];
+  } on Object {
+    return rows;
+  }
+}
+
+Future<List<ClienteRow>> _withPoderGlances({
+  required dynamic client,
+  required String tenantId,
+  required int warnDays,
+  required List<ClienteRow> rows,
+}) async {
+  if (rows.isEmpty) return rows;
+  try {
+    final hits = await client.rpc(
+      'cliente_poder_glance',
+      params: {
+        'p_tenant_id': tenantId,
+        'p_cliente_ids': [for (final r in rows) r.id],
+      },
+    );
+    if (hits is! List) return rows;
+    final today = DateTime.now();
+    final byId = <String, PoderGlance>{};
+    for (final raw in hits) {
+      if (raw is! Map) continue;
+      final id = '${raw['cliente_id'] ?? ''}'.trim();
+      if (id.isEmpty) continue;
+      byId[id] = poderGlanceFromRpc(
+        raw: raw,
+        today: today,
+        warnDays: warnDays,
+      );
+    }
+    return [
+      for (final row in rows) row.withPoder(byId[row.id] ?? PoderGlance.missing),
     ];
   } on Object {
     return rows;

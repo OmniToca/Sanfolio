@@ -196,6 +196,8 @@ Plazo: `cita_nie` z `fecha_cita`; `nie_caducidad` z data na kartě. Offsety z `t
 Dokument: `copia_poder` povinný.  
 Plazo: `poder_caducidad`. Offset z `tenant_settings.poder_warn_days`. Propadlý poder = `overdue` a varování, že kancelář nemá jednat za klienta.
 
+Na seznamu klientů a na kartě je čip z **kopie** (`copia_poder` nebo album `poder`), ne ze zapnutého bloku. Bez kopie = „Bez poder“. Datum platnosti z desky (`fecha_caducidad`); OCR odpad čip nebarví. Filtr „S poderem / Bez poderu“ je nad seznamem, ne nová položka v railu. RPC `cliente_poder_glance`.
+
 ## 4. Daňové bloky mimo tisk (náčrt Impuestos)
 
 ### 4.1 `modelo_210`
@@ -262,7 +264,9 @@ Nový typ se přidává jen migrací katalogu, ne volným stringem v UI (kromě 
 
 ## 5b. Stoh ze šanonu
 
-Po založení klienta (a kdykoli ze složky) jde `/clientes/:id/stoh`. Soubory padají na `documentos` **bez** `bloque_id` (`{tenant}/{cliente}/stoh/…`). Extract s `classify` navrhne `proposed_bloque_key` + `proposed_tipo`. Guardar přiřadí blok, zapne ho když byl `off`, zapíše `extracted`. AI neukládá. Jeden soubor = jeden papír (PDF se nedělí). `/prepis` bere jen extract, který už blok má.
+Po založení klienta (a kdykoli ze složky) jde `/clientes/:id/stoh`. Soubory padají na `documentos` u klienta (`{tenant}/{cliente}/…`). Extract s `classify` zapíše `body_text` (i bez alba), navrhne album a finca. Jistý návrh zapíše `documento_bloques` (AI jen album, ne pole desky). Nejisté zůstanou na hromadě. Stejný soubor (SHA-256) se podruhé nenahrává — na desce se jen přidá album (junction `tipo` je per album). Jeden soubor = jeden papír (PDF se nedělí). Více fotek jedné listiny: v knihovně **Spojit** (JPG/PNG v pořadí → jedno PDF, zdroje do koše). Guardar polí desky je pořád člověk. `/prepis` bere extract s albem.
+
+Migrace 0062–0065 jsou na Sanfolio. `recompute_bloque_status` čte `documento_bloques`. `search_document_text` je FTS + vektory kousků. `/stoh` je knihovna (filtry, štítky, hromadný výběr, spojení fotek).
 
 ## 6. Další služby (Gestorie Jarka je dělá)
 

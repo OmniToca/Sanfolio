@@ -46,6 +46,12 @@ verify_jwt = true
 [functions.ai-assistant]
 verify_jwt = true
 
+[functions.embed-pending-chunks]
+verify_jwt = false
+
+[functions.merge-document-pages]
+verify_jwt = true
+
 [functions.sif-emit]
 verify_jwt = true
 

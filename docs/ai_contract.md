@@ -53,11 +53,13 @@ Office-wide čtení desky (dodavatel, termíny, notář / catastral / strany lis
 
 ### 2.4 `search_document_text`
 
-Read-only fulltext v `documentos.body_text`. Limit 20, tenant RLS. Prázdný přepis ≠ „ve smlouvě to není“. Žádný pgvector.
+Read-only fulltext v `documentos.body_text` **plus** cosine v `documento_chunks` (pgvector, `text-embedding-3-small`). Hybrid v `ai-assistant`. Limit 20 / 12. Prázdný přepis ≠ „ve smlouvě to není“. Výsledek nese `albums` (prázdné = hromada), `inmueble_id` a `direccion`. `ai_get_cliente.documentos` totéž.
 
 ## 2b. Samostatné Edge (ne chat tools)
 
-- **`extract-document`** — JWT, fotka/PDF → `ai_drafts`. `classify: true` u stohu navrhne blok a tipo. Guardar ve Flutter zapíše `documentos.extracted` + `body_text` a zařadí na blok. AI sem neukládá.
+- **`extract-document`** — JWT, fotka/PDF → `ai_drafts`. `classify: true` u stohu navrhne blok a tipo. Po LLM zapíše `documentos.body_text`, kousky (`documento_chunks`) a jistý album (`place_documento_ai`); `extracted` a pole desky pořád Guardar.
+- **`merge-document-pages`** — JWT, 2–20 JPG/PNG v pořadí → jedno PDF, zdroje do koše. AI nespojuje. PDF se neřeže.
+- **`embed-pending-chunks`** — dopočet vektorů u přepisů bez kousků.
 - **`ai-draft-message`** — JWT, nachystá `mensajes.status = draft`. `sent_at` zůstane null. Tool `send_message` **neexistuje**.
 - **`translate-message`** — při odeslání člověkem.
 

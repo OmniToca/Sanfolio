@@ -148,9 +148,9 @@ Hotovo když: klik na Vodu u Petra otevře šanon; deska zůstane tenká; `factu
 Hotovo v kódu (2026-09-13): GIN + RPC `search_document_text`, tool v `ai-assistant`. Prázdný přepis ≠ „ve smlouvě to není“.
 
 1. Fulltext v Postgres (`body_text`, tenant RLS) — „arras“, „cláusula“.
-2. **Až potom** pgvector (Leo `document_chunks`), vždy `tenant_id`, nikdy globální katalog.
+2. pgvector `documento_chunks` (Leo-style kousky, vždy `tenant_id`) — lidská otázka („má kauci?“) bez přesného slova. Hybrid v `ai-assistant`.
 
-Hotovo když: „ve které smlouvě je arras?“ vrátí klienta + citaci + otevře šanon. **pgvector ne.**
+Hotovo když: „ve které smlouvě je arras / kauci?“ vrátí klienta + citaci + otevře šanon.
 
 ---
 

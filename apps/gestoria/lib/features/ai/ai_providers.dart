@@ -299,6 +299,8 @@ class AiDocFact {
     this.periodFrom,
     this.periodTo,
     this.bodyExcerpt,
+    this.albums = const [],
+    this.direccion,
   });
 
   final String tipo;
@@ -310,6 +312,8 @@ class AiDocFact {
   final String? periodFrom;
   final String? periodTo;
   final String? bodyExcerpt;
+  final List<String> albums;
+  final String? direccion;
 }
 
 class AiFactAnswer {
@@ -372,6 +376,10 @@ Future<AiFactAnswer?> askClienteFactsForId(
             periodFrom: extracted['fields.periodFrom'],
             periodTo: extracted['fields.periodTo'],
             bodyExcerpt: raw['body_excerpt']?.toString(),
+            albums: jsonStringList(raw['albums']),
+            direccion: '${raw['direccion'] ?? ''}'.trim().isEmpty
+                ? null
+                : '${raw['direccion']}'.trim(),
           ),
         );
       }
@@ -432,12 +440,16 @@ class AiOfficeHit {
     required this.nombre,
     this.detail,
     this.bloqueKey,
+    this.albums = const [],
+    this.direccion,
   });
 
   final String clienteId;
   final String nombre;
   final String? detail;
   final String? bloqueKey;
+  final List<String> albums;
+  final String? direccion;
 }
 
 class AiOfficeAnswer {
@@ -474,12 +486,16 @@ AiOfficeAnswer? _parseOfficeJson(Object? data) {
         if ('${raw['snippet'] ?? ''}'.trim().isNotEmpty) '${raw['snippet']}',
       ].join(' · ');
       final bloque = '${raw['bloque_key'] ?? ''}'.trim();
+      final albums = jsonStringList(raw['albums']);
+      final dir = '${raw['direccion'] ?? ''}'.trim();
       items.add(
         AiOfficeHit(
           clienteId: id,
           nombre: nombre.isEmpty ? id : nombre,
           detail: detail.isEmpty ? null : detail,
           bloqueKey: bloque.isEmpty ? null : bloque,
+          albums: albums,
+          direccion: dir.isEmpty ? null : dir,
         ),
       );
     }
@@ -670,4 +686,13 @@ Future<AiChatPayload?> askAiAssistant({
   } on Object {
     return null;
   }
+}
+
+/// JSON pole albums z RPC. Prázdné = hromada.
+List<String> jsonStringList(Object? raw) {
+  if (raw is! List) return const [];
+  return [
+    for (final e in raw)
+      if ('$e'.trim().isNotEmpty) '$e'.trim(),
+  ];
 }

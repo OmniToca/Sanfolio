@@ -291,6 +291,8 @@ class _AiPanelState extends ConsumerState<AiPanel> {
             lines.add(
               [
                 'docs.${doc.tipo}'.tr(),
+                _aiAlbumBit(doc.albums),
+                if ((doc.direccion ?? '').isNotEmpty) doc.direccion!,
                 if (period.isNotEmpty) period,
                 if (g.amountCents != null)
                   'folder.money'.tr(
@@ -302,6 +304,8 @@ class _AiPanelState extends ConsumerState<AiPanel> {
           }
           final bits = [
             'docs.${doc.tipo}'.tr(),
+            _aiAlbumBit(doc.albums),
+            if ((doc.direccion ?? '').isNotEmpty) doc.direccion!,
             if (doc.docNumber != null && doc.docNumber!.isNotEmpty)
               '${'fields.docNumber'.tr()}: ${doc.docNumber}',
             if (doc.expiry != null && doc.expiry!.isNotEmpty)
@@ -327,7 +331,12 @@ class _AiPanelState extends ConsumerState<AiPanel> {
         lines.add('ai.officePartial'.tr());
         for (final hit in office.items) {
           lines.add(
-            [hit.nombre, if (hit.detail != null) hit.detail!].join(' · '),
+            [
+              hit.nombre,
+              _aiAlbumBit(hit.albums),
+              if ((hit.direccion ?? '').isNotEmpty) hit.direccion!,
+              if (hit.detail != null) hit.detail!,
+            ].join(' · '),
           );
           if (opens.any(
             (o) =>
@@ -662,4 +671,10 @@ String _openLabel(AiChatOpen open) {
     return 'ai.openFolder'.tr(namedArgs: {'name': name});
   }
   return name;
+}
+
+/// Prázdné albums z RPC = hromada, jinak názvy bloků.
+String _aiAlbumBit(List<String> albums) {
+  if (albums.isEmpty) return 'stoh.pile'.tr();
+  return albums.map((k) => 'blocks.$k'.tr()).join(' · ');
 }

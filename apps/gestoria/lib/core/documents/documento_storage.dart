@@ -122,6 +122,8 @@ Future<String> insertDocumentoRow({
   required String originalName,
   String? bloqueId,
   String? createdBy,
+  String? contentSha256,
+  String? inmuebleId,
 }) async {
   final client = trySupabaseClient();
   if (client == null) throw OfficeUploadException('not_configured');
@@ -136,6 +138,10 @@ Future<String> insertDocumentoRow({
           'original_name': originalName,
           if (bloqueId != null && bloqueId.isNotEmpty) 'bloque_id': bloqueId,
           if (createdBy != null && createdBy.isNotEmpty) 'created_by': createdBy,
+          if (contentSha256 != null && contentSha256.isNotEmpty)
+            'content_sha256': contentSha256,
+          if (inmuebleId != null && inmuebleId.isNotEmpty)
+            'inmueble_id': inmuebleId,
         })
         .select('id')
         .single();

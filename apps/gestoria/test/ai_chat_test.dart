@@ -65,6 +65,12 @@ void main() {
     expect(clienteIdFromOfficePath('/inbox'), isNull);
   });
 
+  test('albums z RPC jsou seznam klíčů, prázdné pole je hromada', () {
+    expect(jsonStringList(['luz', 'escritura']), ['luz', 'escritura']);
+    expect(jsonStringList(<Object?>[]), isEmpty);
+    expect(jsonStringList(null), isEmpty);
+  });
+
   test('řádky z DB se čtou, hard-delete v nich není', () {
     final rows = [
       {

@@ -11,8 +11,10 @@ import '../ai/escritura_parties.dart';
 import '../ai/extract_text.dart';
 import '../carpeta/carpeta_controller.dart';
 import '../facturacion/facturacion_providers.dart';
+import '../settings/office_settings_controller.dart';
 import 'cliente_audit.dart';
 import 'clientes_providers.dart';
+import 'poder_glance.dart';
 
 class ClienteContact {
   const ClienteContact({
@@ -116,6 +118,7 @@ class ClienteCard {
     this.coOwnerExpedienteId,
     this.holds = const [],
     this.erasureRequested = false,
+    this.poder = PoderGlance.missing,
   });
 
   final String id;
@@ -138,6 +141,7 @@ class ClienteCard {
   final String? coOwnerExpedienteId;
   final List<ClienteHold> holds;
   final bool erasureRequested;
+  final PoderGlance poder;
 
   bool get isCoOwnerOnly => (coOwnerFolderId ?? '').isNotEmpty;
 
@@ -285,6 +289,27 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
       documentoIds: docIds,
     );
 
+    var poder = PoderGlance.missing;
+    try {
+      final powerHits = await client.rpc(
+        'cliente_poder_glance',
+        params: {
+          'p_tenant_id': tenantId,
+          'p_cliente_ids': [clienteId],
+        },
+      );
+      if (powerHits is List && powerHits.isNotEmpty && powerHits.first is Map) {
+        poder = poderGlanceFromRpc(
+          raw: Map<String, dynamic>.from(powerHits.first as Map),
+          today: DateTime.now(),
+          warnDays:
+              ref.watch(officeSettingsProvider).valueOrNull?.poderWarnDays ?? 60,
+        );
+      }
+    } on Object {
+      // Přehled nesmí shodit kartu.
+    }
+
     return ClienteCard(
       id: '${row['id']}',
       tenantId: tenantId,
@@ -306,6 +331,7 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
       coOwnerExpedienteId: coOwner?.expedienteId,
       holds: holds,
       erasureRequested: row['erasure_requested_at'] != null,
+      poder: poder,
     );
   }
 
