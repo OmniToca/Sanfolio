@@ -87,14 +87,15 @@ class _StohScreenState extends ConsumerState<StohScreen> {
                   : view.libraryDocuments,
               drafts: drafts.valueOrNull ?? const [],
             );
+            final allPapers = buildLibraryPapers(
+              documents: view.libraryDocuments.isEmpty
+                  ? view.stohDocuments
+                  : view.libraryDocuments,
+              drafts: queue,
+              inmuebles: view.inmuebles,
+            );
             final papers = filterLibraryPapers(
-              papers: buildLibraryPapers(
-                documents: view.libraryDocuments.isEmpty
-                    ? view.stohDocuments
-                    : view.libraryDocuments,
-                drafts: queue,
-                inmuebles: view.inmuebles,
-              ),
+              papers: allPapers,
               scope: _scope,
               inmuebleId: _inmuebleId,
               query: _query,
@@ -160,8 +161,8 @@ class _StohScreenState extends ConsumerState<StohScreen> {
                         onPickedMany: _enqueue,
                       ),
                       const SizedBox(height: 12),
-                      _filters(view),
-                      if (_selected.isNotEmpty) _bulkBar(view),
+                      _filters(view, allPapers),
+                      if (_selected.isNotEmpty) _bulkBar(view, allPapers),
                       if (papers.isNotEmpty)
                         Expanded(
                           child: ListView(
@@ -193,7 +194,7 @@ class _StohScreenState extends ConsumerState<StohScreen> {
     );
   }
 
-  Widget _filters(CarpetaView view) {
+  Widget _filters(CarpetaView view, List<LibraryPaper> papers) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -216,9 +217,7 @@ class _StohScreenState extends ConsumerState<StohScreen> {
               ),
             for (final inm in view.inmuebles)
               AppStamp(
-                label: inm.direccion.isEmpty
-                    ? inm.id
-                    : inm.direccion,
+                label: _fincaChip(inm, papers),
                 selected: _inmuebleId == inm.id,
                 onTap: () => setState(() {
                   _inmuebleId = _inmuebleId == inm.id ? null : inm.id;
@@ -230,7 +229,12 @@ class _StohScreenState extends ConsumerState<StohScreen> {
     );
   }
 
-  Widget _bulkBar(CarpetaView view) {
+  String _fincaChip(LibraryInmueble inm, List<LibraryPaper> papers) {
+    final label = libraryFincaLabel(inm, papers: papers);
+    return label.isEmpty ? 'stoh.unnamedFinca'.tr() : label;
+  }
+
+  Widget _bulkBar(CarpetaView view, List<LibraryPaper> papers) {
     return Padding(
       padding: const EdgeInsets.only(top: 12),
       child: Wrap(
@@ -253,7 +257,7 @@ class _StohScreenState extends ConsumerState<StohScreen> {
           ),
           if (view.inmuebles.isNotEmpty)
             TextButton(
-              onPressed: () => _bulkFinca(view),
+              onPressed: () => _bulkFinca(view, papers),
               child: Text('stoh.bulkFinca'.tr()),
             ),
           TextButton(
@@ -743,7 +747,10 @@ class _StohScreenState extends ConsumerState<StohScreen> {
     if (mounted) setState(() => _selected.clear());
   }
 
-  Future<void> _bulkFinca(CarpetaView view) async {
+  Future<void> _bulkFinca(
+    CarpetaView view,
+    List<LibraryPaper> papers,
+  ) async {
     String? chosen;
     final ok = await showDialog<bool>(
       context: context,
@@ -760,9 +767,7 @@ class _StohScreenState extends ConsumerState<StohScreen> {
               for (final inm in view.inmuebles)
                 DropdownMenuItem(
                   value: inm.id,
-                  child: Text(
-                    inm.direccion.isEmpty ? inm.id : inm.direccion,
-                  ),
+                  child: Text(_fincaChip(inm, papers)),
                 ),
             ],
             onChanged: (v) => chosen = v,

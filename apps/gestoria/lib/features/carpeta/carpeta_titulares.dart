@@ -9,6 +9,36 @@ import '../../core/identity/nie_persist.dart';
 import '../ai/escritura_parties.dart';
 import 'carpeta_controller.dart';
 
+/// Čip strany této složky. Tužka je na řádku titulare, AI neukládá.
+class FolderLadoBadge extends StatelessWidget {
+  const FolderLadoBadge({
+    super.key,
+    required this.lado,
+    this.showWhenUnknown = true,
+  });
+
+  final String? lado;
+  final bool showWhenUnknown;
+
+  @override
+  Widget build(BuildContext context) {
+    final known = normalizeFolderLado(lado);
+    if (known == null && !showWhenUnknown) return const SizedBox.shrink();
+    final label = switch (known) {
+      'comprador' => 'folder.ladoComprador'.tr(),
+      'vendedor' => 'folder.ladoVendedor'.tr(),
+      _ => 'folder.ladoUnknown'.tr(),
+    };
+    return Chip(
+      visualDensity: VisualDensity.compact,
+      label: Text(
+        label,
+        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+}
+
 /// Spoluvlastníci na desce. Žije mimo `carpeta_screen`, ať obrazovka není obří.
 class TitularesPanel extends ConsumerWidget {
   const TitularesPanel({super.key, required this.target});
@@ -33,6 +63,13 @@ class TitularesPanel extends ConsumerWidget {
           Text(
             'folder.titulares'.tr(),
             style: Theme.of(context).textTheme.titleMedium,
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: 6, bottom: 8),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: FolderLadoBadge(lado: view.folderLado()),
+            ),
           ),
           if (rows.isEmpty)
             Padding(
@@ -63,6 +100,7 @@ class TitularesPanel extends ConsumerWidget {
                 onNombre: (v) => ctrl.setTitularNombre(t.id, v),
                 onNie: (v) => ctrl.setTitularNie(t.id, v),
                 onShare: (v) => ctrl.setTitularShare(t.id, v),
+                onLado: (v) => ctrl.setTitularLado(t.id, v),
                 onRemove: () => ctrl.removeTitular(t.id),
                 onOpenCard: (t.clienteId ?? '').isEmpty
                     ? null
@@ -90,6 +128,7 @@ class _TitularRow extends StatefulWidget {
     required this.onNombre,
     required this.onNie,
     required this.onShare,
+    required this.onLado,
     required this.onRemove,
     this.onOpenCard,
   });
@@ -99,6 +138,7 @@ class _TitularRow extends StatefulWidget {
   final ValueChanged<String> onNombre;
   final ValueChanged<String> onNie;
   final ValueChanged<String> onShare;
+  final ValueChanged<String> onLado;
   final VoidCallback onRemove;
   final VoidCallback? onOpenCard;
 
@@ -159,15 +199,6 @@ class _TitularRowState extends State<_TitularRow> {
 
   @override
   Widget build(BuildContext context) {
-    final lado = widget.row.isComprador
-        ? 'folder.ladoComprador'.tr()
-        : 'folder.ladoVendedor'.tr();
-    final bits = [
-      lado,
-      if (widget.isFolderOwner) 'folder.titularFolder'.tr(),
-      if (!widget.isFolderOwner && widget.onOpenCard != null)
-        'folder.titularCard'.tr(),
-    ];
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Column(
@@ -217,11 +248,42 @@ class _TitularRowState extends State<_TitularRow> {
           ),
           Padding(
             padding: const EdgeInsets.only(top: 4),
-            child: Text(
-              bits.join(' · '),
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppTheme.pencil,
-                  ),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                DropdownMenu<String>(
+                  key: ValueKey('lado-${widget.row.id}-${widget.row.lado}'),
+                  initialSelection: widget.row.isComprador
+                      ? 'comprador'
+                      : 'vendedor',
+                  label: Text('folder.titularLado'.tr()),
+                  dropdownMenuEntries: [
+                    DropdownMenuEntry(
+                      value: 'comprador',
+                      label: 'folder.ladoComprador'.tr(),
+                    ),
+                    DropdownMenuEntry(
+                      value: 'vendedor',
+                      label: 'folder.ladoVendedor'.tr(),
+                    ),
+                  ],
+                  onSelected: (v) {
+                    if (v != null) widget.onLado(v);
+                  },
+                ),
+                Text(
+                  [
+                    if (widget.isFolderOwner) 'folder.titularFolder'.tr(),
+                    if (!widget.isFolderOwner && widget.onOpenCard != null)
+                      'folder.titularCard'.tr(),
+                  ].join(' · '),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppTheme.pencil,
+                      ),
+                ),
+              ],
             ),
           ),
         ],

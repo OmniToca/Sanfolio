@@ -254,7 +254,8 @@
     "mergeOk": "Las fotos son un PDF. Leyendo el texto…",
     "mergeUp": "Arriba",
     "mergeDown": "Abajo",
-    "year": "{year}"
+    "year": "{year}",
+    "unnamedFinca": "Finca"
   },
   "ofertas": {
     "settingsTitle": "Ofertas del despacho",
@@ -749,6 +750,7 @@
     "titularLado": "Parte",
     "ladoComprador": "Comprador",
     "ladoVendedor": "Vendedor",
+    "ladoUnknown": "Sin determinar",
     "titularSaveError": "No se pudo guardar el titular.",
     "titularNieTaken": "Otro titular de esta finca ya tiene este NIE.",
     "titularCard": "ficha"
@@ -857,6 +859,7 @@
     "buyers": "Compradores",
     "sellers": "Vendedores",
     "lawyer": "Abogado / despacho",
+    "folderLado": "Lado de esta carpeta",
     "parcela": "Parcela",
     "registry": "Registro / finca",
     "referenceValue": "Valor de referencia (€)",

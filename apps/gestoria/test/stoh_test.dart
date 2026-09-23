@@ -50,7 +50,33 @@ void main() {
       classifyStohPaper(originalName: 'pasaporte_ana.jpg').tipo,
       'pasaporte',
     );
-    expect(classifyStohPaper(originalName: 'scan001.pdf').known, isFalse);
+    expect(
+      classifyStohPaper(originalName: 'scan001.pdf').known,
+      isFalse,
+    );
+    expect(
+      classifyStohPaper(
+        originalName: 'Poder Mark Howells Regalado.pdf',
+        bodyText: 'Ante mí, notario, protocolo 2116 escritura de poder',
+      ).bloqueKey,
+      'poder',
+    );
+    expect(
+      classifyStohPaper(
+        originalName: 'FACTURA 00000057_R Susicova.pdf',
+        bodyText: 'Factura. Protocolo notarial. Escritura.',
+        fields: const {kProposedBloqueKey: 'escritura'},
+      ).bloqueKey,
+      isNot('escritura'),
+    );
+    expect(
+      classifyStohPaper(
+        originalName: 'Gana_Energia_marzo.pdf',
+        bodyText: 'Gana Energía. Periodo de facturación.',
+        fields: const {'fields.company': 'Gana Energía'},
+      ).bloqueKey,
+      'luz',
+    );
     expect(planStohGuardar(
       selectedBloqueKey: '',
       selectedTipo: 'other',

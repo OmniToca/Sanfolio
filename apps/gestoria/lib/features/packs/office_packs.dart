@@ -62,14 +62,17 @@ bool season210Open({
 }
 
 /// Po notáři zbývá práce, když běží plusvalía, díra na dodávce,
-/// nebo čerstvá koupě (90 dní) bez podaného 210.
+/// nebo čerstvá koupě (90 dní) bez podaného 210. Prodávající sem
+/// nepatří — 210 tipo 28 není imputace po koupi.
 bool afterNotaryStillOpen({
   required bool plusvaliaOpen,
   required Iterable<String> supplyHoles,
   required bool recentEscritura,
   required bool tax210Needed,
+  bool folderIsVendedor = false,
 }) {
   if (plusvaliaOpen) return true;
+  if (folderIsVendedor) return false;
   if (supplyHoles.isNotEmpty) return true;
   return recentEscritura && tax210Needed;
 }

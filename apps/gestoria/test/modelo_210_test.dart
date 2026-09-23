@@ -158,5 +158,26 @@ void main() {
       const ClienteInmueblePick(id: 'inm', direccion: 'Islandia 14'),
     );
     expect(none.containsKey('fields.sharePercent'), isFalse);
+    expect(none.containsKey('fields.incomeKind'), isFalse);
+    final buy = withInmuebleFacts(
+      const {},
+      const ClienteInmueblePick(
+        id: 'inm',
+        direccion: 'Islandia 14',
+        lado: 'comprador',
+      ),
+    );
+    expect(buy['fields.incomeKind'], 'imputacion');
+    final sell = withInmuebleFacts(
+      const {'fields.incomeKind': 'alquiler'},
+      const ClienteInmueblePick(
+        id: 'inm',
+        direccion: 'Islandia 14',
+        lado: 'vendedor',
+      ),
+    );
+    expect(sell['fields.incomeKind'], 'alquiler');
+    expect(proposeIncomeKindFromFolderLado('vendedor'), 'transmision');
+    expect(proposeIncomeKindFromFolderLado(null), isNull);
   });
 }

@@ -18,12 +18,14 @@ class ClienteInmueblePick {
     required this.direccion,
     this.catastral,
     this.sharePercent,
+    this.lado,
   });
 
   final String id;
   final String direccion;
   final String? catastral;
   final String? sharePercent;
+  final String? lado;
 }
 
 class ClienteExpedienteRow {
@@ -186,6 +188,12 @@ class ThinExpedienteController
       clienteId: clienteId,
       clienteNie: clienteNie,
     );
+    final ladoByInmueble = await _ladoByInmueble(
+      client: client,
+      inmuebleIds: inmIds,
+      clienteId: clienteId,
+      clienteNie: clienteNie,
+    );
     final inmuebles = <ClienteInmueblePick>[];
     for (final raw in inmRows) {
       final id = '${raw['id']}';
@@ -196,6 +204,7 @@ class ThinExpedienteController
           direccion: '${raw['direccion'] ?? ''}'.trim(),
           catastral: cat.isEmpty ? null : cat,
           sharePercent: shareByInmueble[id],
+          lado: ladoByInmueble[id],
         ),
       );
     }
@@ -539,6 +548,10 @@ Map<String, String> withInmuebleFacts(
   if ((next['fields.sharePercent'] ?? '').trim().isEmpty && share.isNotEmpty) {
     next['fields.sharePercent'] = share;
   }
+  if ((next['fields.incomeKind'] ?? '').trim().isEmpty) {
+    final kind = proposeIncomeKindFromFolderLado(pick.lado);
+    if (kind != null) next['fields.incomeKind'] = kind;
+  }
   return next;
 }
 
@@ -556,7 +569,6 @@ Future<Map<String, String>> _sharePercentByInmueble({
           'id, inmueble_id, nombre, nie_raw, lado, cuota_bps, cliente_id',
         )
         .inFilter('inmueble_id', inmuebleIds)
-        .eq('lado', 'comprador')
         .isFilter('deleted_at', null);
     final byInm = <String, List<InmuebleTitular>>{};
     if (rows is List) {
@@ -574,7 +586,7 @@ Future<Map<String, String>> _sharePercentByInmueble({
                 id: id,
                 nombre: nombre,
                 nieRaw: '${raw['nie_raw'] ?? ''}'.trim(),
-                lado: 'comprador',
+                lado: '${raw['lado'] ?? ''}'.trim(),
                 cuotaBps: cuota,
                 clienteId: cid.isEmpty || cid == 'null' ? null : cid,
               ),
@@ -589,6 +601,59 @@ Future<Map<String, String>> _sharePercentByInmueble({
         clienteNie: clienteNie,
       );
       if (share != null) out[e.key] = share;
+    }
+    return out;
+  } on Object {
+    return {};
+  }
+}
+
+Future<Map<String, String>> _ladoByInmueble({
+  required dynamic client,
+  required List<String> inmuebleIds,
+  required String clienteId,
+  String? clienteNie,
+}) async {
+  if (inmuebleIds.isEmpty) return {};
+  try {
+    final rows = await client
+        .from('inmueble_titulares')
+        .select(
+          'id, inmueble_id, nombre, nie_raw, lado, cuota_bps, cliente_id',
+        )
+        .inFilter('inmueble_id', inmuebleIds)
+        .isFilter('deleted_at', null);
+    final byInm = <String, List<InmuebleTitular>>{};
+    if (rows is List) {
+      for (final raw in rows) {
+        if (raw is! Map) continue;
+        final inm = '${raw['inmueble_id'] ?? ''}'.trim();
+        final id = '${raw['id'] ?? ''}'.trim();
+        final nombre = '${raw['nombre'] ?? ''}'.trim();
+        final bps = raw['cuota_bps'];
+        final cuota = bps is int ? bps : int.tryParse('$bps') ?? 0;
+        if (inm.isEmpty || id.isEmpty) continue;
+        final cid = '${raw['cliente_id'] ?? ''}'.trim();
+        byInm.putIfAbsent(inm, () => []).add(
+              InmuebleTitular(
+                id: id,
+                nombre: nombre,
+                nieRaw: '${raw['nie_raw'] ?? ''}'.trim(),
+                lado: '${raw['lado'] ?? ''}'.trim(),
+                cuotaBps: cuota < 1 ? 1 : cuota,
+                clienteId: cid.isEmpty || cid == 'null' ? null : cid,
+              ),
+            );
+      }
+    }
+    final out = <String, String>{};
+    for (final e in byInm.entries) {
+      final lado = folderLadoFromTitulares(
+        rows: e.value,
+        clienteId: clienteId,
+        clienteNie: clienteNie,
+      );
+      if (lado != null) out[e.key] = lado;
     }
     return out;
   } on Object {
@@ -634,6 +699,12 @@ Future<void> _mergeTitularInmuebles({
       clienteId: clienteId,
       clienteNie: clienteNie,
     );
+    final lado = await _ladoByInmueble(
+      client: client,
+      inmuebleIds: extraIds,
+      clienteId: clienteId,
+      clienteNie: clienteNie,
+    );
     if (inmRaw is! List) return;
     for (final raw in inmRaw) {
       if (raw is! Map) continue;
@@ -647,6 +718,7 @@ Future<void> _mergeTitularInmuebles({
           direccion: dir,
           catastral: cat.isEmpty ? null : cat,
           sharePercent: share[id],
+          lado: lado[id],
         ),
       );
     }

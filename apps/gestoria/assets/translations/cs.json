@@ -254,7 +254,8 @@
     "mergeOk": "Fotky jsou jeden PDF. Třídím text…",
     "mergeUp": "Výš",
     "mergeDown": "Níž",
-    "year": "{year}"
+    "year": "{year}",
+    "unnamedFinca": "Finca"
   },
   "ofertas": {
     "settingsTitle": "Nabídky kanceláře",
@@ -749,6 +750,7 @@
     "titularLado": "Strana",
     "ladoComprador": "Comprador",
     "ladoVendedor": "Vendedor",
+    "ladoUnknown": "Neurčeno",
     "titularSaveError": "Titulare se nepodařilo uložit.",
     "titularNieTaken": "Toto NIE už má jiný titular na této finca.",
     "titularCard": "karta"
@@ -857,6 +859,7 @@
     "buyers": "Kupující",
     "sellers": "Prodávající",
     "lawyer": "Právník / despacho",
+    "folderLado": "Strana této složky",
     "parcela": "Parcela",
     "registry": "Registro / finca",
     "referenceValue": "Valor de referencia (€)",

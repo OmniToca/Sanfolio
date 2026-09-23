@@ -99,20 +99,52 @@ List<String> tiposForStohBloque(String bloqueKey) {
   return const ['other'];
 }
 
+final _stohPoderName = RegExp(r'p[oó]der|apoderad');
+final _stohFacturaName = RegExp(r'factura|invoice|recibo');
+final _stohEscrituraName = RegExp(r'escritur|compravent');
+final _stohEscrituraBody = RegExp(r'escritur|compravent|notari|protocolo');
+
 /// Heuristika + `proposed_*` z extract. Gestor může přepsat dropdownem.
+/// Název souboru a poder/faktura jdou před „notario“ v těle PDF.
 StohProposal classifyStohPaper({
   required String originalName,
   String bodyText = '',
   Map<String, String> fields = const {},
 }) {
-  final fromLlm = proposalFromExtractFields(fields);
-  if (fromLlm.known) return fromLlm;
-
   final name = originalName.toLowerCase();
   final body = bodyText.toLowerCase();
   final hay = '$name\n$body';
   final cups = (fields['fields.cups'] ?? '').trim();
   final company = (fields['fields.company'] ?? '').toLowerCase();
+
+  if (_stohPoderName.hasMatch(name)) {
+    return const StohProposal(bloqueKey: 'poder', tipo: 'copia_poder');
+  }
+  if (RegExp(r'pasaport|passport').hasMatch(name)) {
+    return const StohProposal(
+      bloqueKey: 'cliente_snapshot',
+      tipo: 'pasaporte',
+    );
+  }
+  if (RegExp(r'\bdni\b|\bnie\b').hasMatch(name) &&
+      !_stohEscrituraName.hasMatch(name) &&
+      !_stohFacturaName.hasMatch(name)) {
+    return const StohProposal(
+      bloqueKey: 'cliente_snapshot',
+      tipo: 'dni_nie',
+    );
+  }
+  if (_stohEscrituraName.hasMatch(name) && !_stohFacturaName.hasMatch(name)) {
+    return const StohProposal(
+      bloqueKey: 'escritura',
+      tipo: 'copia_escritura',
+    );
+  }
+
+  final fromLlm = proposalFromExtractFields(fields);
+  final llmEscrituraOnInvoice =
+      fromLlm.bloqueKey == 'escritura' && _stohFacturaName.hasMatch(name);
+  if (fromLlm.known && !llmEscrituraOnInvoice) return fromLlm;
 
   if (RegExp(r'pasaport|passport').hasMatch(hay)) {
     return const StohProposal(
@@ -121,17 +153,15 @@ StohProposal classifyStohPaper({
     );
   }
   if (RegExp(r'\bdni\b|\bnie\b').hasMatch(name) &&
-      !RegExp(r'escritur|factura|contrato').hasMatch(name)) {
+      !_stohEscrituraName.hasMatch(name) &&
+      !_stohFacturaName.hasMatch(name)) {
     return const StohProposal(
       bloqueKey: 'cliente_snapshot',
       tipo: 'dni_nie',
     );
   }
-  if (RegExp(r'escritur|compravent|notari|protocolo').hasMatch(hay)) {
-    return const StohProposal(
-      bloqueKey: 'escritura',
-      tipo: 'copia_escritura',
-    );
+  if (_stohPoderName.hasMatch(hay)) {
+    return const StohProposal(bloqueKey: 'poder', tipo: 'copia_poder');
   }
   if (RegExp(r'plusval').hasMatch(hay)) {
     return const StohProposal(
@@ -140,7 +170,7 @@ StohProposal classifyStohPaper({
     );
   }
   if (RegExp(r'\bibi\b|\bsuma\b|catastral').hasMatch(hay) &&
-      !RegExp(r'escritur').hasMatch(hay)) {
+      !_stohEscrituraName.hasMatch(hay)) {
     return const StohProposal(bloqueKey: 'suma', tipo: 'recibo_ibi');
   }
   if (RegExp(r'comunidad|administrador de fincas').hasMatch(hay)) {
@@ -150,20 +180,25 @@ StohProposal classifyStohPaper({
     );
   }
   if (RegExp(r'p[oó]liza|seguro').hasMatch(hay) &&
-      !RegExp(r'factura').hasMatch(name)) {
+      !_stohFacturaName.hasMatch(name)) {
     return const StohProposal(bloqueKey: 'seguro', tipo: 'poliza_seguro');
-  }
-  if (RegExp(r'\bpoder\b|apoderad').hasMatch(hay)) {
-    return const StohProposal(bloqueKey: 'poder', tipo: 'copia_poder');
   }
   if (RegExp(r'alarma').hasMatch(hay)) {
     return const StohProposal(bloqueKey: 'alarma', tipo: 'contrato_alarma');
   }
+  if (_stohEscrituraBody.hasMatch(hay) && !_stohFacturaName.hasMatch(name)) {
+    return const StohProposal(
+      bloqueKey: 'escritura',
+      tipo: 'copia_escritura',
+    );
+  }
 
   final aguaCo = RegExp(r'hidraqua|aqualia|\bagua\b|canal de isabel');
-  final luzHint = RegExp(r'iberdrola|endesa|holaluz|\bcups\b|\bkwh\b|\bluz\b');
+  final luzHint = RegExp(
+    r'iberdrola|endesa|holaluz|gana energ|\bcups\b|\bkwh\b|\bluz\b',
+  );
   final gazHint = RegExp(r'\bgaz\b|\bgas natural\b|\bgas\b');
-  final looksFactura = RegExp(r'factura|recibo|invoice').hasMatch(hay);
+  final looksFactura = _stohFacturaName.hasMatch(hay);
   final looksContrato = RegExp(r'contrato').hasMatch(hay);
 
   if (aguaCo.hasMatch(hay) || aguaCo.hasMatch(company)) {

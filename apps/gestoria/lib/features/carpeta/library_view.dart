@@ -29,6 +29,16 @@ class LibraryPaper {
 
   bool get failed => isExtractFailed(draftFields);
 
+  LibraryPaper copyWith({String? inmuebleLabel}) {
+    return LibraryPaper(
+      document: document,
+      draftId: draftId,
+      draftFields: draftFields,
+      dupKind: dupKind,
+      inmuebleLabel: inmuebleLabel ?? this.inmuebleLabel,
+    );
+  }
+
   StohProposal get proposal => classifyStohPaper(
         originalName: document.originalName,
         bodyText: draftFields['body_text'] ?? document.bodyText ?? '',
@@ -56,12 +66,16 @@ class LibraryPaper {
 /// Pole, která má smysl číst bez otevření. Ne dump fields.*.
 const kLibraryGlanceKeys = <String>[
   'fields.amount',
+  'fields.company',
+  'fields.holder',
   'fields.periodFrom',
   'fields.periodTo',
   'fields.invoiceNo',
   'fields.cups',
-  'fields.company',
   'fields.nie',
+  'fields.nombre',
+  'fields.lawyer',
+  'fields.email',
   'fields.expiry',
   'fields.address',
   'fields.attorney',
@@ -81,6 +95,24 @@ List<MapEntry<String, String>> libraryGlanceEntries(
     if (out.length >= max) break;
   }
   return out;
+}
+
+/// Čip finca: adresa, catastral, adresa z papíru. Nikdy UUID.
+String libraryFincaLabel(
+  LibraryInmueble? inm, {
+  Iterable<LibraryPaper> papers = const [],
+}) {
+  if (inm == null) return '';
+  final dir = inm.direccion.trim();
+  if (dir.isNotEmpty) return dir;
+  final cat = inm.catastral.trim();
+  if (cat.isNotEmpty) return cat;
+  for (final p in papers) {
+    if ((p.document.inmuebleId ?? '') != inm.id) continue;
+    final addr = (p.glanceFields['fields.address'] ?? '').trim();
+    if (addr.isNotEmpty) return addr;
+  }
+  return '';
 }
 
 int libraryPaperYear(LibraryPaper paper) {
@@ -113,7 +145,7 @@ List<LibraryPaper> buildLibraryPapers({
         amount: d.extracted['fields.amount'] ?? '',
       ),
   ];
-  final labelById = {for (final p in inmuebles) p.id: p.direccion};
+  final inmById = {for (final p in inmuebles) p.id: p};
   final out = <LibraryPaper>[
     for (final doc in documents)
       () {
@@ -141,7 +173,9 @@ List<LibraryPaper> buildLibraryPapers({
             live: hints,
             excludeId: doc.id,
           ),
-          inmuebleLabel: labelById[doc.inmuebleId ?? ''] ?? '',
+          inmuebleLabel: libraryFincaLabel(
+            inmById[doc.inmuebleId ?? ''],
+          ),
         );
       }(),
   ];
@@ -150,7 +184,17 @@ List<LibraryPaper> buildLibraryPapers({
     final bt = b.document.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
     return bt.compareTo(at);
   });
-  return out;
+  return [
+    for (final p in out)
+      p.inmuebleLabel.isNotEmpty
+          ? p
+          : p.copyWith(
+              inmuebleLabel: libraryFincaLabel(
+                inmById[p.document.inmuebleId ?? ''],
+                papers: out,
+              ),
+            ),
+  ];
 }
 
 List<LibraryPaper> filterLibraryPapers({

@@ -275,6 +275,54 @@ void main() {
       ),
       '50',
     );
+    expect(
+      folderLadoFromTitulares(
+        rows: [petr.copyWith(), monika, seller],
+        clienteId: 'petr-id',
+      ),
+      isNull,
+    );
+    expect(
+      folderLadoFromTitulares(
+        rows: [
+          InmuebleTitular(
+            id: '1',
+            nombre: 'Petr',
+            nieRaw: 'Y9736943E',
+            lado: 'comprador',
+            cuotaBps: 5000,
+            clienteId: 'petr-id',
+          ),
+          seller,
+        ],
+        clienteId: 'petr-id',
+      ),
+      'comprador',
+    );
+    expect(
+      folderLadoFromTitulares(
+        rows: [seller.copyWith(clienteId: 'pat-id')],
+        clienteId: 'pat-id',
+      ),
+      'vendedor',
+    );
+    expect(
+      folderLadoFromTitulares(
+        rows: [seller],
+        clienteId: 'nobody',
+        clienteNie: 'X7183596Y',
+      ),
+      'vendedor',
+    );
+    expect(
+      titularSharePercentForCliente(
+        rows: [seller.copyWith(clienteId: 'pat-id')],
+        clienteId: 'pat-id',
+      ),
+      '100',
+    );
+    expect(normalizeFolderLado('comprador'), 'comprador');
+    expect(normalizeFolderLado('x'), isNull);
   });
 
   test('spoluvlastník v seznamu není prázdná složka', () {

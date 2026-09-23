@@ -254,7 +254,8 @@
     "mergeOk": "Photos are one PDF. Reading text…",
     "mergeUp": "Up",
     "mergeDown": "Down",
-    "year": "{year}"
+    "year": "{year}",
+    "unnamedFinca": "Finca"
   },
   "ofertas": {
     "settingsTitle": "Office offers",
@@ -749,6 +750,7 @@
     "titularLado": "Side",
     "ladoComprador": "Comprador",
     "ladoVendedor": "Vendedor",
+    "ladoUnknown": "Unknown",
     "titularSaveError": "Could not save the titular.",
     "titularNieTaken": "Another titular on this finca already has this NIE.",
     "titularCard": "card"
@@ -857,6 +859,7 @@
     "buyers": "Buyers",
     "sellers": "Sellers",
     "lawyer": "Lawyer / firm",
+    "folderLado": "This folder's side",
     "parcela": "Plot",
     "registry": "Land registry / finca",
     "referenceValue": "Catastro reference value (€)",

@@ -60,6 +60,26 @@ void main() {
       ),
       isFalse,
     );
+    expect(
+      afterNotaryStillOpen(
+        plusvaliaOpen: false,
+        supplyHoles: const ['agua'],
+        recentEscritura: true,
+        tax210Needed: true,
+        folderIsVendedor: true,
+      ),
+      isFalse,
+    );
+    expect(
+      afterNotaryStillOpen(
+        plusvaliaOpen: true,
+        supplyHoles: const ['agua'],
+        recentEscritura: true,
+        tax210Needed: true,
+        folderIsVendedor: true,
+      ),
+      isTrue,
+    );
   });
 
   test('Nachystat cambio de titular je šablona compose, ne odeslání', () {

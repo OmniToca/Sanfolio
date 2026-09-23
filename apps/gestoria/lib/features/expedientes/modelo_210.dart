@@ -65,6 +65,15 @@ const modelo210TaxInputKeys = <String>[
   'fields.bought2012',
 ];
 
+/// Kupující → imputace, prodávající → transmise. Gestor může přepnout.
+String? proposeIncomeKindFromFolderLado(String? lado) {
+  return switch ((lado ?? '').trim()) {
+    'comprador' => 'imputacion',
+    'vendedor' => 'transmision',
+    _ => null,
+  };
+}
+
 /// Jen vstupy, které teď dávají smysl. Jinak by Jarka vyplňovala prodej u imputace.
 List<String> modelo210VisibleInputs(Map<String, String> values) {
   final kind = (values['fields.incomeKind'] ?? '').trim();

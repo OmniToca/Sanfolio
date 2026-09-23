@@ -334,6 +334,13 @@ async function persistLibraryExtract(
 
   if (!args.classify || !STOH_BLOQUES.has(guessBloque)) return;
   if (PERSON_BLOQUES.has(guessBloque)) return;
+  const fileName = (args.storagePath.split("/").pop() ?? "").toLowerCase();
+  if (
+    guessBloque === "escritura" &&
+    /factura|invoice|recibo|p[oó]der|apoderad/.test(fileName)
+  ) {
+    return;
+  }
 
   const found = await findBloqueForGuess(
     args.userClient,
@@ -526,7 +533,8 @@ function extractSystemPrompt(
     (classify
       ? " proposedBloque = one of cliente_snapshot,escritura,agua,luz,gaz,comunidad,suma,plusvalia,seguro,alarma,nie_tramite,poder (omit if unsure). " +
         "proposedTipo = dni_nie,pasaporte,copia_escritura,contrato_agua,factura_agua,recibo_agua,contrato_luz,factura_luz,contrato_gaz,factura_gaz,certificado_comunidad,recibo_ibi,declaracion_plusvalia,poliza_seguro,contrato_alarma,copia_poder,other (omit if unsure). " +
-        "Hidraqua/Aqualia → agua. CUPS/kWh/Iberdrola → luz. Escritura/notario → escritura. DNI/NIE card → cliente_snapshot."
+        "Filename first: Poder/apoderado → poder, never escritura. FACTURA/invoice/recibo in the filename → not escritura even if the PDF mentions notario or protocolo. " +
+        "Hidraqua/Aqualia → agua. CUPS/kWh/Iberdrola/Gana Energía → luz. Escritura/compraventa in the filename → escritura. DNI/NIE card → cliente_snapshot. Omit proposedBloque if unsure."
       : "") +
     (includeBody
       ? " body_text = readable text with --- Strana n --- page marks, max 20000 chars."
@@ -817,52 +825,76 @@ const STOH_BLOQUES = new Set([
   "poder",
 ]);
 
+const PODER_NAME = /p[oó]der|apoderad/;
+const FACTURA_NAME = /factura|invoice|recibo/;
+const ESCRITURA_NAME = /escritur|compravent/;
+const ESCRITURA_BODY = /escritur|compravent|notari|protocolo/;
+const LUZ_HINT = /iberdrola|endesa|holaluz|gana energ|\bcups\b|\bkwh\b|\bluz\b/;
+
+/// Stejné pořadí jako Flutter `classifyStohPaper`. Název Poder/FACTURA
+/// přebije notáře v těle i LLM, jinak by extract strčil poder do escritura.
 function classifyStohPaper(
   path: string,
   bodyText: string,
   fields: Record<string, string>,
 ): { bloque: string; tipo: string } {
-  const fromLlmBloque = STOH_BLOQUES.has(fields.proposed_bloque_key ?? "")
-    ? fields.proposed_bloque_key
-    : "";
-  if (fromLlmBloque) {
-    return {
-      bloque: fromLlmBloque,
-      tipo: fields.proposed_tipo || "other",
-    };
-  }
   const name = (path.split("/").pop() ?? "").toLowerCase();
   const body = bodyText.toLowerCase();
   const hay = `${name}\n${body}`;
   const cups = (fields["fields.cups"] ?? "").trim();
   const company = (fields["fields.company"] ?? "").toLowerCase();
+
+  if (PODER_NAME.test(name)) {
+    return { bloque: "poder", tipo: "copia_poder" };
+  }
+  if (/pasaport|passport/.test(name)) {
+    return { bloque: "cliente_snapshot", tipo: "pasaporte" };
+  }
+  if (/\bdni\b|\bnie\b/.test(name) && !ESCRITURA_NAME.test(name) && !FACTURA_NAME.test(name)) {
+    return { bloque: "cliente_snapshot", tipo: "dni_nie" };
+  }
+  if (ESCRITURA_NAME.test(name) && !FACTURA_NAME.test(name)) {
+    return { bloque: "escritura", tipo: "copia_escritura" };
+  }
+
+  const fromLlmBloque = STOH_BLOQUES.has(fields.proposed_bloque_key ?? "")
+    ? fields.proposed_bloque_key!
+    : "";
+  const llmEscrituraOnInvoice = fromLlmBloque === "escritura" &&
+    FACTURA_NAME.test(name);
+  if (fromLlmBloque && !llmEscrituraOnInvoice) {
+    return {
+      bloque: fromLlmBloque,
+      tipo: fields.proposed_tipo || "other",
+    };
+  }
+
   if (/pasaport|passport/.test(hay)) {
     return { bloque: "cliente_snapshot", tipo: "pasaporte" };
   }
-  if (/\bdni\b|\bnie\b/.test(name) && !/escritur|factura|contrato/.test(name)) {
-    return { bloque: "cliente_snapshot", tipo: "dni_nie" };
-  }
-  if (/escritur|compravent|notari|protocolo/.test(hay)) {
-    return { bloque: "escritura", tipo: "copia_escritura" };
+  if (PODER_NAME.test(hay)) {
+    return { bloque: "poder", tipo: "copia_poder" };
   }
   if (/plusval/.test(hay)) {
     return { bloque: "plusvalia", tipo: "declaracion_plusvalia" };
   }
-  if (/\bibi\b|\bsuma\b|catastral/.test(hay) && !/escritur/.test(hay)) {
+  if (/\bibi\b|\bsuma\b|catastral/.test(hay) && !ESCRITURA_NAME.test(hay)) {
     return { bloque: "suma", tipo: "recibo_ibi" };
   }
   if (/comunidad|administrador de fincas/.test(hay)) {
     return { bloque: "comunidad", tipo: "certificado_comunidad" };
   }
-  if (/p[oó]liza|seguro/.test(hay) && !/factura/.test(name)) {
+  if (/p[oó]liza|seguro/.test(hay) && !FACTURA_NAME.test(name)) {
     return { bloque: "seguro", tipo: "poliza_seguro" };
   }
-  if (/\bpoder\b|apoderad/.test(hay)) {
-    return { bloque: "poder", tipo: "copia_poder" };
-  }
   if (/alarma/.test(hay)) return { bloque: "alarma", tipo: "contrato_alarma" };
+  if (ESCRITURA_BODY.test(hay) && !FACTURA_NAME.test(name)) {
+    return { bloque: "escritura", tipo: "copia_escritura" };
+  }
+
   const aguaCo = /hidraqua|aqualia|\bagua\b|canal de isabel/;
-  const looksFactura = /factura|recibo|invoice/.test(hay);
+  const gazHint = /\bgaz\b|\bgas natural\b|\bgas\b/;
+  const looksFactura = FACTURA_NAME.test(hay);
   const looksContrato = /contrato/.test(hay);
   if (aguaCo.test(hay) || aguaCo.test(company)) {
     return {
@@ -870,13 +902,20 @@ function classifyStohPaper(
       tipo: looksContrato && !looksFactura ? "contrato_agua" : "factura_agua",
     };
   }
-  if (cups || /iberdrola|endesa|holaluz|\bcups\b|\bkwh\b|\bluz\b/.test(hay)) {
+  if (cups || LUZ_HINT.test(hay) || LUZ_HINT.test(company)) {
+    const gazOnly = gazHint.test(hay) && !/\bkwh\b|\bluz\b|electric/.test(hay);
+    if (gazOnly) {
+      return {
+        bloque: "gaz",
+        tipo: looksContrato && !looksFactura ? "contrato_gaz" : "factura_gaz",
+      };
+    }
     return {
       bloque: "luz",
       tipo: looksContrato && !looksFactura ? "contrato_luz" : "factura_luz",
     };
   }
-  if (/\bgaz\b|\bgas natural\b|\bgas\b/.test(hay) || /gas/.test(company)) {
+  if (gazHint.test(hay) || gazHint.test(company)) {
     return {
       bloque: "gaz",
       tipo: looksContrato && !looksFactura ? "contrato_gaz" : "factura_gaz",

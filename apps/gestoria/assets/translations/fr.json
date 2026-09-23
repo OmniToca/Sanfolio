@@ -254,7 +254,8 @@
     "mergeOk": "Les photos forment un PDF. Lecture du texte…",
     "mergeUp": "Haut",
     "mergeDown": "Bas",
-    "year": "{year}"
+    "year": "{year}",
+    "unnamedFinca": "Finca"
   },
   "ofertas": {
     "settingsTitle": "Offres du cabinet",
@@ -749,6 +750,7 @@
     "titularLado": "Partie",
     "ladoComprador": "Comprador",
     "ladoVendedor": "Vendedor",
+    "ladoUnknown": "Indéterminé",
     "titularSaveError": "Impossible d’enregistrer le titular.",
     "titularNieTaken": "Un autre titular de cette finca a déjà ce NIE.",
     "titularCard": "fiche"
@@ -857,6 +859,7 @@
     "buyers": "Acheteurs",
     "sellers": "Vendeurs",
     "lawyer": "Avocat / cabinet",
+    "folderLado": "Côté de ce dossier",
     "parcela": "Parcelle",
     "registry": "Registre / finca",
     "referenceValue": "Valeur de référence (€)",

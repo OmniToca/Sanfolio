@@ -85,10 +85,10 @@ Inbox: klient bez e-mailu i telefonu + existuje `missing_document` jinde → kan
 | `escritura_fecha` | ano pokud je zapnutá plusvalía | Spouštěč lhůty |
 | `protocolo` | ne | |
 
-Dokument: `copia_escritura` obvykle (Gestorie Jarka: většinou ve složce).  
+Dokument: `copia_escritura` obvykle (Gestorie Jarka: většinou ve složce). **Složka = strana listiny; listina se nedělí** na album kupující a album prodávající. Jeden PDF, jeden `copia_escritura`. Čip Comprador / Vendedor / neurčeno čte `inmueble_titulares.lado` této karty. Extract navrhne stranu (Guardar je člověk). 210: kupující → návrh imputace, prodávající → transmise (+ 211 jako pole, ne 14. blok desky).  
 U notářské compraventy extract bere **všechny** prodávající a **všechny** skutečné kupující (zastoupení cónyuges, ne zmocněnce), cenu (`precio de esta compraventa`, ne valor de referencia ani hypotéku), catastral, parcelu, registro, právníka/despacho a notáře. Klient kanceláře je jen jeden z nich — ať jde 210 / plusvalía spočítat z papíru, ne z první strany PDF. Věta v 40stranové smlouvě = `search_document_text` (uložený `body_text`). Notář / Zenia / catastral napříč kanceláří = `query_escritura`.  
 `referencia_catastral` na inmueble: většinou; po Guardar listiny se doplní z přepisu.  
-Kupující/prodávající po Guardar (fáze T2+) jdou do `inmueble_titulares` (cuota, NIE), ne do `client_contacts`. Kupující s NIE dostane **kartu** (hledání, e-mail), ne druhou desku. Default stejný díl mezi kupujícími; gananciales se nehádají z českého režimu. Tužka na šanonu ESCRITURA opraví %. 210 čte `sharePercent` z titulare tohoto klienta — [roadmap_titulares.md](roadmap_titulares.md).  
+Kupující/prodávající po Guardar (fáze T2+) jdou do `inmueble_titulares` (cuota, NIE), ne do `client_contacts`. Kupující s NIE dostane **kartu** (hledání, e-mail), ne druhou desku. Default stejný díl mezi kupujícími; gananciales se nehádají z českého režimu. Tužka na šanonu ESCRITURA opraví % i stranu. 210 čte `sharePercent` z titulare tohoto klienta — [roadmap_titulares.md](roadmap_titulares.md).  
 Plazo: žádné vlastní. Zapnutá plusvalía odvodí lhůtu z `escritura_fecha` + `tenant_settings.plusvalia_days`.
 
 ### 3.3 `agua` / `luz` / `gaz` / `comunidad`

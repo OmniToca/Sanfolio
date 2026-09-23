@@ -136,6 +136,7 @@ class InmuebleTitular {
   InmuebleTitular copyWith({
     String? nombre,
     String? nieRaw,
+    String? lado,
     int? cuotaBps,
     String? clienteId,
   }) {
@@ -143,7 +144,7 @@ class InmuebleTitular {
       id: id,
       nombre: nombre ?? this.nombre,
       nieRaw: nieRaw ?? this.nieRaw,
-      lado: lado,
+      lado: lado ?? this.lado,
       cuotaBps: cuotaBps ?? this.cuotaBps,
       clienteId: clienteId ?? this.clienteId,
     );
@@ -158,25 +159,62 @@ int compradorCuotaBpsSum(Iterable<InmuebleTitular> rows) {
   return sum;
 }
 
-/// 210: podíl tohoto klienta na finca. Vendedor se neplete.
+/// 210: podíl této karty na finca, i když je prodávající (tipo 28).
 String? titularSharePercentForCliente({
   required Iterable<InmuebleTitular> rows,
   required String clienteId,
   String? clienteNie,
 }) {
   for (final t in rows) {
-    if (!t.isComprador) continue;
     if (t.clienteId == clienteId) return sharePercentFromBps(t.cuotaBps);
   }
   final nie = (clienteNie ?? '').trim();
   if (nie.isEmpty) return null;
   final want = normalizeNie(nie);
   for (final t in rows) {
-    if (!t.isComprador) continue;
     if (normalizeNie(t.nieRaw) == want) {
       return sharePercentFromBps(t.cuotaBps);
     }
   }
+  return null;
+}
+
+/// Strana této složky. Prázdné = gestor doplní tužkou, AI neukládá.
+String? folderLadoFromTitulares({
+  required Iterable<InmuebleTitular> rows,
+  required String clienteId,
+  String? clienteNie,
+  String? clienteNombre,
+}) {
+  for (final t in rows) {
+    if (t.clienteId == clienteId) return normalizeFolderLado(t.lado);
+  }
+  final nie = (clienteNie ?? '').trim();
+  if (nie.isNotEmpty) {
+    final want = normalizeNie(nie);
+    for (final t in rows) {
+      if (normalizeNie(t.nieRaw) == want) {
+        return normalizeFolderLado(t.lado);
+      }
+    }
+  }
+  final name = (clienteNombre ?? '').trim();
+  if (name.isEmpty) return null;
+  String? found;
+  for (final t in rows) {
+    if (t.nombre.trim().isEmpty) continue;
+    if (!namesLikelyMatch(name, t.nombre)) continue;
+    final lado = normalizeFolderLado(t.lado);
+    if (lado == null) continue;
+    if (found != null && found != lado) return null;
+    found = lado;
+  }
+  return found;
+}
+
+String? normalizeFolderLado(String? raw) {
+  final v = (raw ?? '').trim();
+  if (v == 'comprador' || v == 'vendedor') return v;
   return null;
 }
 
@@ -248,6 +286,16 @@ class CarpetaView {
 
   CarpetaView withTitulares(List<InmuebleTitular> next) {
     return copyWith(titulares: next);
+  }
+
+  /// Čip na krytu desky. Neurčeno, když karta v titulares není.
+  String? folderLado({String? clienteNie}) {
+    return folderLadoFromTitulares(
+      rows: titulares,
+      clienteId: clienteId,
+      clienteNie: clienteNie ?? bloques['cliente_snapshot']?.values['fields.nie'],
+      clienteNombre: nombre,
+    );
   }
 
   CarpetaView withStoh(List<CarpetaDocumento> next) {
@@ -1780,6 +1828,37 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
         unawaited(_persistTitularNie(titularId, nie));
       },
     );
+  }
+
+  /// Tužka na šanonu. AI sem nesmí.
+  Future<void> setTitularLado(String titularId, String lado) async {
+    final view = state.valueOrNull;
+    final next = normalizeFolderLado(lado);
+    if (view == null || next == null) return;
+    state = AsyncData(
+      view.withTitulares([
+        for (final t in view.titulares)
+          if (t.id == titularId) t.copyWith(lado: next) else t,
+      ]),
+    );
+    final client = trySupabaseClient();
+    if (client == null) return;
+    try {
+      await client.from('inmueble_titulares').update({
+        'lado': next,
+      }).eq('id', titularId).eq('tenant_id', view.tenantId);
+      if (next == 'comprador' && view.inmuebleId != null) {
+        await _ensureCompradorClientes(
+          inmuebleId: view.inmuebleId!,
+          tenantId: view.tenantId,
+          folderClienteId: view.clienteId,
+        );
+        await _reloadTitulares(view.inmuebleId!);
+      }
+    } on Object {
+      _notice('folder.titularSaveError'.tr());
+      if (view.inmuebleId != null) await _reloadTitulares(view.inmuebleId!);
+    }
   }
 
   Future<void> _persistTitularNombre(String titularId, String nombre) async {

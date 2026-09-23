@@ -148,15 +148,30 @@ class CarpetaScreen extends ConsumerWidget {
               ),
             ],
             bottom: PreferredSize(
-              preferredSize: const Size.fromHeight(28),
+              preferredSize: const Size.fromHeight(40),
               child: Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text(
-                  view.inmuebleDireccion == null ||
-                          view.inmuebleDireccion!.isEmpty
-                      ? 'folder.subtitle'.tr()
-                      : view.inmuebleDireccion!,
-                  style: const TextStyle(color: AppTheme.pencil, fontSize: 13),
+                padding: const EdgeInsets.only(bottom: 8, left: 16, right: 16),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text(
+                        view.inmuebleDireccion == null ||
+                                view.inmuebleDireccion!.isEmpty
+                            ? 'folder.subtitle'.tr()
+                            : view.inmuebleDireccion!,
+                        style: const TextStyle(
+                          color: AppTheme.pencil,
+                          fontSize: 13,
+                        ),
+                      ),
+                      if (view.inmuebleId != null)
+                        FolderLadoBadge(lado: view.folderLado()),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -309,6 +324,7 @@ class _BloqueCover extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final status = bloqueUiStatus(state.dbStatus);
     final ctrl = ref.read(carpetaControllerProvider(target).notifier);
+    final view = ref.watch(carpetaControllerProvider(target)).valueOrNull;
     final summary = _coverSummary(template, state);
     final papers = state.documents.length;
     final canOpen = state.enabled || papers > 0;
@@ -336,6 +352,10 @@ class _BloqueCover extends ConsumerWidget {
                   child: _BloqueWatchHeader(
                     title: template.labelI18n.tr(),
                     status: status,
+                    folderLado: template.key == 'escritura'
+                        ? view?.folderLado()
+                        : null,
+                    showFolderLado: template.key == 'escritura',
                   ),
                 ),
                 Tooltip(
@@ -426,10 +446,17 @@ class _BloqueCover extends ConsumerWidget {
 
 /// Název vlevo, stav vedle. Switch je jinde — tužka ≠ hotovo.
 class _BloqueWatchHeader extends StatelessWidget {
-  const _BloqueWatchHeader({required this.title, required this.status});
+  const _BloqueWatchHeader({
+    required this.title,
+    required this.status,
+    this.folderLado,
+    this.showFolderLado = false,
+  });
 
   final String title;
   final BloqueUiStatus status;
+  final String? folderLado;
+  final bool showFolderLado;
 
   @override
   Widget build(BuildContext context) {
@@ -459,6 +486,7 @@ class _BloqueWatchHeader extends StatelessWidget {
           backgroundColor: bloqueStatusFill(status),
           side: BorderSide(color: bloqueStatusInk(status).withValues(alpha: 0.25)),
         ),
+        if (showFolderLado) FolderLadoBadge(lado: folderLado),
       ],
     );
   }
@@ -626,12 +654,29 @@ class BloqueScreen extends ConsumerWidget {
               ),
             ),
             bottom: PreferredSize(
-              preferredSize: const Size.fromHeight(28),
+              preferredSize: const Size.fromHeight(40),
               child: Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text(
-                  view.nombre.isEmpty ? 'folder.subtitle'.tr() : view.nombre,
-                  style: const TextStyle(color: AppTheme.pencil, fontSize: 13),
+                padding: const EdgeInsets.only(bottom: 8, left: 16, right: 16),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text(
+                        view.nombre.isEmpty
+                            ? 'folder.subtitle'.tr()
+                            : view.nombre,
+                        style: const TextStyle(
+                          color: AppTheme.pencil,
+                          fontSize: 13,
+                        ),
+                      ),
+                      if (bloqueKey == 'escritura')
+                        FolderLadoBadge(lado: view.folderLado()),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -757,6 +802,8 @@ class _BloqueCardState extends ConsumerState<_BloqueCard> {
     final status = bloqueUiStatus(state.dbStatus);
     final ctrl = ref.read(carpetaControllerProvider(widget.target).notifier);
     final papers = _sortedPapers(state.documents);
+    final folderView =
+        ref.watch(carpetaControllerProvider(widget.target)).valueOrNull;
     return AppCard(
       margin: const EdgeInsets.only(bottom: 12),
       emphasized: state.enabled,
@@ -772,6 +819,10 @@ class _BloqueCardState extends ConsumerState<_BloqueCard> {
                   child: _BloqueWatchHeader(
                     title: template.labelI18n.tr(),
                     status: status,
+                    folderLado: template.key == 'escritura'
+                        ? folderView?.folderLado()
+                        : null,
+                    showFolderLado: template.key == 'escritura',
                   ),
                 ),
                 Tooltip(
@@ -1603,6 +1654,14 @@ class _DocumentoFormState extends ConsumerState<_DocumentoForm> {
                   ),
                 ],
               ),
+              if ((values['fields.folderLado'] ?? '').trim().isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: FolderLadoBadge(
+                    lado: values['fields.folderLado'],
+                    showWhenUnknown: false,
+                  ),
+                ),
               if (mismatch)
                 Padding(
                   padding: const EdgeInsets.only(top: 4, bottom: 4),

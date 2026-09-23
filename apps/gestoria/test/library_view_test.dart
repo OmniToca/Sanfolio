@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gestoria_os/features/carpeta/carpeta_controller.dart';
+import 'package:gestoria_os/features/carpeta/documento_library.dart';
 import 'package:gestoria_os/features/carpeta/library_view.dart';
 import 'package:gestoria_os/features/carpeta/stoh_queue.dart';
 
@@ -62,9 +63,33 @@ void main() {
       2,
     );
     final glance = libraryGlanceEntries(
-      const {'fields.amount': '88,50', 'fields.foo': 'x'},
+      const {
+        'fields.amount': '88,50',
+        'fields.foo': 'x',
+        'fields.holder': 'Renata',
+        'fields.company': 'Gana Energía',
+      },
     );
-    expect(glance.single.key, 'fields.amount');
+    expect(glance.map((e) => e.key).toList(), [
+      'fields.amount',
+      'fields.company',
+      'fields.holder',
+    ]);
+    expect(
+      libraryFincaLabel(
+        const LibraryInmueble(id: '569c687f-8f74-471b-a681-be7b38867d6b'),
+      ),
+      isEmpty,
+    );
+    expect(
+      libraryFincaLabel(
+        const LibraryInmueble(
+          id: '569c687f-8f74-471b-a681-be7b38867d6b',
+          catastral: '8443304XH9184S0025KY',
+        ),
+      ),
+      '8443304XH9184S0025KY',
+    );
   });
 
   test('deska čte papír z junction, stejný PDF na dvou albech', () {

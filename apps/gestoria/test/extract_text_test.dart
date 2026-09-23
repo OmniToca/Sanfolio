@@ -457,6 +457,23 @@ TITULO.- herencia de su esposo, el día 12 de Abril de 2016, número 527 de prot
       ),
       isTrue,
     );
+    expect(
+      proposeFolderLadoFromDeed(
+        facts: facts,
+        clienteNombre: 'Petr Sokol',
+        clienteNie: 'Y9736943E',
+      ),
+      'comprador',
+    );
+    expect(
+      proposeFolderLadoFromDeed(
+        facts: facts,
+        clienteNombre: 'Patricia Francis Davidson',
+        clienteNie: 'X7183596Y',
+      ),
+      'vendedor',
+    );
+    expect(aligned['fields.folderLado'], 'comprador');
     final proposed = proposeTitularesFromDeed(facts);
     expect(
       proposed.where((t) => t.lado == 'comprador').map((t) => t.nieNormalized),

@@ -254,7 +254,8 @@
     "mergeOk": "Die Fotos sind ein PDF. Text wird gelesen…",
     "mergeUp": "Hoch",
     "mergeDown": "Runter",
-    "year": "{year}"
+    "year": "{year}",
+    "unnamedFinca": "Finca"
   },
   "ofertas": {
     "settingsTitle": "Büro-Angebote",
@@ -749,6 +750,7 @@
     "titularLado": "Seite",
     "ladoComprador": "Comprador",
     "ladoVendedor": "Vendedor",
+    "ladoUnknown": "Unbestimmt",
     "titularSaveError": "Titular konnte nicht gespeichert werden.",
     "titularNieTaken": "Ein anderer Titular dieser Finca hat diese NIE schon.",
     "titularCard": "Karte"
@@ -857,6 +859,7 @@
     "buyers": "Käufer",
     "sellers": "Verkäufer",
     "lawyer": "Anwalt / Kanzlei",
+    "folderLado": "Seite dieser Mappe",
     "parcela": "Parzelle",
     "registry": "Grundbuch / finca",
     "referenceValue": "Referenzwert Catastro (€)",

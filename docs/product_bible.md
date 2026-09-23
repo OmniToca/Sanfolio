@@ -128,7 +128,7 @@ Nese to, co patří k finca (adresa, notář, catastral), ne jen poznámka na ka
 | `protocolo` | ne | Číslo protokolu |
 | `referencia_catastral` | většinou | Gestorie Jarka ji obvykle má |
 
-`inmuebles.cliente_id` je složka (pro koho kancelář vede desku). Podíly na finca jsou `inmueble_titulares` (NIE, `cuota_bps`, lado comprador/vendedor). Modelo 210 čte `sharePercent` z titulare tohoto klienta, ne z kontaktu.
+`inmuebles.cliente_id` je složka (pro koho kancelář vede desku). **Složka = strana listiny; listina se nedělí.** Podíly na finca jsou `inmueble_titulares` (NIE, `cuota_bps`, lado comprador/vendedor). Čip na desce ukáže stranu této karty. Modelo 210 čte `sharePercent` z titulare tohoto klienta a navrhne `incomeKind` z lado (imputace u kupujícího, transmise u prodávajícího). 211 není blok desky.
 
 Jeden klient může mít více nemovitostí. Šablona desky se instancuje **na expediente vázané k inmueble**, ne globálně na osobu (jinak by Agua z bytu A spadla na byt B). Nemovitost jen B+C nepatří do složky A.
 

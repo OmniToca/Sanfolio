@@ -99,6 +99,38 @@ List<ProposedTitular> _proposedSide(List<DeedPerson> people, String lado) {
   ];
 }
 
+/// Strana této karty z listiny. Konflikt kupující+prodávající = neurčeno.
+String? proposeFolderLadoFromDeed({
+  required DeedFacts facts,
+  String? clienteNombre,
+  String? clienteNie,
+}) {
+  bool inSide(List<DeedPerson> people) {
+    final wantNie = (clienteNie ?? '').trim().isEmpty
+        ? null
+        : normalizeNie(clienteNie!);
+    if (wantNie != null) {
+      for (final p in people) {
+        if (p.nie == wantNie) return true;
+      }
+    }
+    final wantName = (clienteNombre ?? '').trim();
+    if (wantName.isEmpty) return false;
+    for (final p in people) {
+      if (p.name.isNotEmpty && namesLikelyMatch(wantName, p.name)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  final buy = inSide(facts.buyers);
+  final sell = inSide(facts.sellers);
+  if (buy && !sell) return 'comprador';
+  if (sell && !buy) return 'vendedor';
+  return null;
+}
+
 /// Unique NIE v tenantovi. Bez NIE jen jméno ke složce, nikdy nová karta.
 String? matchTitularClienteId({
   required ProposedTitular row,
@@ -439,6 +471,12 @@ Map<String, String> alignDeedFieldsToCliente({
     next['fields.nie'] = b.nie;
     if (b.name.isNotEmpty) next['fields.nombre'] = b.name;
   }
+  final lado = proposeFolderLadoFromDeed(
+    facts: facts,
+    clienteNombre: clienteNombre,
+    clienteNie: clienteNie,
+  );
+  if (lado != null) next['fields.folderLado'] = lado;
 
   for (final k in const [
     'fields.expiry',

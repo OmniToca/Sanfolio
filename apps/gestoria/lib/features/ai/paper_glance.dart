@@ -217,6 +217,7 @@ List<String> extraPaperFieldKeys(Map<String, String> fields, {String tipo = ''})
     'fields.invoiceNo',
     'body_text',
     kExtractStatus,
+    'fields.folderLado',
   };
   if (tipo == 'copia_escritura') skip.remove('fields.nombre');
   return [

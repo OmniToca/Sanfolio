@@ -27,7 +27,7 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `printHtmlDocument` | `core/print/office_print.dart` | blob URL + `window.print()`; Safari nesnese about:srcdoc |
 | `AiPanel` / `aiChatProvider` | `features/ai/ai_panel.dart` | trvalý chat; zápis `ai_conversations` + `ai_messages` |
 | `AiPanel` / `aiChatProvider` | `features/ai/ai_panel.dart` | trvalý chat; zápis `ai_conversations` + `ai_messages` |
-| `extract-document` | Edge Function | fotka/PDF → text LLM nebo vision → `ai_drafts`; po LLM `body_text` + jistý album; Guardar polí desky je gestor |
+| `extract-document` | Edge Function | fotka/PDF → text LLM nebo vision → `ai_drafts`; po LLM `body_text` + jistý album; Poder/FACTURA v názvu není escritura; Guardar polí desky je gestor |
 | `documentos.extracted` | JSONB na dokladu | uložená pole po Guardar; AI sem nezapisuje |
 | `documentos.body_text` | TEXT na dokladu | přepis PDF po extractu (i bez alba) |
 | `purge_documento_storage` | SQL RPC | owner vysype blob schovaného dokumentu; `legal_hold` když drží hold |
@@ -104,7 +104,7 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `cliente_audit_log` | SQL RPC + karta | LOPDGDD stopa; `audit_open` při vstupu; jen owner |
 | `tenant_settings` | SQL 1:1 tenant | display_name, offsety, slot_order, send_translated_outbound |
 | `client_contacts` | SQL | druhý kontakt + locale (komunikace, ne vlastnictví) |
-| `inmueble_titulares` | SQL + šanon escritura | spoluvlastníci finca; Guardar založí kartu kupujícího bez carpeta; 210 čte sharePercent |
+| `inmueble_titulares` | SQL + šanon escritura | spoluvlastníci finca; Guardar založí kartu kupujícího bez carpeta; 210 čte sharePercent; čip strany složky |
 | `organization_modules` | SQL | které moduly kancelář má |
 | `posta` | `features/posta`, modul `messaging` | příchozí pošta; `/posta` třídírna; příloha → `documentos` |
 | `posta_accounts` | SQL | ingest adresa tenanta (`p{8hex}@inbound…`) |
