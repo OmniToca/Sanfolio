@@ -59,7 +59,7 @@ Hotovo A–G v kódu (2026-09-13): jedna cesta nahrání, přepis|originál, `bo
 
 **Proč první:** bez toho každou další vrstvu stavíme na duplicitách a rozbitých klíčích.
 
-- Nahrání karty i desky i extract z chatu → `{tenant}/{cliente}/{uuid}_{název}`.
+- Nahrání karty i desky i extract z chatu → `{tenant}/{cliente}/stoh/{uuid}_{název}`. Album je odkaz, ne druhá cesta.
 - Sjednotit klíče bloků s DB (`proveedor` / `compania` / `fecha_vencimiento` vs. i18n `fields.*`) tak, aby Guardar, `recompute_bloque_status` a pozdější RPC četly totéž.
 - Žádné mazání existujících blobů v této fázi (jen přestat vyrábět nové dvojice).
 

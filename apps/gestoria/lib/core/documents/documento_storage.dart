@@ -1,15 +1,19 @@
 import 'dart:math';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:gestoria_auth/gestoria_auth.dart';
 import 'package:http/http.dart' as http;
 
 import 'office_file_pick.dart';
 
-/// Jedna cesta originálu: `{tenant}/{cliente}/{bloque}/{soubor}`.
-/// Bez bloque (karta) zůstane `{tenant}/{cliente}/{soubor}`.
-/// Stoh: `{tenant}/{cliente}/stoh/{soubor}` — ještě bez bloku.
-/// PROČ ne `card/` vs `ai/`: stejný sken se jinak uložil dvakrát.
+/// SHA-256 hex. Stejné bajty u klienta = jeden papír, ne druhá kopie.
+String documentoContentSha256(List<int> bytes) =>
+    sha256.convert(bytes).toString();
+
+/// Nový originál: `{tenant}/{cliente}/stoh/{soubor}`.
+/// Staré soubory můžou ležet v `{cliente}/` nebo `{cliente}/{bloque}/`.
+/// Album je odkaz (`documento_bloques`), ne nová cesta. Žádné `card/` vs `ai/`.
 String documentoStoragePath({
   required String tenantId,
   required String clienteId,
@@ -151,6 +155,119 @@ Future<String> insertDocumentoRow({
     await rollbackDocumentoUpload(storagePath);
     throw OfficeUploadException('db');
   }
+}
+
+/// Řádek po nahrání na hromadu. [alreadyExisted] = stejné bajty, blob se nepsal znovu.
+class IngestedClienteDocumento {
+  const IngestedClienteDocumento({
+    required this.id,
+    required this.storagePath,
+    required this.originalName,
+    required this.tipo,
+    required this.contentSha256,
+    this.alreadyExisted = false,
+  });
+
+  final String id;
+  final String storagePath;
+  final String originalName;
+  final String tipo;
+  final String contentSha256;
+  final bool alreadyExisted;
+}
+
+/// Jedna kupa u klienta. Kam patří se řeší až albem, ne druhým souborem.
+Future<IngestedClienteDocumento> ingestClienteDocumento({
+  required String tenantId,
+  required String clienteId,
+  required Uint8List bytes,
+  required String originalName,
+  String tipo = 'other',
+  String? createdBy,
+  String? inmuebleId,
+  bool rejectDuplicate = false,
+}) async {
+  final client = trySupabaseClient();
+  if (client == null) throw OfficeUploadException('not_configured');
+  final hash = documentoContentSha256(bytes);
+  final resolvedTipo = tipo.trim().isEmpty ? 'other' : tipo.trim();
+  final dup = await client
+      .from('documentos')
+      .select('id, tipo, storage_path, original_name, content_sha256')
+      .eq('tenant_id', tenantId)
+      .eq('cliente_id', clienteId)
+      .eq('content_sha256', hash)
+      .isFilter('deleted_at', null)
+      .maybeSingle();
+  if (dup != null) {
+    if (rejectDuplicate) throw OfficeUploadException('duplicate');
+    final existingTipo = '${dup['tipo'] ?? 'other'}'.trim();
+    final id = '${dup['id']}';
+    if (resolvedTipo != 'other' &&
+        (existingTipo.isEmpty || existingTipo == 'other')) {
+      await client.from('documentos').update({
+        'tipo': resolvedTipo,
+      }).eq('id', id).eq('tenant_id', tenantId);
+    }
+    return IngestedClienteDocumento(
+      id: id,
+      storagePath: '${dup['storage_path'] ?? ''}',
+      originalName: '${dup['original_name'] ?? originalName}',
+      tipo: resolvedTipo != 'other' &&
+              (existingTipo.isEmpty || existingTipo == 'other')
+          ? resolvedTipo
+          : (existingTipo.isEmpty ? 'other' : existingTipo),
+      contentSha256: hash,
+      alreadyExisted: true,
+    );
+  }
+  final path = documentoStoragePath(
+    tenantId: tenantId,
+    clienteId: clienteId,
+    originalName: originalName,
+    stoh: true,
+  );
+  await uploadDocumentoBytes(
+    path: path,
+    bytes: bytes,
+    originalName: originalName,
+  );
+  final id = await insertDocumentoRow(
+    tenantId: tenantId,
+    clienteId: clienteId,
+    tipo: resolvedTipo,
+    storagePath: path,
+    originalName: originalName,
+    createdBy: createdBy,
+    contentSha256: hash,
+    inmuebleId: inmuebleId,
+  );
+  return IngestedClienteDocumento(
+    id: id,
+    storagePath: path,
+    originalName: originalName,
+    tipo: resolvedTipo,
+    contentSha256: hash,
+  );
+}
+
+/// Odkaz papíru na album. Originál zůstává na hromadě.
+Future<void> linkDocumentoBloque({
+  required String documentoId,
+  required String bloqueId,
+  required String tipo,
+}) async {
+  final client = trySupabaseClient();
+  if (client == null) throw OfficeUploadException('not_configured');
+  await client.rpc(
+    'set_documento_placement',
+    params: {
+      'p_documento_id': documentoId,
+      'p_bloque_id': bloqueId,
+      'p_tipo': tipo.trim().isEmpty ? 'other' : tipo.trim(),
+      'p_on': true,
+    },
+  );
 }
 
 /// Best-effort úklid blobu bez řádku v `documentos`.

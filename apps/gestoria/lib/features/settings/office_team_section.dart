@@ -5,9 +5,10 @@ import 'package:gestoria_auth/gestoria_auth.dart';
 
 import '../../core/auth/staff_role.dart';
 import '../../core/presentation/widgets/app_widgets.dart';
+import 'office_staff_access_dialog.dart';
 import 'office_team_controller.dart';
 
-/// Owner zve gestor / asistente. Max 3 živé členství.
+/// Owner zve gestor / asistente. Počet lidí nestojí; omezení je rozsah karet.
 class OfficeTeamSection extends ConsumerStatefulWidget {
   const OfficeTeamSection({super.key});
 
@@ -54,14 +55,29 @@ class _OfficeTeamSectionState extends ConsumerState<OfficeTeamSection> {
                           'settings.role.${members[i].role}'.tr(),
                         ].join(' · '),
                         trailing: owner && members[i].role != 'owner'
-                            ? IconButton(
-                                tooltip: 'settings.removeMember'.tr(),
-                                icon: const Icon(Icons.delete_outline),
-                                onPressed: _busy
-                                    ? null
-                                    : () => ref
-                                        .read(officeTeamProvider.notifier)
-                                        .removeMember(members[i].id),
+                            ? Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    tooltip: 'settings.staffAccess'.tr(),
+                                    icon: const Icon(Icons.tune, size: 20),
+                                    onPressed: _busy
+                                        ? null
+                                        : () => showStaffAccessDialog(
+                                              context,
+                                              member: members[i],
+                                            ),
+                                  ),
+                                  IconButton(
+                                    tooltip: 'settings.removeMember'.tr(),
+                                    icon: const Icon(Icons.delete_outline),
+                                    onPressed: _busy
+                                        ? null
+                                        : () => ref
+                                            .read(officeTeamProvider.notifier)
+                                            .removeMember(members[i].id),
+                                  ),
+                                ],
                               )
                             : null,
                       ),
@@ -73,12 +89,7 @@ class _OfficeTeamSectionState extends ConsumerState<OfficeTeamSection> {
             ? const SizedBox.shrink()
             : AppSectionCard(
                 title: 'settings.inviteTitle'.tr(),
-                hint: members.length >= officeTeamLimit
-                    ? 'settings.teamFull'.tr()
-                    : null,
-                child: members.length >= officeTeamLimit
-                    ? const SizedBox.shrink()
-                    : Column(
+                child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           LayoutBuilder(

@@ -42,16 +42,20 @@ void main() {
 
   test('koš na kartě bere schovanou smlouvu ze složky', () {
     expect(
-      isClienteCardLiveDoc(deletedAt: null, bloqueId: null),
+      isClienteCardLiveDoc(deletedAt: null, tipo: 'dni_nie'),
       isTrue,
     );
     expect(
-      isClienteCardLiveDoc(deletedAt: null, bloqueId: 'bloque-escritura'),
+      isClienteCardLiveDoc(deletedAt: null, tipo: 'copia_escritura'),
       isFalse,
     );
     expect(
-      isClienteCardLiveDoc(deletedAt: '2026-09-13', bloqueId: null),
+      isClienteCardLiveDoc(deletedAt: '2026-09-13', tipo: 'dni_nie'),
       isFalse,
+    );
+    expect(
+      isClienteCardLiveDoc(deletedAt: null, tipo: 'pasaporte'),
+      isTrue,
     );
     const deed = ClienteDocumento(
       id: 'e',

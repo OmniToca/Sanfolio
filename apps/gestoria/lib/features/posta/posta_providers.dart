@@ -777,37 +777,32 @@ Future<void> filePostaAttachment({
           alreadyHave: const {},
           originalName: name,
         );
-  final path = documentoStoragePath(
+  final ingested = await ingestClienteDocumento(
     tenantId: tenantId,
     clienteId: clienteId,
-    originalName: name,
-    bloqueId: target.bloqueId,
-  );
-  await uploadDocumentoBytes(
-    path: path,
     bytes: Uint8List.fromList(bytes),
     originalName: name,
-  );
-  final docId = await insertDocumentoRow(
-    tenantId: tenantId,
-    clienteId: clienteId,
     tipo: tipo,
-    storagePath: path,
-    originalName: name,
-    bloqueId: target.bloqueId,
     createdBy: createdBy,
   );
+  if (target.bloqueId != null && target.bloqueId!.isNotEmpty) {
+    await linkDocumentoBloque(
+      documentoId: ingested.id,
+      bloqueId: target.bloqueId!,
+      tipo: tipo,
+    );
+  }
   await client.rpc(
     'mark_posta_attachment_filed',
     params: {
       'p_attachment_id': attachment.id,
-      'p_documento_id': docId,
+      'p_documento_id': ingested.id,
     },
   );
   startExtractInBackground(
     tenantId: tenantId,
     clienteId: clienteId,
-    storagePath: path,
+    storagePath: ingested.storagePath,
     mime: mimeForOfficeFile(name),
     docTipo: tipo,
     bloqueKey: target.templateKey ?? 'cliente_snapshot',

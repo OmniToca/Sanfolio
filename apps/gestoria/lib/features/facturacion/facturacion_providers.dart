@@ -195,28 +195,18 @@ Future<void> attachFacturaRecibida({
   required String originalName,
   String? createdBy,
 }) async {
-  final path = documentoStoragePath(
+  final ingested = await ingestClienteDocumento(
     tenantId: tenantId,
     clienteId: clienteId,
-    originalName: originalName,
-  );
-  await uploadDocumentoBytes(
-    path: path,
     bytes: bytes,
     originalName: originalName,
-  );
-  await insertDocumentoRow(
-    tenantId: tenantId,
-    clienteId: clienteId,
     tipo: 'factura_recibida',
-    storagePath: path,
-    originalName: originalName,
     createdBy: createdBy,
   );
   startExtractInBackground(
     tenantId: tenantId,
     clienteId: clienteId,
-    storagePath: path,
+    storagePath: ingested.storagePath,
     mime: mimeForOfficeFile(originalName),
     docTipo: 'factura_recibida',
     bloqueKey: 'factura_recibida',

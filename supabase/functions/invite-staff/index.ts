@@ -6,8 +6,9 @@ import {
 } from "../_shared/invite_user.ts";
 
 /**
- * Owner zve 2. a 3. člověka (gestor / asistente). Service role kvůli invite.
+ * Owner zve gestor / asistente. Service role kvůli invite.
  * Flutter INSERT do tenant_members smí jen owner; tady se navíc posílá e-mail.
+ * Strop počtu lidí není — omezení je, které karty a bloky člen vidí.
  */
 
 const corsHeaders: Record<string, string> = {
@@ -18,7 +19,6 @@ const corsHeaders: Record<string, string> = {
 };
 
 const ALLOWED_ROLES = new Set(["gestor", "asistente"]);
-const MAX_LIVE_MEMBERS = 3;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -69,16 +69,6 @@ Deno.serve(async (req) => {
   const admin = createClient(supabaseUrl(), serviceRoleKey(), {
     auth: { autoRefreshToken: false, persistSession: false },
   });
-
-  const { count, error: countErr } = await admin
-    .from("tenant_members")
-    .select("id", { count: "exact", head: true })
-    .eq("tenant_id", tenantId)
-    .is("deleted_at", null);
-  if (countErr) return json(500, { ok: false, error: countErr.message });
-  if ((count ?? 0) >= MAX_LIVE_MEMBERS) {
-    return json(409, { ok: false, error: "team_full" });
-  }
 
   // Účet už v Auth existuje (Support, jiná kancelář) → jen membership, ne invite.
   let userId = await findAuthUserId(admin, email);

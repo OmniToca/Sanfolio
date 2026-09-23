@@ -53,14 +53,15 @@ Pořadí = aktuální priorita. Čísla se mění, když přijde lepší nápad.
 
 | # | Položka | Poznámka |
 | --- | --- | --- |
-| 1 | Portál klienta | menší než AEAT; zprávy už mají originál + překlad |
-| 2 | Telematické podání AEAT (210, 211, 303, renta) | výpočet 210 na desce už je |
-| 3 | Výpočet renta / IRPF a modelo 303 | checklist teď; číslo později |
-| 4 | Párování banky a DPH 303 | z týchž dat, ne druhá app |
-| 5 | WhatsApp Business API | copy-to-WhatsApp teď |
-| 6 | Digitální podpis | |
-| 7 | Účetní deník PGC / asientos | defaultně za despacho |
-| 8 | Extranjería (21 EX) / tráfico / laborál | jen modul, ne jádro |
+| 1 | Tým: bez stropu 3; kdo vidí které karty a které bloky | owner vše; ostatní volitelně jen přiřazení klienti + služby (voda/elektřina); RLS |
+| 2 | Portál klienta | menší než AEAT; zprávy už mají originál + překlad |
+| 3 | Telematické podání AEAT (210, 211, 303, renta) | výpočet 210 na desce už je |
+| 4 | Výpočet renta / IRPF a modelo 303 | checklist teď; číslo později |
+| 5 | Párování banky a DPH 303 | z týchž dat, ne druhá app |
+| 6 | WhatsApp Business API | copy-to-WhatsApp teď |
+| 7 | Digitální podpis | |
+| 8 | Účetní deník PGC / asientos | defaultně za despacho |
+| 9 | Extranjería (21 EX) / tráfico / laborál | jen modul, ne jádro |
 
 ## Kandidáti (ještě bez čísla)
 

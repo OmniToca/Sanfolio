@@ -218,6 +218,12 @@ void main() {
     );
   });
 
+  test('do alba z hromady jen papír, který v albu ještě není', () {
+    expect(paperEligibleForAlbum(const [], 'escritura'), isTrue);
+    expect(paperEligibleForAlbum(const ['luz'], 'escritura'), isTrue);
+    expect(paperEligibleForAlbum(const ['escritura'], 'escritura'), isFalse);
+  });
+
   test('spojit jen 2–20 JPG/PNG, ne PDF', () {
     expect(
       libraryMergeBlockReason(count: 1, allImages: true),

@@ -28,7 +28,7 @@ To je „skládání obrazovky“ na deset let bez CMS.
 
 | Kdo | Pole | Slovník |
 | --- | --- | --- |
-| Staff (3 lidé, každý vlastní) | `profiles.locale` | UI JSON cs/en/es/de/fr |
+| Staff (každý vlastní locale) | `profiles.locale` | UI JSON cs/en/es/de/fr |
 | Klient | `clientes.locale` (`cs`/`en`/`de`/`fr`/`es`) | překlad zpráv, až portál i UI zóny |
 | Úřad / papír | neměnit | NIE, escritura, plusvalía jako termíny |
 
@@ -66,7 +66,7 @@ Tabulka `tenant_settings` (1:1 tenant). Defaulty z `plazo_rules` / `bloque_templ
 }
 ```
 
-`staff_locale` na tenantu je fallback. Každý z 3 lidí má vlastní `profiles.locale`.  
+`staff_locale` na tenantu je fallback. Každý člověk má vlastní `profiles.locale`.  
 Jarka chce **přeskládat** bloky → vrstva C (`slot_order`) je v rozsahu, ne drag-drop layout (D).
 
 Workflow kanceláře = zapnuté moduly + tyhle offsety + pořadí bloků. Ne BPMN editor.

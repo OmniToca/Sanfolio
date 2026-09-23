@@ -1,9 +1,12 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:gestoria_auth/gestoria_auth.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/auth/staff_access.dart';
+import '../../core/auth/staff_role.dart';
 import '../../core/documents/office_attach_button.dart';
 import '../../core/identity/nie_persist.dart';
 import '../../core/documents/office_file_pick.dart';
@@ -26,12 +29,14 @@ import '../expedientes/expediente_estado.dart';
 import '../inbox/inbox_providers.dart';
 import '../clientes/cliente_audit.dart';
 import '../settings/office_settings_controller.dart';
+import '../settings/office_team_controller.dart';
 import 'bloque_template.dart';
 import 'carpeta_controller.dart';
 import 'carpeta_print_open.dart';
 import 'carpeta_routes.dart';
 import 'carpeta_titulares.dart';
 import 'finca_edit_dialog.dart';
+import 'pile_pick_dialog.dart';
 
 /// Text v políčku. Cents z DB se formátují; surové `100` by při sync smažalo eura.
 String displayBloqueField(String field, String raw) {
@@ -133,8 +138,22 @@ class CarpetaScreen extends ConsumerWidget {
           settings?.slotOrder,
           carpetaBlocksSlot,
         );
+        final staffScope =
+            ref.watch(myStaffScopeProvider).valueOrNull ?? StaffAccessScope.open;
+        final isOwner = currentOfficeRole(
+              ref.watch(authControllerProvider).valueOrNull ??
+                  AuthSnapshot.signedOut,
+            ) ==
+            'owner';
         final templates = applySlotOrder(
           items: compraventaBloques.where((t) {
+            if (!staffMaySeeBloque(
+              isOwner: isOwner,
+              scope: staffScope,
+              templateKey: t.key,
+            )) {
+              return false;
+            }
             if (t.moduleKey == 'carpeta_inmueble') return true;
             final m = GestoriaModuleKey.fromKey(t.moduleKey);
             return m == null || (modules?.isOn(m) ?? false);
@@ -914,14 +933,30 @@ class _BloqueCardState extends ConsumerState<_BloqueCard> {
                 TitularesPanel(target: widget.target),
               Align(
                 alignment: Alignment.centerLeft,
-                child: OfficeAttachButton(
-                  label: 'folder.attach'.tr(),
-                  onPicked: (file) => _attachPicked(
-                    context,
-                    ctrl,
-                    template.key,
-                    file,
-                  ),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    OfficeAttachButton(
+                      label: 'folder.attach'.tr(),
+                      onPicked: (file) => _attachPicked(
+                        context,
+                        ctrl,
+                        template.key,
+                        file,
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: () => _attachFromPile(
+                        context,
+                        ctrl,
+                        template,
+                      ),
+                      icon: const Icon(Icons.layers_outlined, size: 18),
+                      label: Text('folder.attachFromPile'.tr()),
+                    ),
+                  ],
                 ),
               ),
               if (template.requiredDocTypes.isNotEmpty)
@@ -1036,6 +1071,40 @@ class _BloqueCardState extends ConsumerState<_BloqueCard> {
     );
     ref.invalidate(liveAiDraftsProvider(clienteId));
     invalidateExtractQueue(ref);
+  }
+
+  Future<void> _attachFromPile(
+    BuildContext context,
+    CarpetaController ctrl,
+    BloqueTemplate template,
+  ) async {
+    final view = ref.read(carpetaControllerProvider(widget.target)).valueOrNull;
+    if (view == null) return;
+    final candidates = papersForAlbumPick(
+      library: view.libraryDocuments,
+      albumKey: template.key,
+    );
+    final picked = await showPilePickDialog(context, papers: candidates);
+    if (picked == null || !context.mounted) return;
+    final tipo = picked.tipo.trim().isEmpty || picked.tipo == 'other'
+        ? guessDocumentoTipo(
+            requiredDocTypes: template.requiredDocTypes,
+            alreadyHave: {for (final d in widget.state.documents) d.tipo},
+            originalName: picked.originalName,
+          )
+        : picked.tipo;
+    final ok = await ctrl.setLibraryPlacement(
+      documentId: picked.id,
+      bloqueKey: template.key,
+      tipo: tipo,
+      on: true,
+    );
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(ok ? 'stoh.placed'.tr() : 'stoh.saveError'.tr()),
+      ),
+    );
   }
 
   Future<void> _openDoc(

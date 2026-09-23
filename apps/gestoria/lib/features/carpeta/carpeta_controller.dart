@@ -792,7 +792,7 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
     final auth = ref.read(authControllerProvider).valueOrNull;
     final bloque = view == null ? null : _bloqueLive(templateKey);
     final bloqueId = bloque?.id;
-    if (view == null || trySupabaseClient() == null) {
+    if (view == null) {
       throw OfficeUploadException('not_configured');
     }
     if (bloque == null || bloqueId == null) {
@@ -804,130 +804,54 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
       alreadyHave: {for (final d in bloque.documents) d.tipo},
       originalName: originalName,
     );
-    final client = trySupabaseClient()!;
-    final hash = documentoContentSha256(bytes);
-    var existing = _libraryDocByHash(hash);
-    if (existing == null) {
-      final dup = await client
-          .from('documentos')
-          .select(
-            'id, tipo, storage_path, original_name, inmueble_id, content_sha256',
-          )
-          .eq('tenant_id', view.tenantId)
-          .eq('cliente_id', view.clienteId)
-          .eq('content_sha256', hash)
-          .isFilter('deleted_at', null)
-          .maybeSingle();
-      if (dup != null) {
-        final inm = '${dup['inmueble_id'] ?? ''}'.trim();
-        existing = _libraryDoc('${dup['id']}') ??
-            CarpetaDocumento(
-              id: '${dup['id']}',
-              tipo: '${dup['tipo'] ?? tipo}',
-              storagePath: '${dup['storage_path'] ?? ''}',
-              originalName: '${dup['original_name'] ?? originalName}',
-              inmuebleId: inm.isEmpty || inm == 'null' ? null : inm,
-              contentSha256: hash,
-            );
-      }
-    }
-    if (existing != null) {
-      await client.rpc(
-        'set_documento_placement',
-        params: {
-          'p_documento_id': existing.id,
-          'p_bloque_id': bloqueId,
-          'p_tipo': tipo,
-          'p_on': true,
-        },
-      );
-      if ((view.inmuebleId ?? '').isNotEmpty &&
-          (existing.inmuebleId ?? '').isEmpty) {
-        await client.rpc(
-          'set_documento_inmueble',
-          params: {
-            'p_documento_id': existing.id,
-            'p_inmueble_id': view.inmuebleId,
-          },
-        );
-      }
-      final placed = existing.copyWith(
-        tipo: tipo,
-        albumKeys: {
-          ...existing.albumKeys,
-          templateKey,
-        }.toList(),
-        inmuebleId: existing.inmuebleId ?? view.inmuebleId,
-      );
-      final already = bloque.documents.any((d) => d.id == placed.id);
-      final next = bloque.copyWith(
-        documents: already
-            ? [
-                for (final d in bloque.documents)
-                  if (d.id == placed.id) placed else d,
-              ]
-            : [...bloque.documents, placed],
-      );
-      state = AsyncData(
-        _withLibraryPaper(view.withBloque(templateKey, next), placed),
-      );
-      await _persistBloque(templateKey);
-      return placed;
-    }
-    final path = documentoStoragePath(
+    final ingested = await ingestClienteDocumento(
       tenantId: view.tenantId,
       clienteId: view.clienteId,
-      originalName: originalName,
-      bloqueId: bloqueId,
-    );
-    await uploadDocumentoBytes(
-      path: path,
       bytes: bytes,
       originalName: originalName,
-    );
-    final id = await insertDocumentoRow(
-      tenantId: view.tenantId,
-      clienteId: view.clienteId,
       tipo: tipo,
-      storagePath: path,
-      originalName: originalName,
-      bloqueId: bloqueId,
       createdBy: auth?.profile?.id,
-      contentSha256: hash,
       inmuebleId: view.inmuebleId,
     );
-    try {
-      await client.rpc(
-        'set_documento_placement',
-        params: {
-          'p_documento_id': id,
-          'p_bloque_id': bloqueId,
-          'p_tipo': tipo,
-          'p_on': true,
-        },
-      );
-    } on Object {
-      // Řádek už má bloque_id. Junction nesmí zhatit nahrání.
-    }
-    final doc = CarpetaDocumento(
-      id: id,
+    await linkDocumentoBloque(
+      documentoId: ingested.id,
+      bloqueId: bloqueId,
       tipo: tipo,
-      storagePath: path,
-      originalName: originalName,
-      contentSha256: hash,
-      inmuebleId: view.inmuebleId,
-      createdAt: DateTime.now().toUtc(),
-      albumKeys: [templateKey],
     );
+    final existing = _libraryDoc(ingested.id);
+    final placed = (existing ??
+            CarpetaDocumento(
+              id: ingested.id,
+              tipo: ingested.tipo,
+              storagePath: ingested.storagePath,
+              originalName: ingested.originalName,
+              contentSha256: ingested.contentSha256,
+              inmuebleId: view.inmuebleId,
+              createdAt: DateTime.now().toUtc(),
+            ))
+        .copyWith(
+      tipo: tipo,
+      albumKeys: {
+        ...?existing?.albumKeys,
+        templateKey,
+      }.toList(),
+      inmuebleId: existing?.inmuebleId ?? view.inmuebleId,
+    );
+    final already = bloque.documents.any((d) => d.id == placed.id);
     final next = bloque.copyWith(
       enabled: true,
-      documents: [...bloque.documents, doc],
+      documents: already
+          ? [
+              for (final d in bloque.documents)
+                if (d.id == placed.id) placed else d,
+            ]
+          : [...bloque.documents, placed],
     );
     state = AsyncData(
-      _withLibraryPaper(view.withBloque(templateKey, next), doc),
+      _withLibraryPaper(view.withBloque(templateKey, next), placed),
     );
     await _persistBloque(templateKey);
-    return doc;
+    return placed;
   }
 
   /// Šanon bez bloku. Extract s classify. Guardar teprve zařadí.
@@ -937,48 +861,23 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
   }) async {
     final view = state.valueOrNull;
     final auth = ref.read(authControllerProvider).valueOrNull;
-    if (view == null || trySupabaseClient() == null) {
+    if (view == null) {
       throw OfficeUploadException('not_configured');
     }
-    final client = trySupabaseClient()!;
-    final hash = documentoContentSha256(bytes);
-    final dup = await client
-        .from('documentos')
-        .select('id')
-        .eq('tenant_id', view.tenantId)
-        .eq('cliente_id', view.clienteId)
-        .eq('content_sha256', hash)
-        .isFilter('deleted_at', null)
-        .maybeSingle();
-    if (dup != null) {
-      throw OfficeUploadException('duplicate');
-    }
-    final path = documentoStoragePath(
+    final ingested = await ingestClienteDocumento(
       tenantId: view.tenantId,
       clienteId: view.clienteId,
-      originalName: originalName,
-      stoh: true,
-    );
-    await uploadDocumentoBytes(
-      path: path,
       bytes: bytes,
       originalName: originalName,
-    );
-    final id = await insertDocumentoRow(
-      tenantId: view.tenantId,
-      clienteId: view.clienteId,
-      tipo: 'other',
-      storagePath: path,
-      originalName: originalName,
       createdBy: auth?.profile?.id,
-      contentSha256: hash,
+      rejectDuplicate: true,
     );
     final doc = CarpetaDocumento(
-      id: id,
-      tipo: 'other',
-      storagePath: path,
-      originalName: originalName,
-      contentSha256: hash,
+      id: ingested.id,
+      tipo: ingested.tipo,
+      storagePath: ingested.storagePath,
+      originalName: ingested.originalName,
+      contentSha256: ingested.contentSha256,
       createdAt: DateTime.now().toUtc(),
     );
     state = AsyncData(
@@ -1316,20 +1215,6 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
     }
     for (final d in view.stohDocuments) {
       if (d.id == id) return d;
-    }
-    return null;
-  }
-
-  CarpetaDocumento? _libraryDocByHash(String hash) {
-    final want = hash.trim().toLowerCase();
-    if (want.isEmpty) return null;
-    final view = state.valueOrNull;
-    if (view == null) return null;
-    for (final d in view.libraryDocuments) {
-      if (d.contentSha256.trim().toLowerCase() == want) return d;
-    }
-    for (final d in view.stohDocuments) {
-      if (d.contentSha256.trim().toLowerCase() == want) return d;
     }
     return null;
   }

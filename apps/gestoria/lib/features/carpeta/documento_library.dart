@@ -1,6 +1,6 @@
-import 'package:crypto/crypto.dart';
-
 import 'stoh.dart';
+
+export '../../core/documents/documento_storage.dart' show documentoContentSha256;
 
 /// Návrh alba, který AI smí zapsat. Konflikt dvou hádání = hromada.
 const kFincaBloqueKeys = <String>{
@@ -316,8 +316,10 @@ int yearFromPaperDate(String raw) {
   return int.tryParse(m.group(1)!) ?? 0;
 }
 
-/// SHA-256 hex. Stejné bajty u klienta = duplicita.
-String documentoContentSha256(List<int> bytes) => sha256.convert(bytes).toString();
+/// Papír ještě není v tomto albu — deska ho smí jen odkázat, ne nahrát znovu.
+bool paperEligibleForAlbum(Iterable<String> albumKeys, String albumKey) {
+  return !albumKeys.contains(albumKey);
+}
 
 /// Spojení fotek, ne řezání PDF.
 const kLibraryMergeMax = 20;

@@ -132,7 +132,7 @@ Future<AiPrefillDraft?> extractDocumentDraft({
   required String mime,
   String? docTipo,
   String bloqueKey = 'cliente_snapshot',
-  bool classify = false,
+  bool classify = true,
 }) async {
   final client = trySupabaseClient();
   if (client == null) return null;
@@ -164,7 +164,7 @@ Future<AiPrefillDraft?> extractDocumentDraft({
   );
 }
 
-/// Nahrání nesmí čekat na LLM. Návrh naskočí z [liveAiDraftsProvider].
+/// Nahrání nesmí čekat na LLM. Classify indexuje text stejně jako hromada.
 void startExtractInBackground({
   required String tenantId,
   required String clienteId,
@@ -172,7 +172,7 @@ void startExtractInBackground({
   required String mime,
   String? docTipo,
   String bloqueKey = 'cliente_snapshot',
-  bool classify = false,
+  bool classify = true,
   void Function(AiPrefillDraft? draft)? onDone,
 }) {
   unawaited(() async {

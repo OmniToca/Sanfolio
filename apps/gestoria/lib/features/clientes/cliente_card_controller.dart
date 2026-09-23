@@ -53,7 +53,7 @@ class ClienteDocumento {
   final Map<String, String> extracted;
   final String? bodyText;
   final bool storagePurged;
-  /// Papír ze složky (ESCRITURA, voda…). Na kartě žijí jen doklady bez bloku.
+  /// Album je odkaz, ne druhá kopie. Na kartě žije identita, ne listina.
   final String? bloqueId;
 
   bool get fromDesk => (bloqueId ?? '').isNotEmpty;
@@ -85,11 +85,13 @@ List<ClienteDocumento> trashVisibleOnCard(List<ClienteDocumento> hidden) {
   ];
 }
 
-/// Živý papír na kartě — ne schovaný a nevisí na bloku desky.
-bool isClienteCardLiveDoc({required Object? deletedAt, required Object? bloqueId}) {
+/// Živý papír na kartě — identita. Listina je album, i když leží na hromadě.
+bool isClienteCardLiveDoc({
+  required Object? deletedAt,
+  required String tipo,
+}) {
   if (deletedAt != null) return false;
-  final b = '$bloqueId'.trim();
-  return b.isEmpty || b == 'null';
+  return clienteCardDocTypes.contains(tipo.trim());
 }
 
 /// Typy papírů na kartě, ne na desce. Úřední názvy se nepřekládají pryč.
@@ -266,7 +268,7 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
         hidden.add(doc);
       } else if (isClienteCardLiveDoc(
         deletedAt: raw['deleted_at'],
-        bloqueId: raw['bloque_id'],
+        tipo: '${raw['tipo'] ?? ''}',
       )) {
         documents.add(doc);
       }
@@ -472,29 +474,18 @@ class ClienteCardController extends FamilyAsyncNotifier<ClienteCard, String> {
     final current = state.valueOrNull;
     if (current == null || current.deleted) return;
     final auth = ref.read(authControllerProvider).valueOrNull;
-    if (trySupabaseClient() == null) throw StateError('not configured');
-    final path = documentoStoragePath(
+    final ingested = await ingestClienteDocumento(
       tenantId: current.tenantId,
       clienteId: current.id,
-      originalName: originalName,
-    );
-    await uploadDocumentoBytes(
-      path: path,
       bytes: bytes,
       originalName: originalName,
-    );
-    await insertDocumentoRow(
-      tenantId: current.tenantId,
-      clienteId: current.id,
       tipo: tipo,
-      storagePath: path,
-      originalName: originalName,
       createdBy: auth?.profile?.id,
     );
     startExtractInBackground(
       tenantId: current.tenantId,
       clienteId: current.id,
-      storagePath: path,
+      storagePath: ingested.storagePath,
       mime: mimeForOfficeFile(originalName),
       docTipo: tipo,
       bloqueKey: tipo,

@@ -61,6 +61,7 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `ai-assistant` | Edge Function | whitelist tools; žádný save/send |
 | `roadmap_dokumenty_ai` | `docs/roadmap_dokumenty_ai.md` | Fáze A–G + FTS v `body_text`; vektory později |
 | `ai-draft-message` | Edge Function | díry složky → `mensajes.draft`; odesílá gestor |
+| `ingestClienteDocumento` | `documento_storage.dart` | jediný zápis originálu na hromadu `stoh/`; album = `linkDocumentoBloque`; AI čte totéž |
 | `stoh` | `features/carpeta/stoh_*.dart`, `/stoh` | sken bez bloku; classify; Guardar zapne blok; AI neukládá |
 | `documento_library` | `documento_library.dart`, SQL 0062–0065 | knihovna u klienta; alba `documento_bloques`; finca; duplicita; spojení fotek; AI place jen album |
 | `library_view` | `library_view.dart`, `/stoh` | filtry hromady, pohled bez dump, hromadný výběr |
@@ -105,7 +106,8 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `run_plazo_reminders` | SQL + Edge `plazo-reminders` | 07:00 Madrid drafty; nikdy neodesílá |
 | `cents` | `core/money/cents.dart` | integer cents |
 | `provision_movements` | SQL + deska | ingreso/factura/ajuste; zbývá odvozené |
-| `invite-staff` | Edge Function | owner zve gestor/asistente, max 3 |
+| `invite-staff` | Edge Function | owner zve gestor/asistente, bez stropu počtu |
+| `staff_scope_set` | SQL RPC | owner nastaví scoped karty a bloky člena; ownera omezit nelze |
 | `cliente_audit_log` | SQL RPC + karta | LOPDGDD stopa; `audit_open` při vstupu; jen owner |
 | `tenant_settings` | SQL 1:1 tenant | display_name, offsety, slot_order, send_translated_outbound |
 | `client_contacts` | SQL | druhý kontakt + locale (komunikace, ne vlastnictví) |

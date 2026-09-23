@@ -400,33 +400,26 @@ class ThinExpedienteController
             alreadyHave: have,
             originalName: originalName,
           );
-    final path = documentoStoragePath(
+    final ingested = await ingestClienteDocumento(
       tenantId: current.tenantId,
       clienteId: current.clienteId,
-      originalName: originalName,
-      bloqueId: bloqueId,
-    );
-    await uploadDocumentoBytes(
-      path: path,
       bytes: bytes,
       originalName: originalName,
-    );
-    final insertedId = await insertDocumentoRow(
-      tenantId: current.tenantId,
-      clienteId: current.clienteId,
       tipo: resolved,
-      storagePath: path,
-      originalName: originalName,
-      bloqueId: bloqueId,
       createdBy: auth?.profile?.id,
+    );
+    await linkDocumentoBloque(
+      documentoId: ingested.id,
+      bloqueId: bloqueId,
+      tipo: resolved,
     );
     final next = current.bloque.copyWith(
       documents: [
         ...current.bloque.documents,
         CarpetaDocumento(
-          id: insertedId,
+          id: ingested.id,
           tipo: resolved,
-          storagePath: path,
+          storagePath: ingested.storagePath,
           originalName: originalName,
         ),
       ],
@@ -442,7 +435,7 @@ class ThinExpedienteController
     startExtractInBackground(
       tenantId: current.tenantId,
       clienteId: current.clienteId,
-      storagePath: path,
+      storagePath: ingested.storagePath,
       mime: mimeForOfficeFile(originalName),
       docTipo: resolved,
       bloqueKey: current.kind.templateKey,

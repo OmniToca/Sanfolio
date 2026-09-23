@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gestoria_auth/gestoria_auth.dart';
 
+import '../../core/auth/staff_access.dart';
 import '../../core/auth/staff_role.dart';
 
 class OfficeMember {
@@ -111,6 +112,62 @@ class OfficeTeamController extends AsyncNotifier<List<OfficeMember>> {
     }).eq('id', memberId).eq('tenant_id', tenantId);
     ref.invalidateSelf();
   }
+
+  Future<StaffAccessScope> loadScope(String profileId) async {
+    final auth = ref.read(authControllerProvider).valueOrNull;
+    final tenantId = auth?.currentTenantId;
+    final client = trySupabaseClient();
+    if (tenantId == null || client == null) return StaffAccessScope.open;
+    final scopeRow = await client
+        .from('staff_scopes')
+        .select('scoped, bloque_keys')
+        .eq('tenant_id', tenantId)
+        .eq('profile_id', profileId)
+        .isFilter('deleted_at', null)
+        .maybeSingle();
+    final accessRows = await client
+        .from('staff_cliente_access')
+        .select('cliente_id')
+        .eq('tenant_id', tenantId)
+        .eq('profile_id', profileId)
+        .isFilter('deleted_at', null);
+    final ids = <String>[];
+    for (final raw in accessRows as List) {
+      if (raw is! Map) continue;
+      final id = '${raw['cliente_id'] ?? ''}'.trim();
+      if (id.isNotEmpty) ids.add(id);
+    }
+    final keys = <String>[];
+    final rawKeys = scopeRow?['bloque_keys'];
+    if (rawKeys is List) {
+      for (final k in rawKeys) {
+        final s = '$k'.trim();
+        if (s.isNotEmpty) keys.add(s);
+      }
+    }
+    return StaffAccessScope(
+      scoped: scopeRow?['scoped'] == true,
+      bloqueKeys: keys,
+      clienteIds: ids,
+    );
+  }
+
+  Future<void> saveScope({
+    required String profileId,
+    required StaffAccessScope scope,
+  }) async {
+    final client = trySupabaseClient();
+    if (client == null) throw StateError('not configured');
+    await client.rpc(
+      'staff_scope_set',
+      params: {
+        'p_profile_id': profileId,
+        'p_scoped': scope.scoped,
+        'p_bloque_keys': scope.bloqueKeys,
+        'p_cliente_ids': scope.clienteIds,
+      },
+    );
+  }
 }
 
 final officeTeamProvider =
@@ -118,7 +175,15 @@ final officeTeamProvider =
   OfficeTeamController.new,
 );
 
-const officeTeamLimit = 3;
+final myStaffScopeProvider = FutureProvider<StaffAccessScope>((ref) async {
+  final auth = await ref.watch(authControllerProvider.future);
+  if (auth.impersonating || currentOfficeRole(auth) == 'owner') {
+    return StaffAccessScope.open;
+  }
+  final id = auth.profile?.id;
+  if (id == null || id.isEmpty) return StaffAccessScope.open;
+  return ref.read(officeTeamProvider.notifier).loadScope(id);
+});
 
 /// Výsledek Pozvat. UI mapuje na i18n, ne plaintext z API.
 enum OfficeInviteKind { sent, existing, noEmail }

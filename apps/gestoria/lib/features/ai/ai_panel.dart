@@ -468,21 +468,10 @@ class _AiPanelState extends ConsumerState<AiPanel> {
       if (trySupabaseClient() == null) {
         throw OfficeUploadException('not_configured');
       }
-      final path = documentoStoragePath(
+      final ingested = await ingestClienteDocumento(
         tenantId: tenantId,
         clienteId: id,
-        originalName: file.name,
-      );
-      await uploadDocumentoBytes(
-        path: path,
         bytes: file.bytes,
-        originalName: file.name,
-      );
-      await insertDocumentoRow(
-        tenantId: tenantId,
-        clienteId: id,
-        tipo: 'other',
-        storagePath: path,
         originalName: file.name,
       );
       await ref.read(aiChatProvider.notifier).addUser(file.name);
@@ -492,7 +481,7 @@ class _AiPanelState extends ConsumerState<AiPanel> {
       startExtractInBackground(
         tenantId: tenantId,
         clienteId: id,
-        storagePath: path,
+        storagePath: ingested.storagePath,
         mime: mimeForOfficeFile(file.name, extension: file.extension),
         onDone: (draft) {
           if (draft == null || isExtractFailed(draft.fields)) {
