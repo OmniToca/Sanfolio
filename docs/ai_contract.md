@@ -41,7 +41,7 @@ Whitelist v `supabase/functions/ai-assistant/index.ts`. Nic jiného runtime mode
 }
 ```
 
-Volá RPC z [search_spec.md](search_spec.md). Vrací id, **jméno**, skóre, matched_via (`name` | `id_*` | `address` | …). Edge před LLM vytáhne NIE/jméno/adresu ze věty (stopslova + soft skloňování) a vloží hits do promptu. Žádný update.
+Volá RPC z [search_spec.md](search_spec.md) (`pg_trgm` / ILIKE indexy, `can_access_cliente`). Vrací id, **jméno**, skóre, matched_via (`name` | `id_*` | `address` | …). Edge před LLM vytáhne NIE/jméno/adresu ze věty (stopslova + soft skloňování) a vloží **top N hitů** do promptu — **nikdy celý tenant**. Seznam „jací klienti“ = max 20 jmen. Follow-up „tento klient“ = `focus_cliente_id` (UUID z vlákna), ne nový full scan. Žádný update.
 
 ### 2.1b `search_cliente_documentos`
 

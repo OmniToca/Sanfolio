@@ -1090,7 +1090,11 @@
     "coOwnersTitle": "Miteigentümer — {name} ({count})",
     "coOwnersEmpty": "Keine weiteren Miteigentümer in titulares für {name}.",
     "propertiesTitle": "Immobilien — {name} ({count})",
-    "propertiesEmpty": "Dieser Ordner hat noch keine finca."
+    "propertiesEmpty": "Dieser Ordner hat noch keine finca.",
+    "docYes": "Ja — bei {name} gibt es {count} passende Dokument(e):",
+    "docNo": "Nein — bei {name} sehe ich solches Papier nicht auf dem Stapel / in der Akte.",
+    "noFocusClient": "Nennen Sie zuerst einen Kunden (Name / NIE), oder fragen Sie nach dem Öffnen der Karte. „Dieser Kunde“ gilt nur in diesem Thread.",
+    "listMore": "…max. 20 angezeigt — mit Name / NIE eingrenzen."
   },
   "tax": {
     "title": "IRNR-Berechnung (modelo 210)",

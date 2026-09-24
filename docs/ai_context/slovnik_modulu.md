@@ -61,12 +61,13 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `ai_get_cliente` | SQL RPC | snapshot karty + identifikátory (NIE) + díry + doklady (`albums` [] = hromada, finca) + titular finca; žádný save |
 | `search_clients` | SQL RPC | NL: soft jméno (skloňování/prefix/trgm), NIE substring/token, adresa bydliště+finca; `can_access_cliente` |
 | `search_query_content` / `search_query_id_tokens` / `search_doc_query_parts` | SQL + Flutter `core/search` | NL věta → jméno/NIE/ulice / tipo hinty; Edge presearch |
-| `classifyAiNlIntent` | Flutter `search_query_content.dart` | list / coOwners / propertyCount / pile / identity — ať panel nedumpuje doklady na každou otázku |
-| `askClienteCoOwners` / `askClienteProperties` | Flutter `ai_providers.dart` | titulares na finca složky / počet inmuebles; read-only |
-| `search_cliente_documentos` | SQL RPC | hromada: tipo / název / `ai_summary` / `body_text`; list při prázdném q; read-only |
+| `classifyAiNlIntent` | Flutter `search_query_content.dart` | list / coOwners / propertyCount / **docPresence** / pile / identity; follow-up `looksLikeClientFollowUp` |
+| `aiChatProvider.focusClienteId` | `features/ai/ai_chat.dart` | poslední resolved UUID ve vlákně („tento klient“); ne full-tenant search |
+| `askClienteCoOwners` / `askClienteProperties` | Flutter `ai_providers.dart` | titulares na finca složky / počet inmuebles; read-only; scoped `cliente_id` |
+| `search_cliente_documentos` | SQL RPC | hromada: tipo / název / `ai_summary` / `body_text`; list při prázdném q; **vyžaduje cliente_id nebo neprázdné q**; read-only |
 | `query_suministro` / `query_plazos_office` / `query_escritura` | SQL RPC | office-wide čtení desky; escritura i notář / strana v `inmueble_titulares` / catastral |
 | `search_document_text` | SQL RPC + Edge hybrid | FTS v `body_text` i bez alba; cosine `documento_chunks`; `albums` [] = hromada |
-| `ai-assistant` | Edge Function | whitelist tools; intent + slim snapshot; prefetch co_owners/properties; žádný save/send |
+| `ai-assistant` | Edge Function | whitelist tools; intent + slim snapshot; prefetch; **top-N search (10) / list (20)**; `focus_cliente_id`; deterministické property/doc; žádný save/send |
 | `roadmap_dokumenty_ai` | `docs/roadmap_dokumenty_ai.md` | Fáze A–G + FTS v `body_text`; vektory později |
 | `ai-draft-message` | Edge Function | díry složky → `mensajes.draft`; odesílá gestor |
 | `ingestClienteDocumento` | `documento_storage.dart` | jediný zápis originálu na hromadu `stoh/`; album = `linkDocumentoBloque`; AI čte totéž |

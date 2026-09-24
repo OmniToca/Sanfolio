@@ -1090,7 +1090,11 @@
     "coOwnersTitle": "Copropriétaires — {name} ({count})",
     "coOwnersEmpty": "Pas d’autres cotitulaires dans titulares pour {name}.",
     "propertiesTitle": "Biens — {name} ({count})",
-    "propertiesEmpty": "Ce dossier n’a pas encore de finca."
+    "propertiesEmpty": "Ce dossier n’a pas encore de finca.",
+    "docYes": "Oui — {name} a {count} document(s) correspondant(s) :",
+    "docNo": "Non — je ne vois pas ce papier dans la pile / le dossier de {name}.",
+    "noFocusClient": "Indiquez d’abord un client (nom / NIE), ou posez la question après ouverture de la fiche. « Ce client » ne vaut que dans ce fil.",
+    "listMore": "…max. 20 affichés — précisez par nom / NIE."
   },
   "tax": {
     "title": "Calcul IRNR (modelo 210)",

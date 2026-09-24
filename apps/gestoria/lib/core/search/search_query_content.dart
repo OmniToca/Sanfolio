@@ -374,9 +374,29 @@ enum AiNlIntent {
   listClients,
   coOwners,
   propertyCount,
+  /// Ano/ne + které papíry (kupní, escritura, DNI…) — ne identitní karta.
+  docPresence,
   pileDocs,
   identity,
   other,
+}
+
+/// „Tento / ta klient(ka)“ — follow-up na poslední `cliente_id` ve vlákně.
+bool looksLikeClientFollowUp(String raw) {
+  final n = normalizeSearchText(raw);
+  if (n.isEmpty) return false;
+  if (RegExp(
+    r'\b(tento|tato|ten|ta|tohoto|teto|te|toho)\s+klient',
+  ).hasMatch(n)) {
+    return true;
+  }
+  if (RegExp(r'\b(u\s+n[ei]|u\s+nich|this\s+client|este\s+cliente|dieser\s+kunde|ce\s+client)\b')
+      .hasMatch(n)) {
+    return true;
+  }
+  return n.contains('ta klientka') ||
+      n.contains('te klientky') ||
+      n.contains('tohoto klienta');
 }
 
 /// Spoluvlastníci / titulares na finca (ne celý stoh papírů).
@@ -396,7 +416,8 @@ bool looksLikeCoOwnersQuery(String raw) {
       n.contains('otros duenos');
 }
 
-/// Kolik nemovitostí / jaké finca — ne výpis všech PDF.
+/// Nemovitost / finca / inmueble — ano/ne, počet, adresy (ne dump PDF).
+/// „má nějakou nemovitost“ i bez „kolik“.
 bool looksLikePropertyCountQuery(String raw) {
   final n = normalizeSearchText(raw);
   if (n.isEmpty) return false;
@@ -411,6 +432,8 @@ bool looksLikePropertyCountQuery(String raw) {
       n.contains('propied') ||
       RegExp(r'\bbyt\b|\bbyty\b|\bdum\b|\bdomy\b').hasMatch(n);
   if (!hasProp) return false;
+  // Samotná zmínka nemovitosti u klienta = property intent (ano/ne + adresy).
+  // „podle dokumentů“ u count zůstává tady, ne pile.
   return n.contains('kolik') ||
       n.contains('pocet') ||
       n.contains('how many') ||
@@ -419,17 +442,64 @@ bool looksLikePropertyCountQuery(String raw) {
       n.contains('combien') ||
       n.contains('jake ma') ||
       n.contains('ma nejake') ||
+      n.contains('ma nejak') ||
+      n.contains('nejakou') ||
+      n.contains('nejaky') ||
+      n.contains('nejake') ||
+      n.contains('any ') ||
+      n.contains('alguna') ||
       n.contains('ktere') ||
       n.contains('which') ||
       n.contains('donde') ||
-      n.contains('kde ma');
+      n.contains('kde ma') ||
+      n.contains('ma ') ||
+      n.contains('má ') ||
+      n.contains('tiene') ||
+      n.contains('have') ||
+      n.contains('has ') ||
+      n.contains('mame') ||
+      n.contains('mate');
+}
+
+/// Ano/ne na konkrétní papír (kupní, escritura, poder, DNI…) — ne identity karta.
+bool looksLikeDocPresenceQuery(String raw) {
+  if (looksLikeCoOwnersQuery(raw) || looksLikePropertyCountQuery(raw)) {
+    return false;
+  }
+  final n = normalizeSearchText(raw);
+  // „klient s NIE Y990“ = identita / search, ne „máme papír DNI“.
+  if (searchQueryIdTokens(raw).isNotEmpty &&
+      !RegExp(
+        r'\b(dni|pasport|pasaporte|passport|obcans|doklad|dokument|escritur|kupni|compraventa|smlouv|poder|factura|faktur|iban)\b',
+      ).hasMatch(n)) {
+    return false;
+  }
+  final parts = searchDocQueryParts(raw);
+  if (parts.isEmpty) return false;
+  // Seznam „jaké doklady na hromadě“ = pile, ne presence.
+  if (looksLikeListPileDocsQueryLoose(raw)) return false;
+  return n.contains('mame') ||
+      n.contains('mate') ||
+      n.contains('ma ') ||
+      n.contains('má ') ||
+      n.contains('je tam') ||
+      n.contains('existuje') ||
+      n.contains('u ') ||
+      n.contains('have') ||
+      n.contains('has ') ||
+      n.contains('tiene') ||
+      n.contains('tenemos') ||
+      n.contains('hay ') ||
+      n.contains('got ') ||
+      RegExp(r'\bma\b|\bje\b').hasMatch(n);
 }
 
 /// Jen jméno / NIE / identita karty — krátká odpověď, ne wall dokladů.
 bool looksLikeIdentityQuery(String raw) {
   if (looksLikeListClientsQuery(raw) ||
       looksLikeCoOwnersQuery(raw) ||
-      looksLikePropertyCountQuery(raw)) {
+      looksLikePropertyCountQuery(raw) ||
+      looksLikeDocPresenceQuery(raw)) {
     return false;
   }
   final n = normalizeSearchText(raw);
@@ -467,10 +537,13 @@ bool looksLikeIdentityQuery(String raw) {
 
 /// Otázky o hromadě / dokladech (tipo, DNI, factura, e-mail…).
 /// „podle dokumentů“ u nemovitostí / titulares sem nepatří — to je count/co-owners.
+/// Konkrétní „máme kupní?“ = docPresence (dřív v classify).
 bool looksLikePileDocsQuery(String raw) {
   final n = normalizeSearchText(raw);
   if (n.isEmpty) return false;
-  if (looksLikeCoOwnersQuery(raw) || looksLikePropertyCountQuery(raw)) {
+  if (looksLikeCoOwnersQuery(raw) ||
+      looksLikePropertyCountQuery(raw) ||
+      looksLikeDocPresenceQuery(raw)) {
     return false;
   }
   // „podle našich dokumentů“ u jiné otázky ≠ výpis hromady.
@@ -511,7 +584,10 @@ bool looksLikePileDocsQuery(String raw) {
       n.contains('ma na') ||
       n.contains('má na') ||
       n.contains('ma v') ||
-      n.contains('má v');
+      n.contains('má v') ||
+      n.contains('kupni') ||
+      n.contains('compraventa') ||
+      n.contains('smlouv');
 }
 
 /// Jedna klasifikace pro panel i testy. Pořadí = priorita.
@@ -519,6 +595,7 @@ AiNlIntent classifyAiNlIntent(String raw) {
   if (looksLikeListClientsQuery(raw)) return AiNlIntent.listClients;
   if (looksLikeCoOwnersQuery(raw)) return AiNlIntent.coOwners;
   if (looksLikePropertyCountQuery(raw)) return AiNlIntent.propertyCount;
+  if (looksLikeDocPresenceQuery(raw)) return AiNlIntent.docPresence;
   if (looksLikePileDocsQuery(raw)) return AiNlIntent.pileDocs;
   if (looksLikeIdentityQuery(raw)) return AiNlIntent.identity;
   return AiNlIntent.other;
@@ -546,8 +623,13 @@ List<String> searchDocQueryParts(String raw) {
     add('correo');
     add('mail');
   }
-  if (RegExp(r'(escritur|listin|notar|deed)').hasMatch(n)) {
+  // Kupní / compraventa / escritura / listina — presence i pile filtr.
+  if (RegExp(
+    r'(escritur|listin|notar|deed|kupni|compraventa|smlouv)',
+  ).hasMatch(n)) {
     add('copia_escritura');
+    add('escritura');
+    add('compraventa');
   }
   if (RegExp(r'(poder|plna moc|attorney)').hasMatch(n)) {
     add('copia_poder');
@@ -566,6 +648,27 @@ List<String> searchDocQueryParts(String raw) {
     add('scan');
   }
   return parts;
+}
+
+/// Seznam hromady bez filtrování tipo — bez závislosti na looksLikePileDocs
+/// (docPresence ji volá dřív, než pile dump).
+bool looksLikeListPileDocsQueryLoose(String raw) {
+  final n = normalizeSearchText(raw);
+  if (n.isEmpty) return false;
+  final asksList = n.contains('jake') ||
+      n.contains('jaky') ||
+      n.contains('which') ||
+      n.contains('what ') ||
+      n.contains('que ') ||
+      n.contains('quels') ||
+      n.contains('welche');
+  final onPile = n.contains('hromad') ||
+      n.contains('stoh') ||
+      n.contains('doklad') ||
+      n.contains('dokument') ||
+      n.contains('pile') ||
+      n.contains('papir');
+  return asksList && onPile;
 }
 
 /// Seznam hromady bez filtrování tipo (jen „jaké doklady má X“).

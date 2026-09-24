@@ -189,34 +189,98 @@ class _AiPanelState extends ConsumerState<AiPanel> {
       await ref.read(aiChatProvider.notifier).addUser(q);
       _q.clear();
       final openId = _clienteId();
+      final chat = ref.read(aiChatProvider).valueOrNull;
+      final sessionFocus = chat?.focusClienteId;
+      final sessionName = chat?.focusClienteNombre ?? '';
       final tenantId = ref
           .read(authControllerProvider)
           .valueOrNull
           ?.currentTenantId;
+      final intent = classifyAiNlIntent(q);
+      final followUp = looksLikeClientFollowUp(q);
+
+      // Core intents (property / doc / co-owners): krátká odpověď z dat,
+      // ne Edge identity dump. Session focus pro „tento klient“.
+      final coreIntent = intent == AiNlIntent.propertyCount ||
+          intent == AiNlIntent.docPresence ||
+          intent == AiNlIntent.coOwners;
+      if (coreIntent) {
+        final local = await _replyCoreIntent(
+          intent: intent,
+          q: q,
+          openId: openId,
+          sessionFocus: followUp || openId == null ? sessionFocus : null,
+          sessionName: sessionName,
+          followUp: followUp,
+        );
+        if (local != null) {
+          await ref
+              .read(aiChatProvider.notifier)
+              .addAssistant(encodeAiChatPayload(local));
+          _pinToLatest();
+          return;
+        }
+      }
+
+      // Edge: otevřená karta NEBO follow-up UUID. Nový search = bez vynuceného focus.
+      final focusForEdge = openId ?? (followUp ? sessionFocus : null);
       final assistant = await askAiAssistant(
         message: q,
         locale: locale,
-        clienteId: openId,
+        clienteId: focusForEdge,
         tenantId: tenantId,
+        focusClienteId: sessionFocus,
       );
       if (assistant != null) {
+        if (assistant.opens.isNotEmpty) {
+          ref.read(aiChatProvider.notifier).rememberFocus(
+                clienteId: assistant.opens.first.clienteId,
+                nombre: assistant.opens.first.label,
+              );
+        }
         await ref
             .read(aiChatProvider.notifier)
             .addAssistant(encodeAiChatPayload(assistant));
       } else {
         // Fallback bez Edge: intent → krátká odpověď / titulares / count / hromada.
         // Ne vždy dump všech dokladů (regrese po NL search).
-        final intent = classifyAiNlIntent(q);
         final listAll = intent == AiNlIntent.listClients;
-        final pileQ = intent == AiNlIntent.pileDocs;
+        final pileQ = intent == AiNlIntent.pileDocs ||
+            intent == AiNlIntent.docPresence;
         final wantDocs = pileQ;
-        final hits =
-            listAll ? await aiListClients() : await aiSearchClients(q);
+        final skipSearch = followUp &&
+            (sessionFocus != null && sessionFocus.isNotEmpty) &&
+            (searchQueryContent(q).isEmpty ||
+                looksLikeClientFollowUp(q));
+        final hits = listAll
+            ? await aiListClients(limit: 20)
+            : (skipSearch ? <AiHit>[] : await aiSearchClients(q));
         final focusId = openId ??
-            (hits.isNotEmpty ? hits.first.clienteId : null);
+            (followUp ? sessionFocus : null) ??
+            (hits.isNotEmpty ? hits.first.clienteId : null) ??
+            sessionFocus;
         final focusName = openId != null
             ? ''
-            : (hits.isNotEmpty ? hits.first.nombre : '');
+            : (hits.isNotEmpty
+                ? hits.first.nombre
+                : (focusId == sessionFocus ? sessionName : ''));
+        if (focusId != null && focusId.isNotEmpty) {
+          ref.read(aiChatProvider.notifier).rememberFocus(
+                clienteId: focusId,
+                nombre: focusName,
+              );
+        }
+        if (followUp &&
+            (focusId == null || focusId.isEmpty) &&
+            hits.isEmpty) {
+          await ref.read(aiChatProvider.notifier).addAssistant(
+                encodeAiChatPayload(
+                  AiChatPayload(text: 'ai.noFocusClient'.tr()),
+                ),
+              );
+          _pinToLatest();
+          return;
+        }
         AiPileDocsAnswer? pile;
         if (pileQ && focusId != null) {
           final docFilter = looksLikeListPileDocsQuery(q)
@@ -243,7 +307,10 @@ class _AiPanelState extends ConsumerState<AiPanel> {
             nombre: focusName,
           );
         }
-        final facts = focusId == null || listAll
+        final skipFacts = intent == AiNlIntent.propertyCount ||
+            intent == AiNlIntent.coOwners ||
+            intent == AiNlIntent.docPresence;
+        final facts = focusId == null || listAll || skipFacts
             ? null
             : await askClienteFactsForId(
                 focusId,
@@ -254,6 +321,7 @@ class _AiPanelState extends ConsumerState<AiPanel> {
                 intent == AiNlIntent.identity ||
                 intent == AiNlIntent.coOwners ||
                 intent == AiNlIntent.propertyCount ||
+                intent == AiNlIntent.docPresence ||
                 listAll
             ? null
             : await askOfficeFacts(tenantId: tenantId, q: q);
@@ -283,6 +351,122 @@ class _AiPanelState extends ConsumerState<AiPanel> {
     } finally {
       if (mounted) setState(() => _working = false);
     }
+  }
+
+  /// Property / doc-presence / co-owners z core dat — bez identity karty.
+  Future<AiChatPayload?> _replyCoreIntent({
+    required AiNlIntent intent,
+    required String q,
+    required String? openId,
+    required String? sessionFocus,
+    required String sessionName,
+    required bool followUp,
+  }) async {
+    final skipSearch = followUp ||
+        (looksLikeClientFollowUp(q) &&
+            (sessionFocus != null && sessionFocus.isNotEmpty));
+    final contentEmpty = searchQueryContent(q).isEmpty &&
+        searchQueryIdTokens(q).isEmpty;
+    final hits = (skipSearch || (followUp && contentEmpty))
+        ? <AiHit>[]
+        : await aiSearchClients(q);
+    final focusId = openId ??
+        (followUp || contentEmpty ? sessionFocus : null) ??
+        (hits.isNotEmpty ? hits.first.clienteId : null) ??
+        sessionFocus;
+    if (focusId == null || focusId.isEmpty) {
+      if (followUp || looksLikeClientFollowUp(q)) {
+        return AiChatPayload(text: 'ai.noFocusClient'.tr());
+      }
+      return AiChatPayload(text: 'ai.factsNone'.tr());
+    }
+    final focusName = openId != null
+        ? ''
+        : (hits.isNotEmpty
+            ? hits.first.nombre
+            : (focusId == sessionFocus ? sessionName : ''));
+    ref.read(aiChatProvider.notifier).rememberFocus(
+          clienteId: focusId,
+          nombre: focusName,
+        );
+
+    if (intent == AiNlIntent.coOwners) {
+      final coOwners = await askClienteCoOwners(focusId, nombre: focusName);
+      return _replyPayload(
+        intent: intent,
+        hits: hits,
+        facts: null,
+        coOwners: coOwners,
+      );
+    }
+    if (intent == AiNlIntent.propertyCount) {
+      final properties =
+          await askClienteProperties(focusId, nombre: focusName);
+      return _replyPayload(
+        intent: intent,
+        hits: hits,
+        facts: null,
+        properties: properties,
+      );
+    }
+    if (intent == AiNlIntent.docPresence) {
+      final docFilter = searchDocQueryParts(q).isNotEmpty
+          ? q
+          : searchQueryContent(q);
+      final pile = await aiSearchClienteDocumentos(
+        clienteId: focusId,
+        q: docFilter,
+      );
+      return _docPresencePayload(
+        pile: pile,
+        focusId: focusId,
+        focusName: focusName,
+      );
+    }
+    return null;
+  }
+
+  /// Ano/ne + které papíry; nikdy identity dump.
+  AiChatPayload _docPresencePayload({
+    required AiPileDocsAnswer? pile,
+    required String focusId,
+    required String focusName,
+  }) {
+    final name = (pile?.clienteNombre ?? focusName).trim().isNotEmpty
+        ? (pile?.clienteNombre ?? focusName).trim()
+        : '—';
+    final opens = <AiChatOpen>[
+      AiChatOpen(clienteId: focusId, label: name, carpeta: true),
+    ];
+    if (pile == null || pile.items.isEmpty) {
+      return AiChatPayload(
+        text: 'ai.docNo'.tr(namedArgs: {'name': name}),
+        opens: opens,
+      );
+    }
+    final lines = <String>[
+      'ai.docYes'.tr(
+        namedArgs: {
+          'name': name,
+          'count': '${pile.total}',
+        },
+      ),
+    ];
+    for (final doc in pile.items.take(8)) {
+      final bits = [
+        _docTipoLabel(doc.tipo),
+        _aiAlbumBit(doc.albums),
+        if ((doc.originalName ?? '').isNotEmpty) doc.originalName!,
+        if ((doc.aiSummary ?? '').isNotEmpty) doc.aiSummary!,
+      ];
+      lines.add(bits.where((s) => s.trim().isNotEmpty).join(' · '));
+    }
+    if (pile.total > 8) {
+      lines.add(
+        'ai.pileMore'.tr(namedArgs: {'count': '${pile.total - 8}'}),
+      );
+    }
+    return AiChatPayload(text: lines.join('\n'), opens: opens);
   }
 
   AiChatPayload _replyPayload({
@@ -582,11 +766,15 @@ class _AiPanelState extends ConsumerState<AiPanel> {
             (facts == null && pile == null && office == null))) {
       if (lines.isNotEmpty) lines.add('');
       lines.add('ai.results'.tr());
-      for (final hit in hits.take(20)) {
+      final shown = hits.take(20).toList();
+      for (final hit in shown) {
         final name = hit.nombre.isEmpty ? 'inbox.unnamed'.tr() : hit.nombre;
         lines.add(name);
         if (opens.any((o) => o.clienteId == hit.clienteId)) continue;
         opens.add(AiChatOpen(clienteId: hit.clienteId, label: name));
+      }
+      if (intent == AiNlIntent.listClients && hits.length >= 20) {
+        lines.add('ai.listMore'.tr());
       }
     }
     return AiChatPayload(text: lines.join('\n'), opens: opens);
