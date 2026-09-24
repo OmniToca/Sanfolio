@@ -38,11 +38,7 @@
     "historyHide": "Weniger"
   },
   "settings": {
-    "title": "Büro-Einstellungen",
-    "tabOffice": "Büro",
-    "tabDeadlines": "Fristen",
-    "tabTeam": "Team",
-    "tabFolder": "Mappe",
+    "title": "Einstellungen",
     "modulesTitle": "Lizenz",
     "modulesHint": "Paket und Monatsgebühr. Preisliste und Rabatt setzt Support.",
     "modulesOwnerOnly": "Die Lizenz schaltet Support ein.",
@@ -107,7 +103,17 @@
       "owner": "Owner",
       "gestor": "Gestor",
       "asistente": "Asistente"
-    }
+    },
+    "sectionOffice": "Büro",
+    "sectionAccount": "Mein Konto",
+    "sectionTeam": "Personen",
+    "sectionDeadlines": "Fristen",
+    "sectionFolder": "Akte",
+    "sectionPosta": "Post",
+    "sectionFacturacion": "Fakturierung",
+    "sectionOfertas": "Angebote",
+    "officeIntro": "Nur das Büro: Lizenz und Regeln für ausgehende Nachrichten. Ihr Konto und weitere Bereiche sind in der Liste links.",
+    "accountIntro": "Nur Sie: Bildschirmsprache, Passwort und Abmelden. Büroeinstellungen ändern sich nicht."
   },
   "error": {
     "notFound": "Seite nicht gefunden"

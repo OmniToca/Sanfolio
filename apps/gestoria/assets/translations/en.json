@@ -38,11 +38,7 @@
     "historyHide": "Show less"
   },
   "settings": {
-    "title": "Office settings",
-    "tabOffice": "Office",
-    "tabDeadlines": "Deadlines",
-    "tabTeam": "People",
-    "tabFolder": "Folder",
+    "title": "Settings",
     "modulesTitle": "Licence",
     "modulesHint": "The package and the monthly fee. Support sets the price list and the discount.",
     "modulesOwnerOnly": "Support turns the licence on.",
@@ -107,7 +103,17 @@
       "owner": "Owner",
       "gestor": "Gestor",
       "asistente": "Asistente"
-    }
+    },
+    "sectionOffice": "Office",
+    "sectionAccount": "My account",
+    "sectionTeam": "People",
+    "sectionDeadlines": "Deadlines",
+    "sectionFolder": "Folder",
+    "sectionPosta": "Mail",
+    "sectionFacturacion": "Invoicing",
+    "sectionOfertas": "Offers",
+    "officeIntro": "Office only: licence and outbound message rules. Your account and other agendas are in the list on the left.",
+    "accountIntro": "You only: screen language, password and sign-out. This does not change office settings."
   },
   "error": {
     "notFound": "Page not found"

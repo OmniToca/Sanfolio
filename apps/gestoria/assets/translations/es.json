@@ -38,11 +38,7 @@
     "historyHide": "Menos"
   },
   "settings": {
-    "title": "Ajustes del despacho",
-    "tabOffice": "Despacho",
-    "tabDeadlines": "Plazos",
-    "tabTeam": "Personas",
-    "tabFolder": "Carpeta",
+    "title": "Ajustes",
     "modulesTitle": "Licencia",
     "modulesHint": "El paquete y la cuota mensual. La tarifa y el descuento los pone Support.",
     "modulesOwnerOnly": "La licencia la enciende Support.",
@@ -107,7 +103,17 @@
       "owner": "Owner",
       "gestor": "Gestor",
       "asistente": "Asistente"
-    }
+    },
+    "sectionOffice": "Despacho",
+    "sectionAccount": "Mi cuenta",
+    "sectionTeam": "Personas",
+    "sectionDeadlines": "Plazos",
+    "sectionFolder": "Carpeta",
+    "sectionPosta": "Correo",
+    "sectionFacturacion": "Facturación",
+    "sectionOfertas": "Ofertas",
+    "officeIntro": "Solo el despacho: licencia y reglas de mensajes salientes. Tu cuenta y otras agendas están en la lista de la izquierda.",
+    "accountIntro": "Solo tú: idioma de pantalla, contraseña y cerrar sesión. No cambia los ajustes del despacho."
   },
   "error": {
     "notFound": "Página no encontrada"

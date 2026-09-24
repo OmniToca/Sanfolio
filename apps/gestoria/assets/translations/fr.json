@@ -38,11 +38,7 @@
     "historyHide": "Moins"
   },
   "settings": {
-    "title": "Paramètres du cabinet",
-    "tabOffice": "Cabinet",
-    "tabDeadlines": "Délais",
-    "tabTeam": "Équipe",
-    "tabFolder": "Dossier",
+    "title": "Paramètres",
     "modulesTitle": "Licence",
     "modulesHint": "Le forfait et la cotisation mensuelle. Le tarif et la remise, c’est Support.",
     "modulesOwnerOnly": "La licence, c’est Support qui l’active.",
@@ -107,7 +103,17 @@
       "owner": "Owner",
       "gestor": "Gestor",
       "asistente": "Asistente"
-    }
+    },
+    "sectionOffice": "Cabinet",
+    "sectionAccount": "Mon compte",
+    "sectionTeam": "Personnes",
+    "sectionDeadlines": "Délais",
+    "sectionFolder": "Dossier",
+    "sectionPosta": "Courrier",
+    "sectionFacturacion": "Facturation",
+    "sectionOfertas": "Offres",
+    "officeIntro": "Cabinet seulement : licence et règles des messages sortants. Votre compte et les autres agendas sont dans la liste à gauche.",
+    "accountIntro": "Vous seulement : langue de l’écran, mot de passe et déconnexion. Cela ne change pas les paramètres du cabinet."
   },
   "error": {
     "notFound": "Page introuvable"
