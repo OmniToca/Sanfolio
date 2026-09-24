@@ -1048,8 +1048,8 @@
   },
   "ai": {
     "title": "Assistent",
-    "intro": "Sucht Mandanten und schlägt Felder aus Text oder Foto vor. Sie speichern. Nichts schreibt oder sendet von selbst.",
-    "input": "NIE, Name oder Text für den Vorschlag",
+    "intro": "Schreiben Sie natürlich: Name, NIE, Adresse oder was auf dem Stapel liegt. Sie speichern — nichts schreibt oder sendet von selbst.",
+    "input": "Z. B. haben wir Renata? · NIE Y990… · welche Papiere liegen auf dem Stapel?",
     "search": "Suchen",
     "extract": "Felder vorschlagen",
     "extractFile": "Foto / PDF",
@@ -1078,11 +1078,13 @@
     "readingDoc": "Dokument wird gelesen…",
     "newThread": "Neuer Verlauf",
     "closePanel": "Assistent ausblenden",
-    "emptyThread": "Fragen Sie nach einem Mandanten, NIE oder Dokument. Sie speichern — nichts schreibt oder sendet von selbst.",
+    "emptyThread": "Fragen Sie natürlich: Mandant, NIE, Adresse oder was auf dem Stapel liegt. Sie speichern — nichts schreibt oder sendet von selbst.",
     "send": "Senden",
     "savedHint": "Dieser Verlauf wird in Ihrem Büro gespeichert.",
     "writeError": "Der Verlauf konnte nicht gespeichert werden.",
-    "openFolder": "Akte · {name}"
+    "openFolder": "Akte · {name}",
+    "pileTitle": "Stapel — {name} ({count})",
+    "pileEmpty": "Auf dem Stapel von {name} liegt gerade nichts dergleichen (oder die Abschrift fehlt noch)."
   },
   "tax": {
     "title": "IRNR-Berechnung (modelo 210)",

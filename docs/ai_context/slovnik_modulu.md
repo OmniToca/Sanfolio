@@ -59,11 +59,12 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `suggest_cliente_duplicates` / `merge_clientes` | SQL RPC + `/clientes/sloucit` | e-mail/tel/jméno; dvě živá NIE ne; owner/gestor; soft-delete |
 | `season_ibi` | SQL RPC + `/kampane` | SUMA bez recibo nebo plazo v `ibi_warn_days`; prázdné bez splatnosti |
 | `ai_get_cliente` | SQL RPC | snapshot karty + identifikátory (NIE) + díry + doklady (`albums` [] = hromada, finca) + titular finca; žádný save |
-| `search_clients` | SQL RPC | NIE z tokenů ve větě + jméno po stopslovech (token AND + fold); `can_access_cliente` |
-| `search_query_content` / `search_query_id_tokens` | SQL + Flutter `core/search` | NL věta → jméno/NIE; Edge presearch |
+| `search_clients` | SQL RPC | NL: soft jméno (skloňování/prefix/trgm), NIE substring/token, adresa bydliště+finca; `can_access_cliente` |
+| `search_query_content` / `search_query_id_tokens` / `search_doc_query_parts` | SQL + Flutter `core/search` | NL věta → jméno/NIE/ulice / tipo hinty; Edge presearch |
+| `search_cliente_documentos` | SQL RPC | hromada: tipo / název / `ai_summary` / `body_text`; list při prázdném q; read-only |
 | `query_suministro` / `query_plazos_office` / `query_escritura` | SQL RPC | office-wide čtení desky; escritura i notář / strana v `inmueble_titulares` / catastral |
 | `search_document_text` | SQL RPC + Edge hybrid | FTS v `body_text` i bez alba; cosine `documento_chunks`; `albums` [] = hromada |
-| `ai-assistant` | Edge Function | whitelist tools; prefetch otevřené karty + hits z NL; search vrací jméno; žádný save/send |
+| `ai-assistant` | Edge Function | whitelist tools; prefetch hits + hromada; search vrací jméno; žádný save/send |
 | `roadmap_dokumenty_ai` | `docs/roadmap_dokumenty_ai.md` | Fáze A–G + FTS v `body_text`; vektory později |
 | `ai-draft-message` | Edge Function | díry složky → `mensajes.draft`; odesílá gestor |
 | `ingestClienteDocumento` | `documento_storage.dart` | jediný zápis originálu na hromadu `stoh/`; album = `linkDocumentoBloque`; AI čte totéž |

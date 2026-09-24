@@ -25,9 +25,30 @@ void main() {
     expect(nie, contains('Y9908856X'));
   });
 
+  test('skloňování Renatu → stem', () {
+    expect(searchNameStem('Renatu'), 'renat');
+    final q = searchClientQueries('máme Renatu?');
+    expect(q.any((e) => e.toLowerCase().startsWith('renat')), isTrue);
+  });
+
   test('list query bez jména', () {
     expect(looksLikeListClientsQuery('jak se jmenují naši klienti'), isTrue);
     expect(looksLikeListClientsQuery('máme klienta Renata'), isFalse);
     expect(looksLikeListClientsQuery('Y9908856X'), isFalse);
+  });
+
+  test('hromada / DNI / factura intent', () {
+    expect(looksLikePileDocsQuery('jaké dokumenty má Renata na hromadě'), isTrue);
+    expect(looksLikePileDocsQuery('je tam scan e-mailu?'), isTrue);
+    expect(looksLikePileDocsQuery('má DNI?'), isTrue);
+    expect(looksLikePileDocsQuery('máme Renatu?'), isFalse);
+    expect(searchDocQueryParts('je tam DNI'), contains('dni_nie'));
+    expect(searchDocQueryParts('factura za vodu'), contains('factura'));
+    expect(looksLikeListPileDocsQuery('jaké doklady má na hromadě'), isTrue);
+    expect(looksLikeListPileDocsQuery('je tam factura?'), isFalse);
+  });
+
+  test('adresa zůstane po stopslovech', () {
+    expect(searchQueryContent('bydliště Islandia 14'), contains('Islandia'));
   });
 }

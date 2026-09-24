@@ -41,7 +41,21 @@ Whitelist v `supabase/functions/ai-assistant/index.ts`. Nic jiného runtime mode
 }
 ```
 
-Volá RPC z [search_spec.md](search_spec.md). Vrací id, **jméno**, skóre, matched_via. Edge před LLM ještě vytáhne NIE/jméno ze věty (stopslova) a vloží hits do promptu. Žádný update.
+Volá RPC z [search_spec.md](search_spec.md). Vrací id, **jméno**, skóre, matched_via (`name` | `id_*` | `address` | …). Edge před LLM vytáhne NIE/jméno/adresu ze věty (stopslova + soft skloňování) a vloží hits do promptu. Žádný update.
+
+### 2.1b `search_cliente_documentos`
+
+```json
+{
+  "name": "search_cliente_documentos",
+  "parameters": {
+    "cliente_id": "uuid | optional",
+    "q": "string | optional"
+  }
+}
+```
+
+Read-only hromada: `tipo`, `original_name`, `ai_summary`, `body_text` (+ albums). Prázdné `q` + `cliente_id` = seznam dokladů. Filtr NL (DNI, factura, e-mail…). Scope `can_access_cliente`. Žádný save.
 
 ### 2.2 `get_cliente`
 
@@ -97,7 +111,7 @@ Přílohy: jen Storage paths tenantu. Max velikost a MIME: jpeg, png, webp, pdf.
 
 Trvalý panel vpravo (na širokém stole dockovaný, na úzkém překryv). Žádný FAB — ať se nepřekrývá s „Nová složka“. Lišta / položka Asistent panel jen přepíná.
 
-Turny se ukládají do `ai_conversations` + `ai_messages` (soft-delete, scoped na uživatele v UI). Stream / HTTP `ai-assistant` volá whitelist tools (`search_clients`, `get_cliente`, `query_suministro`, `query_plazos_office`, `query_escritura`, `search_document_text`). Dokud funkce není nasazená, panel skládá facts + office RPC ve Flutter.
+Turny se ukládají do `ai_conversations` + `ai_messages` (soft-delete, scoped na uživatele v UI). Stream / HTTP `ai-assistant` volá whitelist tools (`search_clients`, `search_cliente_documentos`, `get_cliente`, `query_suministro`, `query_plazos_office`, `query_escritura`, `search_document_text`). Dokud funkce není nasazená, panel skládá facts + hromadu + office RPC ve Flutter.
 
 Office-wide otázky (dodavatel, konce seguro, notář) = read-only tools / RPC, viz [roadmap_dokumenty_ai.md](roadmap_dokumenty_ai.md). Žádný `execute_sql`. Vektory až po FTS.
 

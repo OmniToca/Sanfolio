@@ -1048,8 +1048,8 @@
   },
   "ai": {
     "title": "Asistente",
-    "intro": "Busca clientes y propone campos del texto o de una foto. Usted guarda. Nada se escribe ni se envía solo.",
-    "input": "NIE, nombre o texto para proponer",
+    "intro": "Escriba con naturalidad: nombre, NIE, dirección o qué hay en el montón. Usted guarda — nada se escribe ni se envía solo.",
+    "input": "P. ej. ¿tenemos a Renata? · NIE Y990… · ¿qué papeles hay en el montón?",
     "search": "Buscar",
     "extract": "Proponer campos",
     "extractFile": "Foto / PDF",
@@ -1078,11 +1078,13 @@
     "readingDoc": "Leyendo el documento…",
     "newThread": "Hilo nuevo",
     "closePanel": "Ocultar asistente",
-    "emptyThread": "Pregunte por un cliente, NIE o documento. Usted guarda — nada se escribe ni se envía solo.",
+    "emptyThread": "Pregunte con naturalidad: cliente, NIE, dirección o qué hay en el montón. Usted guarda — nada se escribe ni se envía solo.",
     "send": "Enviar",
     "savedHint": "Esta conversación se guarda en su despacho.",
     "writeError": "No se pudo guardar la conversación.",
-    "openFolder": "Carpeta · {name}"
+    "openFolder": "Carpeta · {name}",
+    "pileTitle": "Montón — {name} ({count})",
+    "pileEmpty": "En el montón de {name} no hay nada así ahora (o aún no hay transcripción)."
   },
   "tax": {
     "title": "Cálculo IRNR (modelo 210)",

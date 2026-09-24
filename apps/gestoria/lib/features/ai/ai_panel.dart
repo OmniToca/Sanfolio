@@ -204,10 +204,25 @@ class _AiPanelState extends ConsumerState<AiPanel> {
             .read(aiChatProvider.notifier)
             .addAssistant(encodeAiChatPayload(assistant));
       } else {
-        // Fallback bez Edge: seznam / search (stopslova+NIE) / facts karty.
+        // Fallback bez Edge: seznam / hromada / search (stopslova+NIE) / facts.
         final listAll = looksLikeListClientsQuery(q);
+        final pileQ = looksLikePileDocsQuery(q);
         final hits =
             listAll ? await aiListClients() : await aiSearchClients(q);
+        final pileClienteId = openId ??
+            (hits.isNotEmpty ? hits.first.clienteId : null);
+        AiPileDocsAnswer? pile;
+        if (pileQ && pileClienteId != null) {
+          final docFilter = looksLikeListPileDocsQuery(q)
+              ? ''
+              : (searchDocQueryParts(q).isNotEmpty
+                    ? q
+                    : searchQueryContent(q));
+          pile = await aiSearchClienteDocumentos(
+            clienteId: pileClienteId,
+            q: docFilter,
+          );
+        }
         final facts = openId != null
             ? await askClienteFactsForId(openId)
             : (listAll || hits.isEmpty
@@ -223,7 +238,12 @@ class _AiPanelState extends ConsumerState<AiPanel> {
             .read(aiChatProvider.notifier)
             .addAssistant(
               encodeAiChatPayload(
-                _replyPayload(hits: hits, facts: facts, office: office),
+                _replyPayload(
+                  hits: hits,
+                  facts: facts,
+                  office: office,
+                  pile: pile,
+                ),
               ),
             );
       }
@@ -243,14 +263,61 @@ class _AiPanelState extends ConsumerState<AiPanel> {
     required List<AiHit> hits,
     required AiFactAnswer? facts,
     AiOfficeAnswer? office,
+    AiPileDocsAnswer? pile,
   }) {
-    if (facts == null && hits.isEmpty && office == null) {
+    if (facts == null &&
+        hits.isEmpty &&
+        office == null &&
+        pile == null) {
       return AiChatPayload(text: 'ai.factsNone'.tr());
     }
     final lines = <String>[];
     final opens = <AiChatOpen>[];
+    if (pile != null) {
+      final name = (pile.clienteNombre ?? '').trim().isNotEmpty
+          ? pile.clienteNombre!.trim()
+          : (facts?.nombre ?? '');
+      if (pile.items.isEmpty) {
+        lines.add(
+          'ai.pileEmpty'.tr(
+            namedArgs: {'name': name.isEmpty ? '—' : name},
+          ),
+        );
+      } else {
+        lines.add(
+          'ai.pileTitle'.tr(
+            namedArgs: {
+              'name': name.isEmpty ? '—' : name,
+              'count': '${pile.total}',
+            },
+          ),
+        );
+        for (final doc in pile.items.take(20)) {
+          final bits = [
+            _docTipoLabel(doc.tipo),
+            _aiAlbumBit(doc.albums),
+            if ((doc.originalName ?? '').isNotEmpty) doc.originalName!,
+            if ((doc.aiSummary ?? '').isNotEmpty) doc.aiSummary!,
+            if ((doc.direccion ?? '').isNotEmpty) doc.direccion!,
+          ];
+          lines.add(bits.where((s) => s.trim().isNotEmpty).join(' · '));
+          if (opens.every((o) => o.clienteId != doc.clienteId)) {
+            opens.add(
+              AiChatOpen(
+                clienteId: doc.clienteId,
+                label: doc.nombre.isNotEmpty ? doc.nombre : doc.clienteId,
+                carpeta: true,
+              ),
+            );
+          }
+        }
+      }
+    }
     if (facts != null) {
-      lines.add('ai.factsTitle'.tr(namedArgs: {'name': facts.nombre}));
+      // Když už máme výpis hromady, nekreslí znovu celý stoh z facts.
+      if (pile == null) {
+        lines.add('ai.factsTitle'.tr(namedArgs: {'name': facts.nombre}));
+      }
       if (facts.nie != null && facts.nie!.isNotEmpty) {
         lines.add('${'fields.nie'.tr()}: ${facts.nie}');
       }
@@ -260,11 +327,11 @@ class _AiPanelState extends ConsumerState<AiPanel> {
       if (facts.email != null && facts.email!.isNotEmpty) {
         lines.add('${'fields.email'.tr()}: ${facts.email}');
       }
-      if (facts.docs.isEmpty) {
+      if (pile == null && facts.docs.isEmpty) {
         if (!facts.hasAnything) {
           lines.add('ai.factsEmpty'.tr());
         }
-      } else {
+      } else if (pile == null) {
         final glance = stackGlanceOf([
           for (final doc in facts.docs)
             (
@@ -331,13 +398,15 @@ class _AiPanelState extends ConsumerState<AiPanel> {
           lines.add(bits.join(' · '));
         }
       }
-      opens.add(
-        AiChatOpen(
-          clienteId: facts.clienteId,
-          label: facts.nombre,
-          carpeta: true,
-        ),
-      );
+      if (opens.every((o) => o.clienteId != facts.clienteId)) {
+        opens.add(
+          AiChatOpen(
+            clienteId: facts.clienteId,
+            label: facts.nombre,
+            carpeta: true,
+          ),
+        );
+      }
     }
     if (office != null) {
       if (lines.isNotEmpty) lines.add('');
@@ -686,4 +755,11 @@ String _openLabel(AiChatOpen open) {
 String _aiAlbumBit(List<String> albums) {
   if (albums.isEmpty) return 'stoh.pile'.tr();
   return albums.map((k) => 'blocks.$k'.tr()).join(' · ');
+}
+
+/// Tipo z DB → i18n; neznámý klíč nechá raw (ať se chat nerozbije).
+String _docTipoLabel(String tipo) {
+  final key = 'docs.$tipo';
+  final tr = key.tr();
+  return tr == key ? tipo : tr;
 }

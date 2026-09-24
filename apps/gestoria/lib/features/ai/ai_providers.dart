@@ -280,6 +280,123 @@ Future<List<AiHit>> aiListClients({int limit = 30}) async {
   return out;
 }
 
+/// Hit z hromady (RPC `search_cliente_documentos`). Read-only.
+class AiPileDocHit {
+  const AiPileDocHit({
+    required this.documentId,
+    required this.clienteId,
+    required this.tipo,
+    this.nombre = '',
+    this.originalName,
+    this.aiSummary,
+    this.bodyExcerpt,
+    this.albums = const [],
+    this.direccion,
+    this.score = 0,
+  });
+
+  final String documentId;
+  final String clienteId;
+  final String tipo;
+  final String nombre;
+  final String? originalName;
+  final String? aiSummary;
+  final String? bodyExcerpt;
+  final List<String> albums;
+  final String? direccion;
+  final int score;
+}
+
+class AiPileDocsAnswer {
+  const AiPileDocsAnswer({
+    required this.total,
+    this.clienteId,
+    this.clienteNombre,
+    this.items = const [],
+  });
+
+  final int total;
+  final String? clienteId;
+  final String? clienteNombre;
+  final List<AiPileDocHit> items;
+}
+
+/// Hromada: tipo / název / summary / body. Scope RLS + can_access_cliente.
+Future<AiPileDocsAnswer?> aiSearchClienteDocumentos({
+  String? clienteId,
+  String q = '',
+  int limit = 30,
+}) async {
+  final client = trySupabaseClient();
+  if (client == null) return null;
+  try {
+    final data = await client.rpc(
+      'search_cliente_documentos',
+      params: {
+        if (clienteId != null && clienteId.isNotEmpty)
+          'p_cliente_id': clienteId,
+        'p_q': q,
+        'p_limit': limit,
+      },
+    );
+    if (data is! Map) return null;
+    final items = <AiPileDocHit>[];
+    final rawItems = data['items'];
+    if (rawItems is List) {
+      for (final raw in rawItems) {
+        if (raw is! Map) continue;
+        final id = '${raw['document_id'] ?? ''}';
+        final cid = '${raw['cliente_id'] ?? ''}';
+        if (id.isEmpty || cid.isEmpty) continue;
+        items.add(
+          AiPileDocHit(
+            documentId: id,
+            clienteId: cid,
+            tipo: '${raw['tipo'] ?? 'other'}',
+            nombre: '${raw['nombre'] ?? ''}'.trim(),
+            originalName: '${raw['original_name'] ?? ''}'.trim().isEmpty
+                ? null
+                : '${raw['original_name']}'.trim(),
+            aiSummary: '${raw['ai_summary'] ?? ''}'.trim().isEmpty
+                ? null
+                : '${raw['ai_summary']}'.trim(),
+            bodyExcerpt: '${raw['body_excerpt'] ?? ''}'.trim().isEmpty
+                ? null
+                : '${raw['body_excerpt']}'.trim(),
+            albums: jsonStringList(raw['albums']),
+            direccion: '${raw['direccion'] ?? ''}'.trim().isEmpty
+                ? null
+                : '${raw['direccion']}'.trim(),
+            score: raw['score'] is int
+                ? raw['score'] as int
+                : int.tryParse('${raw['score']}') ?? 0,
+          ),
+        );
+      }
+    }
+    final cliente = data['cliente'];
+    String? resolvedId = clienteId;
+    String? resolvedName;
+    if (cliente is Map) {
+      final id = '${cliente['id'] ?? ''}'.trim();
+      if (id.isNotEmpty) resolvedId = id;
+      final n = '${cliente['nombre'] ?? ''}'.trim();
+      if (n.isNotEmpty) resolvedName = n;
+    }
+    final total = data['total'] is int
+        ? data['total'] as int
+        : int.tryParse('${data['total']}') ?? items.length;
+    return AiPileDocsAnswer(
+      total: total,
+      clienteId: resolvedId,
+      clienteNombre: resolvedName,
+      items: items,
+    );
+  } on Object {
+    return null;
+  }
+}
+
 class AiDraftMessage {
   const AiDraftMessage({
     required this.mensajeId,

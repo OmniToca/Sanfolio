@@ -1048,8 +1048,8 @@
   },
   "ai": {
     "title": "Assistant",
-    "intro": "Il cherche des clients et propose des champs à partir du texte ou d’une photo. Vous enregistrez. Rien ne s’écrit ni ne s’envoie tout seul.",
-    "input": "NIE, nom, ou texte à proposer",
+    "intro": "Écrivez naturellement : nom, NIE, adresse ou ce qu’il y a dans la pile. Vous enregistrez — rien ne s’écrit ni ne s’envoie tout seul.",
+    "input": "Ex. avons-nous Renata ? · NIE Y990… · quels papiers sont dans la pile ?",
     "search": "Rechercher",
     "extract": "Proposer des champs",
     "extractFile": "Photo / PDF",
@@ -1078,11 +1078,13 @@
     "readingDoc": "Lecture du document…",
     "newThread": "Nouveau fil",
     "closePanel": "Masquer l’assistant",
-    "emptyThread": "Demandez un client, un NIE ou un document. Vous enregistrez — rien ne s’écrit ni ne s’envoie tout seul.",
+    "emptyThread": "Demandez naturellement : client, NIE, adresse ou ce qu’il y a dans la pile. Vous enregistrez — rien ne s’écrit ni ne s’envoie tout seul.",
     "send": "Envoyer",
     "savedHint": "Cette conversation est enregistrée dans votre cabinet.",
     "writeError": "Impossible d’enregistrer la conversation.",
-    "openFolder": "Dossier · {name}"
+    "openFolder": "Dossier · {name}",
+    "pileTitle": "Pile — {name} ({count})",
+    "pileEmpty": "Rien de tel dans la pile de {name} pour l’instant (ou la transcription n’est pas encore enregistrée)."
   },
   "tax": {
     "title": "Calcul IRNR (modelo 210)",

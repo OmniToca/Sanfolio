@@ -1048,8 +1048,8 @@
   },
   "ai": {
     "title": "Assistant",
-    "intro": "It searches clients and proposes fields from text or a photo. You save. Nothing writes or sends by itself.",
-    "input": "NIE, name, or text to propose from",
+    "intro": "Write naturally: name, NIE, address, or what is on the pile. You save — nothing writes or sends by itself.",
+    "input": "E.g. do we have Renata? · NIE Y990… · what papers are on the pile?",
     "search": "Search",
     "extract": "Propose fields",
     "extractFile": "Photo / PDF",
@@ -1078,11 +1078,13 @@
     "readingDoc": "Reading the document…",
     "newThread": "New thread",
     "closePanel": "Hide assistant",
-    "emptyThread": "Ask about a client, NIE, or a document. You save — nothing is written or sent on its own.",
+    "emptyThread": "Ask naturally: client, NIE, address, or what is on the pile. You save — nothing writes or sends by itself.",
     "send": "Send",
     "savedHint": "This conversation is saved in your office.",
     "writeError": "The conversation could not be saved.",
-    "openFolder": "Folder · {name}"
+    "openFolder": "Folder · {name}",
+    "pileTitle": "Pile — {name} ({count})",
+    "pileEmpty": "Nothing like that is on the pile for {name} (or the transcript is not saved yet)."
   },
   "tax": {
     "title": "IRNR calculation (modelo 210)",

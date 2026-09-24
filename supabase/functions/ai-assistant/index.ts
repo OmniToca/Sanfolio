@@ -13,11 +13,30 @@ const tools = [
     type: "function",
     function: {
       name: "search_clients",
-      description: "Find clients by name, NIE, phone, email",
+      description:
+        "Find clients by partial name/surname, NIE substring, phone, email, or address (home or finca). Pass only the name/NIE/address fragment in q, not the whole sentence.",
       parameters: {
         type: "object",
         properties: { q: { type: "string" } },
         required: ["q"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_cliente_documentos",
+      description:
+        "List or filter papers on a client's pile (hromada/stoh): tipo, file name, ai_summary, body_text. Use for questions like 'jaké doklady má', 'je tam DNI', 'factura', 'scan e-mailu'. Empty q + cliente_id = list all. albums [] = still on pile.",
+      parameters: {
+        type: "object",
+        properties: {
+          cliente_id: { type: "string" },
+          q: {
+            type: "string",
+            description: "Optional filter: DNI, factura, email, or free text",
+          },
+        },
       },
     },
   },
@@ -179,8 +198,10 @@ Deno.serve(async (req) => {
     }
   }
 
-  // Deterministický search z NL věty — model často pošle celou větu do q a RPC vrátí [].
-  const preHits = looksLikeListClients(message)
+  // Deterministický presearch z NL — model často pošle celou větu do q.
+  const listAll = looksLikeListClients(message);
+  const pileQ = looksLikePileDocs(message);
+  const preHits = listAll
     ? await listClientHits(userClient, 30)
     : await searchClientHits(userClient, message, 10);
   for (const hit of preHits) {
@@ -194,6 +215,21 @@ Deno.serve(async (req) => {
     });
   }
 
+  // Hromada: otevřená karta nebo první hit.
+  let preDocs: unknown = null;
+  const pileCliente = clienteId || preHits[0]?.cliente_id || "";
+  if (pileQ && pileCliente) {
+    const docQ = looksLikeListPileDocs(message) ? "" : message;
+    preDocs = await runTool(
+      userClient,
+      tenantId,
+      "search_cliente_documentos",
+      { cliente_id: pileCliente, q: docQ },
+      opens,
+      apiKey,
+    );
+  }
+
   const messages: Array<Record<string, unknown>> = [
     {
       role: "system",
@@ -204,14 +240,15 @@ Deno.serve(async (req) => {
         "Částka na desce dodávky není součet faktur. Součet je invoice_glance / fields.amount na dokumentech (kladné; dobropis ne). " +
         "Office otázky (dodavatel, seguro, notář, právník, catastral, strana ve smlouvě) = query_* tools. " +
         "Věta / doložka ve smlouvě = search_document_text (přepis; rozumí i lidské otázce, nemusí to být přesný právní termín). " +
+        "Hromada / stoh / jaké doklady / je tam DNI / factura / e-mail = search_cliente_documentos (tipo, název, summary, body). " +
         "Když body_text chybí, neříkej že ve smlouvě věta není — přepis ještě není uložený. " +
         "get_cliente.titular_inmuebles: spoluvlastník na finca složky folder_cliente_id. " +
         "get_cliente.identifiers: NIE/DNI/NIF karty. get_cliente.documentos.extracted + body_excerpt = uložená pole a přepis. " +
-        "search_document_text a get_cliente.documentos: albums [] = hromada; jinak template_key alb. inmueble_id / direccion = finca. Stejný PDF může být ve víc albech jedné finca. " +
+        "search_document_text / search_cliente_documentos / get_cliente.documentos: albums [] = hromada; jinak template_key alb. inmueble_id / direccion = finca. " +
         "Cena domu = sale_price celé listiny; podíl = share_percent. Prázdné documentos[] na kartě titulare ≠ dům nemáme. " +
         "Open = deska složky folder_cliente_id (/carpeta), ne šanon escritura (může být vypnutý) a ne prázdná karta spoluvlastníka. " +
-        "search_clients: do q dej jen jméno nebo NIE (ne celou větu). Seznam všech klientů = hits níže / list. " +
-        "Když níže jsou hits s jménem/NIE, použij je — neříkej že nikoho nenašel. " +
+        "search_clients: do q dej jen jméno, část NIE nebo adresu (ne celou větu). Seznam všech klientů = hits níže / list. " +
+        "Když níže jsou hits s jménem/NIE/adresou, použij je — neříkej že nikoho nenašel. " +
         (clienteId
           ? `Otevřená karta: ${clienteId}. Na otázky o „tomto klientovi“ / jménu / NIE / dokladech ber snapshot níže (neříkej že nikoho nenašel). `
           : ""),
@@ -228,6 +265,14 @@ Deno.serve(async (req) => {
         content:
           `Hits z dotazu (read-only, jméno+id): ${JSON.stringify(preHits)}. ` +
           "Odpověz podle nich; get_cliente pro detail.",
+      }]
+      : []),
+    ...(preDocs
+      ? [{
+        role: "system" as const,
+        content:
+          `Doklady z hromady (read-only): ${JSON.stringify(preDocs)}. ` +
+          "Odpověz podle nich; albums [] = ještě na hromadě.",
       }]
       : []),
     { role: "user", content: message },
@@ -334,6 +379,18 @@ async function runTool(
       const q = str(args.q);
       const hits = await searchClientHits(client, q, 10);
       return hits;
+    }
+    case "search_cliente_documentos": {
+      const id = str(args.cliente_id);
+      const q = str(args.q);
+      const { data, error } = await client.rpc("search_cliente_documentos", {
+        p_cliente_id: id || null,
+        p_q: q,
+        p_limit: 30,
+      });
+      if (error) return { error: error.message };
+      collectOpens(data, opens);
+      return data;
     }
     case "get_cliente": {
       const id = str(args.cliente_id);
@@ -535,11 +592,18 @@ const SEARCH_STOP = new Set([
   "klienti", "klienty", "klientu", "klientů", "nasi", "naši", "nase", "naše",
   "jmenuji", "jmenuje", "jmenují", "jmeno", "jméno", "jménem", "nie", "dni",
   "nif", "kolik", "kde", "kdo", "co", "pro", "dal", "dál", "jeho", "její",
+  "dokumentu", "dokumentů", "dokumenty", "dokument", "doklady", "hromade",
+  "hromadě", "hromada", "stoh", "papír", "papir", "scan", "sken", "email",
+  "mail", "posta", "pošta", "factura", "faktura", "adresa", "bydliště",
+  "bydliste", "finca", "ma", "má", "tam", "je", "jake", "jaké", "ukaz", "ukaž",
   "the", "and", "or", "of", "for", "with", "our", "my", "client", "clients",
   "name", "who", "what", "how", "have", "has", "is", "are", "we", "you",
+  "document", "documents", "pile", "invoice", "address", "show", "list",
   "el", "la", "los", "las", "un", "una", "de", "del", "cliente", "clientes",
-  "nombre", "der", "die", "das", "und", "kunde", "kunden", "le", "les",
-  "des", "notre", "s", "a", "i", "u", "v", "z", "na", "do", "od", "po", "za",
+  "nombre", "documento", "documentos", "factura", "correo", "direccion",
+  "der", "die", "das", "und", "kunde", "kunden", "dokument", "rechnung",
+  "le", "les", "des", "notre", "s", "a", "i", "u", "v", "z", "na", "do", "od",
+  "po", "za",
 ]);
 
 function searchQueryContent(raw: string): string {
@@ -568,6 +632,16 @@ function searchQueryIdTokens(raw: string): string[] {
   return [...out];
 }
 
+function searchNameStem(raw: string): string {
+  const n = raw.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
+  if (n.length < 4) return n;
+  const stemmed = n.replace(
+    /(ovou|ovi|ych|ami|ach|ech|ove|ovy|ova|ovu|emu|oum|em|ou|um|y|u|e|a|i)$/,
+    "",
+  );
+  return stemmed.length >= 3 ? stemmed : n;
+}
+
 function searchClientQueries(raw: string): string[] {
   const q = raw.trim();
   if (!q) return [];
@@ -580,7 +654,15 @@ function searchClientQueries(raw: string): string[] {
   };
   for (const id of searchQueryIdTokens(q)) add(id);
   const content = searchQueryContent(q);
-  if (content) add(content);
+  if (content) {
+    add(content);
+    for (const tok of content.split(/\s+/)) {
+      if (tok.length < 2) continue;
+      add(tok);
+      const stem = searchNameStem(tok);
+      if (stem !== tok.toLowerCase() && stem.length >= 3) add(stem);
+    }
+  }
   if (!q.includes(" ") && !content) add(q);
   if (out.length === 0) add(q);
   return out;
@@ -593,6 +675,47 @@ function looksLikeListClients(raw: string): boolean {
   if (searchQueryContent(raw) || searchQueryIdTokens(raw).length) return false;
   return /jmen|naši|nasi|nase|naše|seznam|všechn|vsechn|list|all |our |tenemos|nuestros|haben wir|avons|systém|system/
     .test(n);
+}
+
+function looksLikePileDocs(raw: string): boolean {
+  const n = raw.toLowerCase();
+  return /hromad|stoh|dokument|doklad|pap[ií]r|scan|sken|dni|pasport|pasaporte|factura|faktur|invoice|email|e-mail|correo|pošta|posta|\bmail\b|escritur|listin|poder|iban|pile|document|rechnung|je tam|má na|ma na|má v|ma v/
+    .test(n);
+}
+
+function searchDocQueryParts(raw: string): string[] {
+  const n = raw.toLowerCase();
+  const parts: string[] = [];
+  const add = (s: string) => {
+    if (!parts.includes(s)) parts.push(s);
+  };
+  if (/(dni|nie|pasport|pasaporte|passport|občans|obcans)/.test(n)) {
+    add("dni_nie");
+    add("pasaporte");
+  }
+  if (/(factur|faktura|invoice|rechnung|recibo|ucten)/.test(n)) {
+    add("factura");
+    add("recibo");
+  }
+  if (/(email|e-mail|mail|correo|posta|pošta|gmail|outlook)/.test(n)) {
+    add("email");
+    add("correo");
+    add("mail");
+  }
+  if (/(escritur|listin|notar|deed)/.test(n)) add("copia_escritura");
+  if (/(poder|plná moc|plna moc|attorney)/.test(n)) add("copia_poder");
+  if (/(iban|bankov)/.test(n)) add("justificante_iban");
+  if (/(ibi|suma|catastr)/.test(n)) add("recibo_ibi");
+  if (/(seguro|pojist|alarm)/.test(n)) {
+    add("poliza_seguro");
+    add("contrato_alarma");
+  }
+  if (/(scan|sken|pdf|fotka|foto|papír|papir)/.test(n)) add("scan");
+  return parts;
+}
+
+function looksLikeListPileDocs(raw: string): boolean {
+  return looksLikePileDocs(raw) && searchDocQueryParts(raw).length === 0;
 }
 
 async function enrichClientHits(
