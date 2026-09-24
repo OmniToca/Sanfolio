@@ -19,4 +19,13 @@ void main() {
     );
     expect(searchNameMatches('Petr Sokol', 'monika sokolova'), isFalse);
   });
+
+  test('jméno+příjmení po splitu (0074) se najde jako celek', () {
+    expect(
+      searchNameMatches('Renata Sušičová', 'Renata Sušičová'),
+      isTrue,
+    );
+    expect(searchNameMatches('Renata Sušičová', 'Sušičová'), isTrue);
+    expect(searchNameMatches('Renata Sušičová', 'renata'), isTrue);
+  });
 }

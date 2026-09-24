@@ -61,6 +61,12 @@ void main() {
       ),
       '11111111-1111-1111-1111-111111111111',
     );
+    expect(
+      clienteIdFromOfficePath(
+        '/clientes/11111111-1111-1111-1111-111111111111?tab=docs',
+      ),
+      '11111111-1111-1111-1111-111111111111',
+    );
     expect(clienteIdFromOfficePath('/clientes'), isNull);
     expect(clienteIdFromOfficePath('/inbox'), isNull);
   });

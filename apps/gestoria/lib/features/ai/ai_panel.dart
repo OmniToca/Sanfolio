@@ -203,10 +203,16 @@ class _AiPanelState extends ConsumerState<AiPanel> {
             .read(aiChatProvider.notifier)
             .addAssistant(encodeAiChatPayload(assistant));
       } else {
-        final hits = openId == null ? await aiSearchClients(q) : <AiHit>[];
+        // Fallback bez Edge: otevřená karta = facts; search vždy (jméno/NIE).
+        final hits = await aiSearchClients(q);
         final facts = openId != null
             ? await askClienteFactsForId(openId)
-            : (hits.isEmpty ? null : await askClienteFacts(q));
+            : (hits.isEmpty
+                  ? null
+                  : await askClienteFactsForId(
+                      hits.first.clienteId,
+                      nombre: hits.first.nombre,
+                    ));
         final office = tenantId == null
             ? null
             : await askOfficeFacts(tenantId: tenantId, q: q);
@@ -242,6 +248,9 @@ class _AiPanelState extends ConsumerState<AiPanel> {
     final opens = <AiChatOpen>[];
     if (facts != null) {
       lines.add('ai.factsTitle'.tr(namedArgs: {'name': facts.nombre}));
+      if (facts.nie != null && facts.nie!.isNotEmpty) {
+        lines.add('${'fields.nie'.tr()}: ${facts.nie}');
+      }
       if (facts.tel != null && facts.tel!.isNotEmpty) {
         lines.add('${'fields.tel'.tr()}: ${facts.tel}');
       }
@@ -249,7 +258,9 @@ class _AiPanelState extends ConsumerState<AiPanel> {
         lines.add('${'fields.email'.tr()}: ${facts.email}');
       }
       if (facts.docs.isEmpty) {
-        lines.add('ai.factsEmpty'.tr());
+        if (!facts.hasAnything) {
+          lines.add('ai.factsEmpty'.tr());
+        }
       } else {
         final glance = stackGlanceOf([
           for (final doc in facts.docs)
@@ -306,10 +317,13 @@ class _AiPanelState extends ConsumerState<AiPanel> {
             'docs.${doc.tipo}'.tr(),
             _aiAlbumBit(doc.albums),
             if ((doc.direccion ?? '').isNotEmpty) doc.direccion!,
+            if (doc.nie != null && doc.nie!.isNotEmpty)
+              '${'fields.nie'.tr()}: ${doc.nie}',
             if (doc.docNumber != null && doc.docNumber!.isNotEmpty)
               '${'fields.docNumber'.tr()}: ${doc.docNumber}',
             if (doc.expiry != null && doc.expiry!.isNotEmpty)
               '${'fields.expiry'.tr()}: ${doc.expiry}',
+            if ((doc.aiSummary ?? '').trim().isNotEmpty) doc.aiSummary!.trim(),
           ];
           lines.add(bits.join(' · '));
         }

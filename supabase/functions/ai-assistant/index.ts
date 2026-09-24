@@ -158,6 +158,27 @@ Deno.serve(async (req) => {
     carpeta: boolean;
     bloque_key?: string;
   }> = [];
+
+  // Otevřená karta = context hned, ať model nehledá „Renatu“ přes search a neříká že nenašel.
+  let openSnap: unknown = null;
+  if (clienteId) {
+    const snap = await runTool(
+      userClient,
+      tenantId,
+      "get_cliente",
+      { cliente_id: clienteId },
+      opens,
+      apiKey,
+    );
+    if (
+      snap &&
+      typeof snap === "object" &&
+      !("error" in (snap as Record<string, unknown>))
+    ) {
+      openSnap = snap;
+    }
+  }
+
   const messages: Array<Record<string, unknown>> = [
     {
       role: "system",
@@ -170,11 +191,21 @@ Deno.serve(async (req) => {
         "Věta / doložka ve smlouvě = search_document_text (přepis; rozumí i lidské otázce, nemusí to být přesný právní termín). " +
         "Když body_text chybí, neříkej že ve smlouvě věta není — přepis ještě není uložený. " +
         "get_cliente.titular_inmuebles: spoluvlastník na finca složky folder_cliente_id. " +
+        "get_cliente.identifiers: NIE/DNI/NIF karty. get_cliente.documentos.extracted + body_excerpt = uložená pole a přepis. " +
         "search_document_text a get_cliente.documentos: albums [] = hromada; jinak template_key alb. inmueble_id / direccion = finca. Stejný PDF může být ve víc albech jedné finca. " +
         "Cena domu = sale_price celé listiny; podíl = share_percent. Prázdné documentos[] na kartě titulare ≠ dům nemáme. " +
         "Open = deska složky folder_cliente_id (/carpeta), ne šanon escritura (může být vypnutý) a ne prázdná karta spoluvlastníka. " +
-        (clienteId ? `Otevřená karta: ${clienteId}. ` : ""),
+        "Hledání jiného klienta = search_clients (jméno nebo NIE). Seznam / jiné jméno ≠ otevřená karta. " +
+        (clienteId
+          ? `Otevřená karta: ${clienteId}. Na otázky o „tomto klientovi“ / jménu / NIE / dokladech ber snapshot níže (neříkej že nikoho nenašel). `
+          : ""),
     },
+    ...(openSnap
+      ? [{
+        role: "system" as const,
+        content: `Snapshot otevřené karty (read-only): ${JSON.stringify(openSnap)}`,
+      }]
+      : []),
     { role: "user", content: message },
   ];
 

@@ -296,6 +296,7 @@ class AiDocFact {
   const AiDocFact({
     required this.tipo,
     this.nombre,
+    this.nie,
     this.expiry,
     this.amount,
     this.consumption,
@@ -303,12 +304,14 @@ class AiDocFact {
     this.periodFrom,
     this.periodTo,
     this.bodyExcerpt,
+    this.aiSummary,
     this.albums = const [],
     this.direccion,
   });
 
   final String tipo;
   final String? nombre;
+  final String? nie;
   final String? expiry;
   final String? amount;
   final String? consumption;
@@ -316,6 +319,7 @@ class AiDocFact {
   final String? periodFrom;
   final String? periodTo;
   final String? bodyExcerpt;
+  final String? aiSummary;
   final List<String> albums;
   final String? direccion;
 }
@@ -326,6 +330,7 @@ class AiFactAnswer {
     required this.nombre,
     this.tel,
     this.email,
+    this.nie,
     this.docs = const [],
   });
 
@@ -333,11 +338,13 @@ class AiFactAnswer {
   final String nombre;
   final String? tel;
   final String? email;
+  final String? nie;
   final List<AiDocFact> docs;
 
   bool get hasAnything =>
       (tel != null && tel!.isNotEmpty) ||
       (email != null && email!.isNotEmpty) ||
+      (nie != null && nie!.isNotEmpty) ||
       docs.isNotEmpty;
 }
 
@@ -367,11 +374,13 @@ Future<AiFactAnswer?> askClienteFactsForId(
       for (final raw in snap['documentos'] as List) {
         if (raw is! Map) continue;
         final extracted = stringFieldMap(raw['extracted']);
+        final summary = '${raw['ai_summary'] ?? ''}'.trim();
         docs.add(
           AiDocFact(
             tipo: '${raw['tipo']}',
             nombre:
                 extracted['fields.nombre'] ?? raw['original_name']?.toString(),
+            nie: extracted['fields.nie'],
             expiry: extracted['fields.expiry'],
             amount: extracted['fields.amount'],
             consumption: extracted['fields.consumption'],
@@ -380,6 +389,7 @@ Future<AiFactAnswer?> askClienteFactsForId(
             periodFrom: extracted['fields.periodFrom'],
             periodTo: extracted['fields.periodTo'],
             bodyExcerpt: raw['body_excerpt']?.toString(),
+            aiSummary: summary.isEmpty ? null : summary,
             albums: jsonStringList(raw['albums']),
             direccion: '${raw['direccion'] ?? ''}'.trim().isEmpty
                 ? null
@@ -392,6 +402,7 @@ Future<AiFactAnswer?> askClienteFactsForId(
     var resolvedNombre = nombre;
     String? tel;
     String? email;
+    String? nie;
     if (cliente is Map) {
       final n = '${cliente['nombre'] ?? ''}'.trim();
       if (n.isNotEmpty) resolvedNombre = n;
@@ -399,6 +410,19 @@ Future<AiFactAnswer?> askClienteFactsForId(
       if (t.isNotEmpty) tel = t;
       final e = '${cliente['email'] ?? ''}'.trim();
       if (e.isNotEmpty) email = e;
+    }
+    if (snap is Map && snap['identifiers'] is List) {
+      for (final raw in snap['identifiers'] as List) {
+        if (raw is! Map) continue;
+        final kind = '${raw['kind'] ?? ''}'.trim().toLowerCase();
+        final value = '${raw['value_raw'] ?? raw['value_normalized'] ?? ''}'
+            .trim();
+        if (value.isEmpty) continue;
+        if (nie == null &&
+            (kind == 'nie' || kind == 'dni' || kind == 'nif')) {
+          nie = value;
+        }
+      }
     }
     final drafts = await client
         .from('ai_drafts')
@@ -416,6 +440,7 @@ Future<AiFactAnswer?> askClienteFactsForId(
           AiDocFact(
             tipo: tipo.isEmpty ? 'other' : tipo,
             nombre: fields['fields.nombre'],
+            nie: fields['fields.nie'],
             expiry: fields['fields.expiry'],
             amount: fields['fields.amount'],
             consumption: fields['fields.consumption'],
@@ -431,6 +456,7 @@ Future<AiFactAnswer?> askClienteFactsForId(
       nombre: resolvedNombre,
       tel: tel,
       email: email,
+      nie: nie,
       docs: docs,
     );
   } on Object {
