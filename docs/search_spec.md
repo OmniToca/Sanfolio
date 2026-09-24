@@ -49,7 +49,7 @@ Kontrolní písmeno NIE/DNI (modulo 23, Y→1, X→0, Z→2) se počítá **jen*
 
 ## 3. Dotaz z UI / AI
 
-NIE/DNI jde přes `normalize_id`. **Jméno, e-mail, tel ne** — `normalize_id` smaže mezery (`monika sokolova` → `MONIKASOKOLOVA`, což v `MONIKA SOKOLOVA` není). Jméno: původní `p_q`, fold `normalize_search_text` (lower + translate ES/CS diakritiky, bez `unaccent`), `name_hits` skóre 50: celý řetězec **nebo** každé slovo (token AND). FTS `simple` zůstává pojistkou. Tenant filtr vždy.
+NIE/DNI jde přes `normalize_id`. **Jméno, e-mail, tel ne** — `normalize_id` smaže mezery (`monika sokolova` → `MONIKASOKOLOVA`, což v `MONIKA SOKOLOVA` není). Jméno: původní `p_q`, fold `normalize_search_text` (lower + translate ES/CS diakritiky, bez `unaccent`), `name_hits` skóre 50: celý řetězec **nebo** každé slovo (token AND) přes `concat_ws(nombre, apellidos, …)`. FTS `simple` zůstává pojistkou. Tenant + `can_access_cliente`. (Regress 0070 vrátil jméno na `normalize_id` — oprava 0080.)
 
 ### 3.1 Přesná shoda — skóre 100
 

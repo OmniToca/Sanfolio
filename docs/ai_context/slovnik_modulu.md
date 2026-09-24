@@ -58,10 +58,11 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `copy_channel_from_contact` | SQL RPC | prázdný e-mail/tel/locale z kontaktu; platný locale se nepřepíše |
 | `suggest_cliente_duplicates` / `merge_clientes` | SQL RPC + `/clientes/sloucit` | e-mail/tel/jméno; dvě živá NIE ne; owner/gestor; soft-delete |
 | `season_ibi` | SQL RPC + `/kampane` | SUMA bez recibo nebo plazo v `ibi_warn_days`; prázdné bez splatnosti |
-| `ai_get_cliente` | SQL RPC | snapshot karty + díry + doklady (`albums` [] = hromada, finca) + titular finca; žádný save |
+| `ai_get_cliente` | SQL RPC | snapshot karty + identifikátory (NIE) + díry + doklady (`albums` [] = hromada, finca) + titular finca; žádný save |
+| `search_clients` | SQL RPC | NIE `normalize_id`; jméno token AND + fold (ne `normalize_id`); `can_access_cliente` |
 | `query_suministro` / `query_plazos_office` / `query_escritura` | SQL RPC | office-wide čtení desky; escritura i notář / strana v `inmueble_titulares` / catastral |
 | `search_document_text` | SQL RPC + Edge hybrid | FTS v `body_text` i bez alba; cosine `documento_chunks`; `albums` [] = hromada |
-| `ai-assistant` | Edge Function | whitelist tools; žádný save/send |
+| `ai-assistant` | Edge Function | whitelist tools; prefetch otevřené karty; žádný save/send |
 | `roadmap_dokumenty_ai` | `docs/roadmap_dokumenty_ai.md` | Fáze A–G + FTS v `body_text`; vektory později |
 | `ai-draft-message` | Edge Function | díry složky → `mensajes.draft`; odesílá gestor |
 | `ingestClienteDocumento` | `documento_storage.dart` | jediný zápis originálu na hromadu `stoh/`; album = `linkDocumentoBloque`; AI čte totéž |

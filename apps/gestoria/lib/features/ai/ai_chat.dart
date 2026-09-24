@@ -106,7 +106,7 @@ String? clienteIdFromOfficePath(String path) {
   final parts = path.split('/');
   final i = parts.indexOf('clientes');
   if (i < 0 || i + 1 >= parts.length) return null;
-  final id = parts[i + 1];
+  final id = parts[i + 1].split('?').first.split('#').first.trim();
   if (id.isEmpty || id == 'carpeta' || id == 'mensaje') return null;
   return id;
 }

@@ -45,7 +45,7 @@ Volá RPC z [search_spec.md](search_spec.md). Vrací id, jméno, skóre, matched
 
 ### 2.2 `get_cliente`
 
-Read-only snapshot karty + bloky + díry + `titular_inmuebles`. Prázdná vlastní deska ≠ „dům nemáme“. PII jde do modelu — audit `ai.read.cliente`. AI neukládá.
+Read-only snapshot karty + identifikátory (NIE/DNI) + bloky + díry + `titular_inmuebles`. Prázdná vlastní deska ≠ „dům nemáme“. PII jde do modelu — audit `ai.read.cliente`. AI neukládá. Edge při `cliente_id` v requestu snapshot přednačte do kontextu (otevřená karta).
 
 ### 2.3 `query_suministro` / `query_plazos_office` / `query_escritura`
 
