@@ -158,8 +158,9 @@
     "end": "Terminar",
     "accepting": "Iniciando modo soporte…",
     "missingSession": "Falta session_id en la URL.",
-    "missingToken": "Falta refresh_token en el hash. Sin él la otra origin no tiene sesión.",
-    "sessionClosed": "La sesión de soporte no está abierta o ha caducado."
+    "missingToken": "Falta el código de handoff (o el refresh_token heredado) en el hash. Sin él la otra origin no tiene sesión.",
+    "sessionClosed": "La sesión de soporte no está abierta o ha caducado.",
+    "handoffFailed": "El código de handoff no es válido o ha caducado. Inicie la impersonación de nuevo desde Support."
   },
   "inbox": {
     "title": "Hoy",

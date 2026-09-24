@@ -24,7 +24,7 @@
     "ownerEmail": "Owner email",
     "detail": "Office",
     "impersonate": "Impersonate",
-    "impersonateHint": "Opens the office app with the same account. The refresh_token goes in the URL hash; otherwise the other origin has no session.",
+    "impersonateHint": "Opens the office app with the same account. The URL hash carries a one-time handoff code, not the raw refresh_token.",
     "reason": "Reason (min. 12 characters)",
     "note": "Note",
     "reasonRequired": "A reason is required.",

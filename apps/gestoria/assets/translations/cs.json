@@ -158,8 +158,9 @@
     "end": "Ukončit",
     "accepting": "Přihlašuji režim podpory…",
     "missingSession": "V URL chybí session_id.",
-    "missingToken": "Chybí refresh_token v hash. Bez něj druhá origin nemá přihlášení.",
-    "sessionClosed": "Session podpory není otevřená nebo vypršela."
+    "missingToken": "Chybí jednorázový kód (nebo legacy refresh_token) v hash. Bez něj druhá origin nemá přihlášení.",
+    "sessionClosed": "Session podpory není otevřená nebo vypršela.",
+    "handoffFailed": "Handoff kód je neplatný nebo vypršel. Spusťte převtělení znovu ze Supportu."
   },
   "inbox": {
     "title": "Dnes",

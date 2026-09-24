@@ -160,7 +160,7 @@ class AuthController extends AsyncNotifier<AuthSnapshot> {
     return '${data['tenant_id']}';
   }
 
-  /// INSERT session + stejná záložka na kancelář s refresh_token v hash.
+  /// INSERT session + jednorázový handoff code v hash (M6; ne raw refresh).
   Future<void> startImpersonation({
     required String tenantId,
     required String reason,
@@ -186,9 +186,26 @@ class AuthController extends AsyncNotifier<AuthSnapshot> {
     if (id.isEmpty || id == 'null') {
       throw StateError('start_impersonation returned no id');
     }
+    final handoff = await client.functions.invoke(
+      'impersonation-handoff',
+      body: {
+        'action': 'create',
+        'session_id': id,
+        'refresh_token': refresh,
+      },
+    );
+    final data = handoff.data;
+    if (data is! Map || data['ok'] != true) {
+      final err = data is Map ? data['error'] : handoff.status;
+      throw StateError('handoff create failed: $err');
+    }
+    final code = '${data['code'] ?? ''}'.trim();
+    if (code.isEmpty) {
+      throw StateError('handoff create returned no code');
+    }
     final uri = PortalUrls.gestoriaImpersonationAccept(
       sessionId: id,
-      refreshToken: refresh,
+      handoffCode: code,
     );
     assignAppUrl(uri.toString());
   }

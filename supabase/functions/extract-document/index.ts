@@ -1304,17 +1304,21 @@ async function loadOfficePaperExamples(args: {
   if (!vector || vector.length !== 1536) return [];
   const { data: docRow } = await args.userClient
     .from("documentos")
-    .select("id")
+    .select("id, cliente_id")
     .eq("tenant_id", args.tenantId)
     .eq("storage_path", args.storagePath)
     .is("deleted_at", null)
     .maybeSingle();
   const excludeId = typeof docRow?.id === "string" ? docRow.id : null;
+  const clienteId = typeof docRow?.cliente_id === "string"
+    ? docRow.cliente_id
+    : null;
   const { data, error } = await args.userClient.rpc("similar_placed_papers", {
     p_tenant_id: args.tenantId,
     p_query_embedding: vector,
     p_exclude_documento_id: excludeId,
     p_limit: 5,
+    p_cliente_id: clienteId,
   });
   if (error) {
     console.warn("extract-document: similar_placed_papers", error.message);

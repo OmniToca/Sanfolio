@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 /// Cross-app URL. Release nesmí cílit na localhost (OmniToca lekce).
-/// Handoff ale **vždy** nese refresh_token v hash, i na dvou localhost portech.
+/// Handoff nese jednorázový `code` v hash (M6); legacy refresh_token jen fallback.
 abstract final class PortalUrls {
   static String gestoriaAppBase() {
     return _requirePublicOrDebug(
@@ -30,15 +30,26 @@ abstract final class PortalUrls {
     return Uri.parse(gestoriaAppBase()).resolve('/reset-password').toString();
   }
 
-  /// Token je v fragmentu, ne v query — nepadá do access logů. Bez tokenu
-  /// druhá origin nemá JWT (pád OmniToca).
+  /// Token je v fragmentu, ne v query — nepadá do access logů.
+  /// Preferuj [handoffCode]; [refreshToken] je legacy fallback.
   static Uri gestoriaImpersonationAccept({
     required String sessionId,
-    required String refreshToken,
+    String? handoffCode,
+    String? refreshToken,
   }) {
     final base = Uri.parse(gestoriaAppBase());
     final accept = base.resolve('impersonation/accept');
-    final fragment = Uri(queryParameters: {'refresh_token': refreshToken}).query;
+    final code = handoffCode?.trim() ?? '';
+    final refresh = refreshToken?.trim() ?? '';
+    final Map<String, String> fragParams;
+    if (code.isNotEmpty) {
+      fragParams = {'code': code};
+    } else if (refresh.isNotEmpty) {
+      fragParams = {'refresh_token': refresh};
+    } else {
+      throw ArgumentError('handoffCode or refreshToken required');
+    }
+    final fragment = Uri(queryParameters: fragParams).query;
     return accept.replace(
       queryParameters: {'session_id': sessionId},
       fragment: fragment,

@@ -1,3 +1,3 @@
 # gestoria_auth
 
-Přihlášení, PortalUrls, handoff Support → kancelář (`refresh_token` v hash).
+Přihlášení, PortalUrls, handoff Support → kancelář (jednorázový `code` v hash).
