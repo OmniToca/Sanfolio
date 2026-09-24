@@ -148,6 +148,12 @@ CREATE INDEX idx_clientes_search
 | `García` | jméno | fts / name |
 | `monika sokolova` | `MONIKA SOKOLOVA` | name (token AND) |
 | `Sokolová` | `SOKOLOVA` | name (fold diakritiky) |
+| `máme klienta Renata` | `Renata` po stopslovech | name (0081) |
+| `máme Renatu?` | soft stem `renat` | name (0082) |
+| `… NIE Y9908856X` | token `Y9908856X` | id_token (0081) |
+| `Y990` / část NIE | substring / prefix | id_substr (0082) |
+| `Islandia` / bydliště | `clientes.direccion` / finca | address (0082) |
+| `jaké doklady má na hromadě` | `search_cliente_documentos` | pile (0082) |
 
 AEPD DA 7ª publikuje 4 číslice (`****4567*`). To **není** stejné jako `Y123**6E`. Mask matcher s rozdílnou délkou v MVP nehádá — vrátí trigram + FTS kandidáty a gestor vybere. Rozšíření na DA 7ª = v2.
 

@@ -10,6 +10,7 @@ import '../../core/documents/documento_storage.dart';
 import '../../core/documents/office_attach_button.dart';
 import '../../core/documents/office_file_pick.dart';
 import '../../core/money/cents.dart';
+import '../../core/search/search_query_content.dart';
 import '../../core/theme/app_theme.dart';
 import 'ai_chat.dart';
 import 'ai_providers.dart';
@@ -45,7 +46,9 @@ class _AiPanelState extends ConsumerState<AiPanel> {
     ref.listen<AsyncValue<AiChatState>>(aiChatProvider, (prev, next) {
       final was = prev?.valueOrNull?.messages.length ?? 0;
       final now = next.valueOrNull?.messages.length ?? 0;
-      if (now > was && (_working || _nearLatest())) {
+      final loaded =
+          (prev?.isLoading ?? true) && next.hasValue && now > 0;
+      if ((now > was || loaded) && (_working || _nearLatest() || loaded)) {
         _pinToLatest();
       }
     });
@@ -101,14 +104,12 @@ class _AiPanelState extends ConsumerState<AiPanel> {
                 }
                 return ListView.builder(
                   controller: _scroll,
-                  reverse: true,
-                  padding: const EdgeInsets.fromLTRB(12, 16, 12, 12),
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
                   itemCount: state.messages.length,
                   itemBuilder: (context, i) {
-                    final message = state.messages[aiChatLatestFirstIndex(
-                      state.messages.length,
-                      i,
-                    )];
+                    // Chronologicky ASC: staré nahoře, nové dole (Leo-styl).
+                    // reverse:true + index flip po reloadu otáčel celý thread.
+                    final message = state.messages[i];
                     return _Bubble(
                       message: message,
                       onOpen: (route) => context.go(route),
@@ -203,11 +204,28 @@ class _AiPanelState extends ConsumerState<AiPanel> {
             .read(aiChatProvider.notifier)
             .addAssistant(encodeAiChatPayload(assistant));
       } else {
-        // Fallback bez Edge: otevřená karta = facts; search vždy (jméno/NIE).
-        final hits = await aiSearchClients(q);
+        // Fallback bez Edge: seznam / hromada / search (stopslova+NIE) / facts.
+        final listAll = looksLikeListClientsQuery(q);
+        final pileQ = looksLikePileDocsQuery(q);
+        final hits =
+            listAll ? await aiListClients() : await aiSearchClients(q);
+        final pileClienteId = openId ??
+            (hits.isNotEmpty ? hits.first.clienteId : null);
+        AiPileDocsAnswer? pile;
+        if (pileQ && pileClienteId != null) {
+          final docFilter = looksLikeListPileDocsQuery(q)
+              ? ''
+              : (searchDocQueryParts(q).isNotEmpty
+                    ? q
+                    : searchQueryContent(q));
+          pile = await aiSearchClienteDocumentos(
+            clienteId: pileClienteId,
+            q: docFilter,
+          );
+        }
         final facts = openId != null
             ? await askClienteFactsForId(openId)
-            : (hits.isEmpty
+            : (listAll || hits.isEmpty
                   ? null
                   : await askClienteFactsForId(
                       hits.first.clienteId,
@@ -220,7 +238,12 @@ class _AiPanelState extends ConsumerState<AiPanel> {
             .read(aiChatProvider.notifier)
             .addAssistant(
               encodeAiChatPayload(
-                _replyPayload(hits: hits, facts: facts, office: office),
+                _replyPayload(
+                  hits: hits,
+                  facts: facts,
+                  office: office,
+                  pile: pile,
+                ),
               ),
             );
       }
@@ -240,14 +263,61 @@ class _AiPanelState extends ConsumerState<AiPanel> {
     required List<AiHit> hits,
     required AiFactAnswer? facts,
     AiOfficeAnswer? office,
+    AiPileDocsAnswer? pile,
   }) {
-    if (facts == null && hits.isEmpty && office == null) {
+    if (facts == null &&
+        hits.isEmpty &&
+        office == null &&
+        pile == null) {
       return AiChatPayload(text: 'ai.factsNone'.tr());
     }
     final lines = <String>[];
     final opens = <AiChatOpen>[];
+    if (pile != null) {
+      final name = (pile.clienteNombre ?? '').trim().isNotEmpty
+          ? pile.clienteNombre!.trim()
+          : (facts?.nombre ?? '');
+      if (pile.items.isEmpty) {
+        lines.add(
+          'ai.pileEmpty'.tr(
+            namedArgs: {'name': name.isEmpty ? '—' : name},
+          ),
+        );
+      } else {
+        lines.add(
+          'ai.pileTitle'.tr(
+            namedArgs: {
+              'name': name.isEmpty ? '—' : name,
+              'count': '${pile.total}',
+            },
+          ),
+        );
+        for (final doc in pile.items.take(20)) {
+          final bits = [
+            _docTipoLabel(doc.tipo),
+            _aiAlbumBit(doc.albums),
+            if ((doc.originalName ?? '').isNotEmpty) doc.originalName!,
+            if ((doc.aiSummary ?? '').isNotEmpty) doc.aiSummary!,
+            if ((doc.direccion ?? '').isNotEmpty) doc.direccion!,
+          ];
+          lines.add(bits.where((s) => s.trim().isNotEmpty).join(' · '));
+          if (opens.every((o) => o.clienteId != doc.clienteId)) {
+            opens.add(
+              AiChatOpen(
+                clienteId: doc.clienteId,
+                label: doc.nombre.isNotEmpty ? doc.nombre : doc.clienteId,
+                carpeta: true,
+              ),
+            );
+          }
+        }
+      }
+    }
     if (facts != null) {
-      lines.add('ai.factsTitle'.tr(namedArgs: {'name': facts.nombre}));
+      // Když už máme výpis hromady, nekreslí znovu celý stoh z facts.
+      if (pile == null) {
+        lines.add('ai.factsTitle'.tr(namedArgs: {'name': facts.nombre}));
+      }
       if (facts.nie != null && facts.nie!.isNotEmpty) {
         lines.add('${'fields.nie'.tr()}: ${facts.nie}');
       }
@@ -257,11 +327,11 @@ class _AiPanelState extends ConsumerState<AiPanel> {
       if (facts.email != null && facts.email!.isNotEmpty) {
         lines.add('${'fields.email'.tr()}: ${facts.email}');
       }
-      if (facts.docs.isEmpty) {
+      if (pile == null && facts.docs.isEmpty) {
         if (!facts.hasAnything) {
           lines.add('ai.factsEmpty'.tr());
         }
-      } else {
+      } else if (pile == null) {
         final glance = stackGlanceOf([
           for (final doc in facts.docs)
             (
@@ -328,13 +398,15 @@ class _AiPanelState extends ConsumerState<AiPanel> {
           lines.add(bits.join(' · '));
         }
       }
-      opens.add(
-        AiChatOpen(
-          clienteId: facts.clienteId,
-          label: facts.nombre,
-          carpeta: true,
-        ),
-      );
+      if (opens.every((o) => o.clienteId != facts.clienteId)) {
+        opens.add(
+          AiChatOpen(
+            clienteId: facts.clienteId,
+            label: facts.nombre,
+            carpeta: true,
+          ),
+        );
+      }
     }
     if (office != null) {
       if (lines.isNotEmpty) lines.add('');
@@ -597,14 +669,15 @@ class _AiPanelState extends ConsumerState<AiPanel> {
 
   bool _nearLatest() {
     if (!_scroll.hasClients) return true;
-    return _scroll.offset <= 72;
+    final pos = _scroll.position;
+    return pos.maxScrollExtent - pos.pixels <= 72;
   }
 
-  /// Reverse seznam: 0 = nejnovější u pole. maxScrollExtent by hodil historii dolů.
+  /// ASC seznam: nejnovější dole u vstupu. Po reloadu i po odpovědi.
   void _pinToLatest() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scroll.hasClients) return;
-      _scroll.jumpTo(0);
+      _scroll.jumpTo(_scroll.position.maxScrollExtent);
     });
   }
 }
@@ -682,4 +755,11 @@ String _openLabel(AiChatOpen open) {
 String _aiAlbumBit(List<String> albums) {
   if (albums.isEmpty) return 'stoh.pile'.tr();
   return albums.map((k) => 'blocks.$k'.tr()).join(' · ');
+}
+
+/// Tipo z DB → i18n; neznámý klíč nechá raw (ať se chat nerozbije).
+String _docTipoLabel(String tipo) {
+  final key = 'docs.$tipo';
+  final tr = key.tr();
+  return tr == key ? tipo : tr;
 }

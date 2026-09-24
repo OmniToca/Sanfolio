@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gestoria_auth/gestoria_auth.dart';
 
+import '../../core/search/search_query_content.dart';
 import 'ai_chat.dart';
 import 'extract_text.dart';
 
@@ -201,26 +202,31 @@ void startExtractInBackground({
 Future<List<AiHit>> aiSearchClients(String q) async {
   final client = trySupabaseClient();
   if (client == null || q.trim().isEmpty) return [];
-  final hits = await client.rpc(
-    'search_clients',
-    params: {'p_q': q.trim(), 'p_limit': 10},
-  );
-  final ids = <String>[];
+  // Celá věta přes stopslova / NIE tokeny — ne raw NL do RPC.
+  final queries = searchClientQueries(q);
   final score = <String, AiHit>{};
-  if (hits is List) {
+  for (final query in queries) {
+    final hits = await client.rpc(
+      'search_clients',
+      params: {'p_q': query, 'p_limit': 10},
+    );
+    if (hits is! List) continue;
     for (final raw in hits) {
       if (raw is! Map) continue;
       final id = '${raw['cliente_id']}';
-      ids.add(id);
-      score[id] = AiHit(
+      if (id.isEmpty) continue;
+      final next = AiHit(
         clienteId: id,
         score: raw['score'] is int
             ? raw['score'] as int
             : int.tryParse('${raw['score']}') ?? 0,
         matchedVia: raw['matched_via']?.toString(),
       );
+      final prev = score[id];
+      if (prev == null || next.score > prev.score) score[id] = next;
     }
   }
+  final ids = score.keys.toList();
   if (ids.isEmpty) return [];
   final rows = await client
       .from('clientes')
@@ -247,6 +253,148 @@ Future<List<AiHit>> aiSearchClients(String q) async {
   }
   named.sort((a, b) => b.score.compareTo(a.score));
   return named;
+}
+
+/// Seznam karet tenantu (otázky „jaci klienti“). Soft-delete pryč.
+Future<List<AiHit>> aiListClients({int limit = 30}) async {
+  final client = trySupabaseClient();
+  if (client == null) return const [];
+  final rows = await client
+      .from('clientes')
+      .select('id, nombre, apellidos')
+      .isFilter('deleted_at', null)
+      .order('updated_at', ascending: false)
+      .limit(limit);
+  final out = <AiHit>[];
+  if (rows is! List) return out;
+  for (final raw in rows) {
+    if (raw is! Map) continue;
+    final id = '${raw['id']}';
+    if (id.isEmpty) continue;
+    final nombre = [
+      '${raw['nombre'] ?? ''}'.trim(),
+      '${raw['apellidos'] ?? ''}'.trim(),
+    ].where((s) => s.isNotEmpty).join(' ');
+    out.add(AiHit(clienteId: id, score: 1, matchedVia: 'list', nombre: nombre));
+  }
+  return out;
+}
+
+/// Hit z hromady (RPC `search_cliente_documentos`). Read-only.
+class AiPileDocHit {
+  const AiPileDocHit({
+    required this.documentId,
+    required this.clienteId,
+    required this.tipo,
+    this.nombre = '',
+    this.originalName,
+    this.aiSummary,
+    this.bodyExcerpt,
+    this.albums = const [],
+    this.direccion,
+    this.score = 0,
+  });
+
+  final String documentId;
+  final String clienteId;
+  final String tipo;
+  final String nombre;
+  final String? originalName;
+  final String? aiSummary;
+  final String? bodyExcerpt;
+  final List<String> albums;
+  final String? direccion;
+  final int score;
+}
+
+class AiPileDocsAnswer {
+  const AiPileDocsAnswer({
+    required this.total,
+    this.clienteId,
+    this.clienteNombre,
+    this.items = const [],
+  });
+
+  final int total;
+  final String? clienteId;
+  final String? clienteNombre;
+  final List<AiPileDocHit> items;
+}
+
+/// Hromada: tipo / název / summary / body. Scope RLS + can_access_cliente.
+Future<AiPileDocsAnswer?> aiSearchClienteDocumentos({
+  String? clienteId,
+  String q = '',
+  int limit = 30,
+}) async {
+  final client = trySupabaseClient();
+  if (client == null) return null;
+  try {
+    final data = await client.rpc(
+      'search_cliente_documentos',
+      params: {
+        if (clienteId != null && clienteId.isNotEmpty)
+          'p_cliente_id': clienteId,
+        'p_q': q,
+        'p_limit': limit,
+      },
+    );
+    if (data is! Map) return null;
+    final items = <AiPileDocHit>[];
+    final rawItems = data['items'];
+    if (rawItems is List) {
+      for (final raw in rawItems) {
+        if (raw is! Map) continue;
+        final id = '${raw['document_id'] ?? ''}';
+        final cid = '${raw['cliente_id'] ?? ''}';
+        if (id.isEmpty || cid.isEmpty) continue;
+        items.add(
+          AiPileDocHit(
+            documentId: id,
+            clienteId: cid,
+            tipo: '${raw['tipo'] ?? 'other'}',
+            nombre: '${raw['nombre'] ?? ''}'.trim(),
+            originalName: '${raw['original_name'] ?? ''}'.trim().isEmpty
+                ? null
+                : '${raw['original_name']}'.trim(),
+            aiSummary: '${raw['ai_summary'] ?? ''}'.trim().isEmpty
+                ? null
+                : '${raw['ai_summary']}'.trim(),
+            bodyExcerpt: '${raw['body_excerpt'] ?? ''}'.trim().isEmpty
+                ? null
+                : '${raw['body_excerpt']}'.trim(),
+            albums: jsonStringList(raw['albums']),
+            direccion: '${raw['direccion'] ?? ''}'.trim().isEmpty
+                ? null
+                : '${raw['direccion']}'.trim(),
+            score: raw['score'] is int
+                ? raw['score'] as int
+                : int.tryParse('${raw['score']}') ?? 0,
+          ),
+        );
+      }
+    }
+    final cliente = data['cliente'];
+    String? resolvedId = clienteId;
+    String? resolvedName;
+    if (cliente is Map) {
+      final id = '${cliente['id'] ?? ''}'.trim();
+      if (id.isNotEmpty) resolvedId = id;
+      final n = '${cliente['nombre'] ?? ''}'.trim();
+      if (n.isNotEmpty) resolvedName = n;
+    }
+    final total = data['total'] is int
+        ? data['total'] as int
+        : int.tryParse('${data['total']}') ?? items.length;
+    return AiPileDocsAnswer(
+      total: total,
+      clienteId: resolvedId,
+      clienteNombre: resolvedName,
+      items: items,
+    );
+  } on Object {
+    return null;
+  }
 }
 
 class AiDraftMessage {

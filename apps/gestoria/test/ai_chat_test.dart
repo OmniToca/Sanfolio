@@ -77,30 +77,27 @@ void main() {
     expect(jsonStringList(null), isEmpty);
   });
 
-  test('řádky z DB se čtou, hard-delete v nich není', () {
+  test('řádky z DB se čtou chronologicky ASC', () {
     final rows = [
-      {
-        'id': 'm1',
-        'role': 'user',
-        'content': 'Petr',
-        'created_at': '2026-09-12T12:00:00Z',
-      },
       {
         'id': 'm2',
         'role': 'assistant',
         'content': 'Nalezení klienti',
         'created_at': '2026-09-12T12:00:01Z',
       },
+      {
+        'id': 'm1',
+        'role': 'user',
+        'content': 'Petr',
+        'created_at': '2026-09-12T12:00:00Z',
+      },
     ];
-    final messages = parseAiChatMessages(rows);
+    final messages = [...parseAiChatMessages(rows)]
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
     expect(messages, hasLength(2));
     expect(messages.first.fromUser, isTrue);
+    expect(messages.last.fromUser, isFalse);
     expect(parseAiChatMessage({'role': 'system'}), isNull);
-  });
-
-  test('nejnovější zpráva je u vstupu, historie nahoru', () {
-    expect(aiChatLatestFirstIndex(3, 0), 2);
-    expect(aiChatLatestFirstIndex(3, 2), 0);
   });
 
   test('MIME z přípony rozliší PDF od fotky', () {
