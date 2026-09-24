@@ -12,6 +12,8 @@ Provozní systém španělské kanceláře. Evidence klienta a služeb, doklady,
 4. Auth → Redirect URLs: kancelář i Support (Netlify + `localhost:5555` / `5556`).
 5. Zaregistruj se na Support, v SQL: `UPDATE profiles SET is_support = true WHERE email = '…';`
 
+> **Cursor Cloud Agent:** prostředí spouští [`tool/cloud_agent_install.sh`](tool/cloud_agent_install.sh) — nainstaluje Flutter stable, stáhne balíčky všech projektů a založí `config.json` z příkladu, aby prošel `flutter analyze` / `flutter test`. Skript je idempotentní; jde spustit i ručně.
+
 ## Nasazení (GitHub → Netlify)
 
 `config.json` v gitu není. Netlify si Flutter nainstaluje v buildu a klíče bere z Environment.
