@@ -73,7 +73,7 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `client_portal` | není | #1 na `docs/vyvoj.md`; čte `mensajes.translations`; klient nenahrazuje Guardar |
 | `gestoria_auth` | `packages/gestoria_auth` | login, PortalUrls, hash `setSession` |
 | `AuthController` | `gestoria_auth` | session, profil, impersonace, změna hesla |
-| `OfficeAccountSection` | `office_account_section.dart` | odhlášení a změna hesla v Nastavení; AI sem nesahá |
+| `OfficeAccountSection` | `office_account_section.dart` | sekce **Můj účet** v Nastavení: odhlášení a změna hesla; AI sem nesahá |
 | `create-office` | Edge Function | založení tenanta + invite owner; balíček z dialogu Supportu |
 | `licence_plans` | SQL | 3 tarify carpeta / despacho / asesoria; included v `licence_plan_modules` |
 | `set_office_plan` | SQL RPC | jen Support nastaví tarif a syncne `organization_modules` |
@@ -81,7 +81,8 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `set_office_discount` | SQL RPC | sleva kanceláře v bps; 10000 = měsíc zdarma |
 | `set_module_monthly_cents` | SQL RPC | ceník doplňků; Support HQ `/cenik` |
 | `set_plan_monthly_cents` | SQL RPC | ceník balíčku; Support HQ `/cenik` |
-| `OfficeModulesSection` | Nastavení kanceláře | read-only: název balíčku + měsíční poplatek |
+| `OfficeModulesSection` | Nastavení → Kancelář | read-only: název balíčku + měsíční poplatek |
+| `SettingsSectionId` | `settings_sections.dart` | odrážky Nastavení (`/settings/:section`); rail beze změny |
 | `start_impersonation` | SQL RPC | auditní session 8 h |
 | `apps/support` | Flutter web | HQ kanceláře, Impersonar |
 | `CarpetaController` | `carpeta_controller.dart` | tužka, `bloques`, `clientes`, `documentos`; přiložení na blok = album, ne druhý blob |

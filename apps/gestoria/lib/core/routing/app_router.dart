@@ -283,10 +283,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
-            path: '/settings',
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: SettingsScreen(),
+            path: '/settings/:section',
+            pageBuilder: (context, state) => NoTransitionPage(
+              child: SettingsScreen(
+                sectionKey: state.pathParameters['section'],
+              ),
             ),
+          ),
+          GoRoute(
+            path: '/settings',
+            redirect: (context, state) => '/settings/office',
           ),
         ],
       ),

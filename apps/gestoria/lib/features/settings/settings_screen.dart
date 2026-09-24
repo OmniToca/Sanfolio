@@ -2,8 +2,10 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gestoria_auth/gestoria_auth.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/i18n/app_locales.dart';
+import '../../core/modules/feature_gate.dart';
 import '../../core/modules/slot_order.dart';
 import '../../core/presentation/widgets/app_widgets.dart';
 import '../../core/theme/app_theme.dart';
@@ -15,17 +17,30 @@ import 'office_account_section.dart';
 import 'office_modules_section.dart';
 import 'office_settings_controller.dart';
 import 'office_team_section.dart';
+import 'settings_sections.dart';
 
+/// Nastavení: list sekcí vlevo (široké) / nahoře (úzké). Žádná 6. ikona v railu.
 class SettingsScreen extends ConsumerWidget {
-  const SettingsScreen({super.key});
+  const SettingsScreen({super.key, this.sectionKey});
+
+  /// URL `/settings/:section` — např. `account`, `facturacion`.
+  final String? sectionKey;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(officeSettingsProvider);
+    final cfg = ref.watch(tenantConfigProvider).valueOrNull;
+    final sections = visibleSettingsSections(cfg);
+    final requested = parseSettingsSection(sectionKey);
+    final selected = sections.contains(requested)
+        ? requested!
+        : (sections.isEmpty ? SettingsSectionId.office : sections.first);
+
     final appBar = AppBar(
       title: Text('settings.title'.tr()),
       actions: _signOutActions(context, ref),
     );
+
     return async.when(
       loading: () => Scaffold(
         appBar: appBar,
@@ -55,36 +70,171 @@ class SettingsScreen extends ConsumerWidget {
       ),
       data: (s) {
         final ctrl = ref.read(officeSettingsProvider.notifier);
-        return DefaultTabController(
-          length: 4,
-          child: Scaffold(
-            appBar: AppBar(
-              title: Text('settings.title'.tr()),
-              actions: _signOutActions(context, ref),
-              bottom: TabBar(
-                isScrollable: true,
-                tabs: [
-                  Tab(text: 'settings.tabOffice'.tr()),
-                  Tab(text: 'settings.tabDeadlines'.tr()),
-                  Tab(text: 'settings.tabTeam'.tr()),
-                  Tab(text: 'settings.tabFolder'.tr()),
-                ],
-              ),
-            ),
-            body: TabBarView(
-              children: [
-                _OfficeTab(settings: s, ctrl: ctrl),
-                _DeadlinesTab(settings: s, ctrl: ctrl),
-                const _TeamTab(),
-                _FolderTab(
-                  settings: s,
-                  onMove: (keys) => ctrl.setCarpetaBlocksOrder(keys),
-                ),
-              ],
-            ),
+        return Scaffold(
+          appBar: appBar,
+          body: _SettingsBody(
+            sections: sections,
+            selected: selected,
+            settings: s,
+            ctrl: ctrl,
+            onSelect: (id) {
+              if (id == selected) return;
+              context.go('/settings/${id.routeKey}');
+            },
           ),
         );
       },
+    );
+  }
+}
+
+class _SettingsBody extends StatelessWidget {
+  const _SettingsBody({
+    required this.sections,
+    required this.selected,
+    required this.settings,
+    required this.ctrl,
+    required this.onSelect,
+  });
+
+  final List<SettingsSectionId> sections;
+  final SettingsSectionId selected;
+  final OfficeSettings settings;
+  final OfficeSettingsController ctrl;
+  final ValueChanged<SettingsSectionId> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final wide = MediaQuery.sizeOf(context).width >= 900;
+    final content = _sectionContent(selected);
+    if (wide) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            width: 220,
+            child: Material(
+              color: AppTheme.surface,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(12, 16, 8, 24),
+                children: [
+                  for (final id in sections)
+                    _NavTile(
+                      label: id.labelKey.tr(),
+                      selected: id == selected,
+                      onTap: () => onSelect(id),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const VerticalDivider(width: 1, color: AppTheme.rule),
+          Expanded(child: content),
+        ],
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(
+          height: 48,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            itemCount: sections.length,
+            separatorBuilder: (context, index) => const SizedBox(width: 8),
+            itemBuilder: (context, i) {
+              final id = sections[i];
+              final on = id == selected;
+              return Material(
+                color: on ? AppTheme.accentSoft : AppTheme.chipOff,
+                borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                child: InkWell(
+                  onTap: () => onSelect(id),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                  child: Container(
+                    alignment: Alignment.center,
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    decoration: BoxDecoration(
+                      borderRadius:
+                          BorderRadius.circular(AppTheme.radiusSm),
+                      border: Border.all(
+                        color: on ? AppTheme.accent : AppTheme.rule,
+                      ),
+                    ),
+                    child: Text(
+                      id.labelKey.tr(),
+                      style:
+                          Theme.of(context).textTheme.labelLarge?.copyWith(
+                                color: on ? AppTheme.accent : AppTheme.ink,
+                                fontWeight:
+                                    on ? FontWeight.w700 : FontWeight.w500,
+                              ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        const Divider(height: 1, color: AppTheme.rule),
+        Expanded(child: content),
+      ],
+    );
+  }
+
+  Widget _sectionContent(SettingsSectionId id) {
+    return switch (id) {
+      SettingsSectionId.office => _OfficeTab(settings: settings, ctrl: ctrl),
+      SettingsSectionId.account => const _AccountTab(),
+      SettingsSectionId.team => const _TeamTab(),
+      SettingsSectionId.deadlines =>
+        _DeadlinesTab(settings: settings, ctrl: ctrl),
+      SettingsSectionId.folder => _FolderTab(
+          settings: settings,
+          onMove: (keys) => ctrl.setCarpetaBlocksOrder(keys),
+        ),
+      SettingsSectionId.posta => _PostaTab(settings: settings),
+      SettingsSectionId.facturacion =>
+        _FacturacionTab(settings: settings),
+      SettingsSectionId.ofertas => const _OfertasTab(),
+    };
+  }
+}
+
+class _NavTile extends StatelessWidget {
+  const _NavTile({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Material(
+        color: selected ? AppTheme.accentSoft : Colors.transparent,
+        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: selected ? AppTheme.accent : AppTheme.ink,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -110,11 +260,64 @@ List<Widget> _signOutActions(BuildContext context, WidgetRef ref) {
   ];
 }
 
-class _OfficeTab extends ConsumerWidget {
+/// Tenant: licence + pravidla odchozích. Osobní účet a moduly jinde.
+class _OfficeTab extends StatelessWidget {
   const _OfficeTab({required this.settings, required this.ctrl});
 
   final OfficeSettings settings;
   final OfficeSettingsController ctrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final outbound = AppSectionCard(
+      title: 'settings.outboundTitle'.tr(),
+      child: SwitchListTile(
+        contentPadding: EdgeInsets.zero,
+        title: Text(
+          settings.displayName.isEmpty
+              ? 'settings.unnamedOffice'.tr()
+              : settings.displayName,
+        ),
+        subtitle: Text('settings.sendTranslated'.tr()),
+        value: settings.sendTranslatedOutbound,
+        onChanged: ctrl.setSendTranslatedOutbound,
+      ),
+    );
+    return ListView(
+      children: [
+        AppContent(
+          maxWidth: AppTheme.contentWide,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'settings.officeIntro'.tr(),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppTheme.pencil,
+                    ),
+              ),
+              const SizedBox(height: 16),
+              const OfficeModulesSection(),
+              const SizedBox(height: 16),
+              outbound,
+              const SizedBox(height: 16),
+              Text(
+                'settings.cronHint'.tr(),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppTheme.pencil,
+                    ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Osobní: jazyk obrazovky, heslo, odhlášení. Ne tenant.
+class _AccountTab extends ConsumerWidget {
+  const _AccountTab();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -141,20 +344,6 @@ class _OfficeTab extends ConsumerWidget {
         },
       ),
     );
-    final outbound = AppSectionCard(
-      title: 'settings.outboundTitle'.tr(),
-      child: SwitchListTile(
-        contentPadding: EdgeInsets.zero,
-        title: Text(
-          settings.displayName.isEmpty
-              ? 'settings.unnamedOffice'.tr()
-              : settings.displayName,
-        ),
-        subtitle: Text('settings.sendTranslated'.tr()),
-        value: settings.sendTranslatedOutbound,
-        onChanged: ctrl.setSendTranslatedOutbound,
-      ),
-    );
     return ListView(
       children: [
         AppContent(
@@ -162,44 +351,16 @@ class _OfficeTab extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const OfficeModulesSection(),
-              const SizedBox(height: 16),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  if (constraints.maxWidth < 900) {
-                    return Column(
-                      children: [
-                        language,
-                        const SizedBox(height: 16),
-                        outbound,
-                      ],
-                    );
-                  }
-                  return Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(child: language),
-                      const SizedBox(width: 16),
-                      Expanded(child: outbound),
-                    ],
-                  );
-                },
-              ),
-              const SizedBox(height: 16),
-              PostaIngestSection(settings: settings),
-              const SizedBox(height: 16),
-              const OfficeAccountSection(),
-              const SizedBox(height: 16),
-              FacturacionSettingsSection(settings: settings),
-              const SizedBox(height: 16),
-              const OfertasSettingsSection(),
-              const SizedBox(height: 16),
               Text(
-                'settings.cronHint'.tr(),
+                'settings.accountIntro'.tr(),
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: AppTheme.pencil,
                     ),
               ),
+              const SizedBox(height: 16),
+              language,
+              const SizedBox(height: 16),
+              const OfficeAccountSection(),
             ],
           ),
         ),
@@ -406,6 +567,58 @@ class _TeamTab extends StatelessWidget {
         AppContent(
           maxWidth: AppTheme.contentWide,
           child: OfficeTeamSection(),
+        ),
+      ],
+    );
+  }
+}
+
+class _PostaTab extends StatelessWidget {
+  const _PostaTab({required this.settings});
+
+  final OfficeSettings settings;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      children: [
+        AppContent(
+          maxWidth: AppTheme.contentWide,
+          child: PostaIngestSection(settings: settings),
+        ),
+      ],
+    );
+  }
+}
+
+class _FacturacionTab extends StatelessWidget {
+  const _FacturacionTab({required this.settings});
+
+  final OfficeSettings settings;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      children: [
+        AppContent(
+          maxWidth: AppTheme.contentWide,
+          child: FacturacionSettingsSection(settings: settings),
+        ),
+      ],
+    );
+  }
+}
+
+class _OfertasTab extends StatelessWidget {
+  const _OfertasTab();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      children: const [
+        AppContent(
+          maxWidth: AppTheme.contentWide,
+          child: OfertasSettingsSection(),
         ),
       ],
     );

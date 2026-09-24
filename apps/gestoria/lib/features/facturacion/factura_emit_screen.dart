@@ -172,7 +172,7 @@ class _FacturaEmitScreenState extends ConsumerState<FacturaEmitScreen> {
                       title: 'facturacion.emisor'.tr(),
                       hint: 'facturacion.emisorMissing'.tr(),
                       trailing: TextButton(
-                        onPressed: () => context.go('/settings'),
+                        onPressed: () => context.go('/settings/facturacion'),
                         child: Text('nav.settings'.tr()),
                       ),
                       child: const SizedBox.shrink(),

@@ -71,7 +71,22 @@ Jarka chce **přeskládat** bloky → vrstva C (`slot_order`) je v rozsahu, ne d
 
 Workflow kanceláře = zapnuté moduly + tyhle offsety + pořadí bloků. Ne BPMN editor.
 
-Nová kancelář (`create-office`) dostane zvolený balíček (default Carpeta). Vyšší tarif a doplňky (AI, faktury) jde i později v **Support HQ**. Ceník balíčků je `licence_plans.monthly_cents`, doplňků `modules.monthly_cents`, sleva kanceláře `tenant_settings.licence_discount_bps` (1000 = 10 %). Měsíční poplatek = cena balíčku + doplňky mimo included minus sleva. Owner v Nastavení vidí balíček a výši, licence nemění. Vypnutí služby je `deleted_at`, ne `cancelled`. `organization_modules` zůstává SoT pro FeatureGate.
+Nová kancelář (`create-office`) dostane zvolený balíček (default Carpeta). Vyšší tarif a doplňky (AI, faktury) jde i později v **Support HQ**. Ceník balíčků je `licence_plans.monthly_cents`, doplňků `modules.monthly_cents`, sleva kanceláře `tenant_settings.licence_discount_bps` (1000 = 10 %). Měsíční poplatek = cena balíčku + doplňky mimo included minus sleva. Owner v Nastavení → **Kancelář** vidí balíček a výši, licence nemění. Vypnutí služby je `deleted_at`, ne `cancelled`. `organization_modules` zůstává SoT pro FeatureGate.
+
+### UI Nastavení (informační architektura)
+
+Rail zůstává: Inbox → Pošta → Klienti → Faktury → Nastavení. Uvnitř Nastavení je list sekcí (vlevo na širokém, nahoře na úzkém), URL `/settings/:section`:
+
+| Sekce | Obsah |
+| --- | --- |
+| `office` Kancelář | licence, odchozí zprávy (tenant) |
+| `account` Můj účet | staff locale, heslo, odhlášení |
+| `team` Lidé | pozvánky, role, scopes |
+| `deadlines` Lhůty | `tenant_settings` offsety |
+| `folder` Deska | `slot_order` bloků |
+| `posta` / `facturacion` / `ofertas` | jen pokud je modul zapnutý; widgety do slotu `settings.section` |
+
+Osobní účet a tenant se nemíchají. Nová agenda = nová odrážka, ne 6. ikona v railu.
 
 ## 5. Katalog modulů
 

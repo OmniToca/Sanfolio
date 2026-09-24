@@ -38,11 +38,7 @@
     "historyHide": "Méně"
   },
   "settings": {
-    "title": "Nastavení kanceláře",
-    "tabOffice": "Kancelář",
-    "tabDeadlines": "Lhůty",
-    "tabTeam": "Lidé",
-    "tabFolder": "Deska",
+    "title": "Nastavení",
     "modulesTitle": "Licence",
     "modulesHint": "Balíček a měsíční poplatek. Ceník a slevu nastavuje Support.",
     "modulesOwnerOnly": "Licence zapíná Support.",
@@ -107,7 +103,17 @@
       "owner": "Owner",
       "gestor": "Gestor",
       "asistente": "Asistente"
-    }
+    },
+    "sectionOffice": "Kancelář",
+    "sectionAccount": "Můj účet",
+    "sectionTeam": "Lidé",
+    "sectionDeadlines": "Lhůty",
+    "sectionFolder": "Deska",
+    "sectionPosta": "Pošta",
+    "sectionFacturacion": "Fakturace",
+    "sectionOfertas": "Nabídky",
+    "officeIntro": "Jen kancelář: licence a pravidla odchozích zpráv. Osobní účet a další agendy jsou v odrážkách vlevo.",
+    "accountIntro": "Jen vy: jazyk obrazovky, heslo a odhlášení. Nemění se nastavení kanceláře."
   },
   "error": {
     "notFound": "Stránka neexistuje"
