@@ -31,6 +31,9 @@ verify_jwt = true
 [functions.translate-message]
 verify_jwt = true
 
+[functions.impersonation-handoff]
+verify_jwt = false
+
 [functions.plazo-reminders]
 verify_jwt = false
 

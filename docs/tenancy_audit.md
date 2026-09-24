@@ -11,7 +11,7 @@ Vzory z OmniToca (Support ≠ Cloud, impersonace s důvodem) a LeoDejvIT (soft-d
 | `gestoria` | kancelář | Flutter web | RLS na `tenant_id`; scoped člen ještě `can_access_cliente` |
 | `cliente` | klienti kanceláře | portál #1 na `docs/vyvoj.md` | zatím se nestaví; RLS oddělená od staff |
 
-Cross-app URL: `GESTORIA_BASE_URL`, `SUPPORT_APP_URL`. Release zakazuje localhost. Handoff **vždy** nese `refresh_token` v hash (dvě origin = dvě localStorage). Produkční build na Netlify: env `SUPABASE_*`; URL default `$URL` (viz root `netlify.toml`). Vlastní doména: `GESTORIA_BASE_URL=https://sanfolio.app`.
+Cross-app URL: `GESTORIA_BASE_URL`, `SUPPORT_APP_URL`. Release zakazuje localhost. Handoff nese **jednorázový kód** v hash (Edge `impersonation-handoff`); raw `refresh_token` do URL nejde. Produkční build na Netlify: env `SUPABASE_*`; URL default `$URL` (viz root `netlify.toml`). Vlastní doména: `GESTORIA_BASE_URL=https://sanfolio.app`.
 
 Licence: komerčně 3 balíčky (`licence_plans`: carpeta / despacho / asesoria) jako OmniToca Mesa/Servicio/Cadena. Entitlement zůstává `modules` + `organization_modules` (`trial` \| `active` \| `cancelled` \| `past_due`). Ceník balíčku `licence_plans.monthly_cents`, doplňků `modules.monthly_cents`, sleva `tenant_settings.licence_discount_bps`. Kill-switch Gestoría app při `cancelled`/`past_due` → `/payment-required`. Support se nezamyká. Zapíná jen Support HQ.
 
@@ -114,15 +114,16 @@ OmniToca posílala jen `session_id`. Support a kancelář jsou **dvě origin** �
 Tady:
 
 1. Support: důvod ≥ 12 znaků → RPC `start_impersonation` (session tabulka jen SELECT z klienta; mutate jen RPC; `forbid_hard_delete`).
-2. Stejná záložka: `{GESTORIA_BASE_URL}/impersonation/accept?session_id=…#refresh_token=…`  
-   Token je v **hash**, ne v query.
-3. Accept nejdřív `setSession(refresh_token)`, pak ověří živou session. Chybí-li token, **řekne to na obrazovce** — nikdy tichý login.
-4. Banner „Režim podpory: {despacho}“ + Ukončit → `end_impersonation` → `SUPPORT_APP_URL`.
-5. Support JWT v kanceláři **bez** živé session → `/forbidden`.
+2. Edge `impersonation-handoff` create: uloží refresh server-side, vrátí jednorázový kód (TTL ~2 min).
+3. Stejná záložka: `{GESTORIA_BASE_URL}/impersonation/accept?session_id=…#code=…`  
+   Kód je v **hash**, ne v query. Raw refresh v URL ne.
+4. Accept: redeem kódu → `setSession` → smaže hash. Chybí-li kód, **řekne to na obrazovce** — nikdy tichý login.
+5. Banner „Režim podpory: {despacho}“ + Ukončit → `end_impersonation` → `SUPPORT_APP_URL`.
+6. Support JWT v kanceláři **bez** živé session → `/forbidden`.
 
 `profiles.is_support` smí měnit jen `service_role` / SQL editor (trigger `forbid_client_is_support_change`). Self-promote z JWT klienta je zakázaný.
 
-Localhost v debugu smí; v release musí být veřejné URL. Handoff i na dvou `flutter run` portech nese token, takže funguje.
+Localhost v debugu smí; v release musí být veřejné URL. Handoff i na dvou `flutter run` portech nese kód, takže funguje.
 
 Založení kanceláře: Edge Function `create-office` (service_role). Flutter INSERT do `tenants` ne.
 

@@ -158,8 +158,9 @@
     "end": "Terminer",
     "accepting": "Démarrage du mode support…",
     "missingSession": "session_id manque dans l’URL.",
-    "missingToken": "refresh_token manque dans le hash. Sans lui l’autre origine n’a pas de session.",
-    "sessionClosed": "La session support est fermée ou expirée."
+    "missingToken": "Le hash n’a pas le code handoff (ni le refresh_token héritage). Sans lui l’autre origine n’a pas de session.",
+    "sessionClosed": "La session support est fermée ou expirée.",
+    "handoffFailed": "Le code handoff est invalide ou expiré. Relancez l’impersonation depuis Support."
   },
   "inbox": {
     "title": "Aujourd’hui",

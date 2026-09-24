@@ -168,10 +168,13 @@ class _MensajeComposeScreenState extends ConsumerState<MensajeComposeScreen> {
     final send = ref.read(officeSettingsProvider).valueOrNull
             ?.sendTranslatedOutbound ??
         true;
+    final tenantId =
+        ref.read(authControllerProvider).valueOrNull?.currentTenantId ?? '';
     return translateOutbound(
       text: original,
       targetLocale: row.locale,
       sendTranslated: send,
+      tenantId: tenantId,
     );
   }
 

@@ -53,16 +53,18 @@ Future<String> translateOutbound({
   required String text,
   required String targetLocale,
   required bool sendTranslated,
+  required String tenantId,
 }) async {
   if (!sendTranslated || text.trim().isEmpty || targetLocale == 'es') {
     return text;
   }
   final client = trySupabaseClient();
-  if (client == null) return text;
+  if (client == null || tenantId.trim().isEmpty) return text;
   try {
     final response = await client.functions.invoke(
       'translate-message',
       body: {
+        'tenant_id': tenantId,
         'text': text,
         'source_locale': 'es',
         'target_locale': targetLocale,

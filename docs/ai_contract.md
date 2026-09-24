@@ -57,11 +57,12 @@ Read-only fulltext v `documentos.body_text` **plus** cosine v `documento_chunks`
 
 ## 2b. Samostatné Edge (ne chat tools)
 
-- **`extract-document`** — JWT, fotka/PDF → `ai_drafts`. `classify` navrhne blok a tipo (název Poder/FACTURA přebije notáře v těle i LLM). Kódy mají typ (IBAN, CUPS, NIE); regex z nich nedělá telefon. Listinu zarovná jen u COMPARECEN. Po LLM zapíše OCR `documentos.body_text` + kousky (`documento_chunks`) pro search a 1–2 věty `ai_summary` ve **staff locale** (`locale` z requestu / `profiles.locale`) — **ne** album, **ne** `tipo`/`inmueble_id` (to až lidský Guardar přes `set_documento_placement` / `set_documento_inmueble`). `extracted` a pole desky Guardar. Při classify vytáhne až 5 podobných **zařazených** papírů v rozsahu člena (`similar_placed_papers` + `can_access_cliente`) — album a klíče jako vzor, ne trénink modelu.
+- **`extract-document`** — JWT, fotka/PDF → `ai_drafts`. `classify` navrhne blok a tipo (název Poder/FACTURA přebije notáře v těle i LLM). Kódy mají typ (IBAN, CUPS, NIE); regex z nich nedělá telefon. Listinu zarovná jen u COMPARECEN. Po LLM zapíše OCR `documentos.body_text` + kousky (`documento_chunks`) pro search a 1–2 věty `ai_summary` ve **staff locale** (`locale` z requestu / `profiles.locale`) — **ne** album, **ne** `tipo`/`inmueble_id` (to až lidský Guardar přes `set_documento_placement` / `set_documento_inmueble`). `extracted` a pole desky Guardar. Při classify vytáhne až 5 podobných **zařazených** papírů (`similar_placed_papers` + `can_access_cliente`; scoped = jen stejná karta) — album a klíče jako vzor, ne trénink modelu.
 - **`merge-document-pages`** — JWT, 2–20 JPG/PNG v pořadí → jedno PDF, zdroje do koše. AI nespojuje. PDF se neřeže.
 - **`embed-pending-chunks`** — dopočet vektorů. Auth: JWT kanceláře **nebo** exact `SUPABASE_SERVICE_ROLE_KEY` / `CRON_SECRET` (žádný unsigned JWT `role`).
 - **`ai-draft-message`** — JWT, nachystá `mensajes.status = draft`. `sent_at` zůstane null. Tool `send_message` **neexistuje**.
-- **`translate-message`** — při odeslání člověkem.
+- **`translate-message`** — při odeslání člověkem; `tenant_id` + `can_access_tenant` (M5).
+- **`impersonation-handoff`** — Support create / kancelář redeem jednorázového kódu (M6); raw refresh ne v URL.
 
 Navigate / prefill žlutý diff dělá Flutter panel, ne tool v `ai-assistant`. Routy Support app AI neotevírá.
 

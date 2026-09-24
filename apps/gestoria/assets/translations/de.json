@@ -158,8 +158,9 @@
     "end": "Beenden",
     "accepting": "Support-Modus wird gestartet…",
     "missingSession": "In der URL fehlt session_id.",
-    "missingToken": "Im Hash fehlt refresh_token. Ohne ihn hat die andere Origin keine Sitzung.",
-    "sessionClosed": "Die Support-Sitzung ist geschlossen oder abgelaufen."
+    "missingToken": "Im Hash fehlt der einmalige Handoff-Code (oder legacy refresh_token). Ohne ihn hat die andere Origin keine Sitzung.",
+    "sessionClosed": "Die Support-Sitzung ist geschlossen oder abgelaufen.",
+    "handoffFailed": "Der Handoff-Code ist ungültig oder abgelaufen. Starten Sie die Impersonation erneut im Support."
   },
   "inbox": {
     "title": "Heute",

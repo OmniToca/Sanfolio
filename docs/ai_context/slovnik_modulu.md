@@ -10,7 +10,7 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `impuestos` | `features/expedientes` | tenké 210 / renta; 210 počítá IRNR, AEAT nepodává |
 | `modelo_210.dart` | `features/expedientes` | IRNR formule `irnr-210-2026.1`; imputace / nájem / prodej; gestor ukládá |
 | `policia` / `ayuntamiento` / `testament` | `features/expedientes` | tenký spis na kartě (FeatureGate); cita → inbox |
-| `translate-message` | Edge Function | překlad výzvy při kliknutí gestora |
+| `translate-message` | Edge Function | překlad výzvy při kliknutí gestora; `tenant_id` + `can_access_tenant` |
 | `nie_poder` | bloky na desce | extras NIE = samostatný úkol |
 | `ai_copilot` | `features/ai` | search / open / prefill; uživatel ukládá |
 | `facturacion` | `features/facturacion` | kniha přijatých + koncepty vydaných; Guardar / Emitir / Ověřit je člověk |
@@ -29,7 +29,8 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `AiPanel` / `aiChatProvider` | `features/ai/ai_panel.dart` | trvalý chat; zápis `ai_conversations` + `ai_messages` |
 | `person_name` | `core/identity/person_name.dart` | split/join jméno + příjmení; save nesmí mazat `apellidos` |
 | `extract-document` | Edge Function | fotka/PDF → text LLM nebo vision → `ai_drafts`; po LLM OCR `body_text` + kousky + `ai_summary` ve staff locale; album/tipo/inmueble až Guardar; Poder/FACTURA v názvu není escritura; kódy mají typ (IBAN/CUPS/NIE ≠ tel); IBI → `sumaId`/`period` rok; podobné zařazené papíry v rozsahu (`similar_placed_papers`); Guardar polí desky je gestor |
-| `similar_placed_papers` | SQL RPC | cosine k zařazeným papírům tenantu; extract čte album/tipo/klíče; bez jmen a NIE; AI neukládá |
+| `similar_placed_papers` | SQL RPC | cosine k zařazeným papírům; unscoped = tenant v `can_access_cliente`; scoped = jen stejná karta; extract čte album/tipo/klíče; bez jmen a NIE; AI neukládá |
+| `impersonation-handoff` | Edge Function | M6: create/redeem jednorázového kódu Support→kancelář; raw refresh ne v URL |
 | `office_paper_memory` | `office_paper_memory.dart` | konsensus vzorů kanceláře (2 blízké / 1 hodně blízký lidský); redakce PII v promptu |
 | `documentos.extracted` | JSONB na dokladu | uložená pole po Guardar; AI sem nezapisuje |
 | `documentos.ai_summary` | TEXT + `ai_summary_locale` | 1–2 věty o papíru v jazyku staff UI; zapisuje extract; Guardar desky nemění |
@@ -72,7 +73,7 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `merge-document-pages` | Edge Function | 2–20 JPG/PNG → jedno PDF; zdroje soft-delete; AI nespojuje |
 | `pickOfficeFiles` | `office_file_pick.dart` | multi-select šanonu, max 40 |
 | `client_portal` | není | #1 na `docs/vyvoj.md`; čte `mensajes.translations`; klient nenahrazuje Guardar |
-| `gestoria_auth` | `packages/gestoria_auth` | login, PortalUrls, hash `setSession` |
+| `gestoria_auth` | `packages/gestoria_auth` | login, PortalUrls, handoff code → `setSession` |
 | `AuthController` | `gestoria_auth` | session, profil, impersonace, změna hesla |
 | `OfficeAccountSection` | `office_account_section.dart` | sekce **Můj účet** v Nastavení: odhlášení a změna hesla; AI sem nesahá |
 | `create-office` | Edge Function | založení tenanta + invite owner; balíček z dialogu Supportu |
@@ -84,7 +85,7 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `set_plan_monthly_cents` | SQL RPC | ceník balíčku; Support HQ `/cenik` |
 | `OfficeModulesSection` | Nastavení → Kancelář | read-only: název balíčku + měsíční poplatek |
 | `SettingsSectionId` | `settings_sections.dart` | odrážky Nastavení (`/settings/:section`); rail beze změny |
-| `start_impersonation` | SQL RPC | auditní session 8 h |
+| `start_impersonation` | SQL RPC | auditní session 8 h; handoff kód přes Edge |
 | `apps/support` | Flutter web | HQ kanceláře, Impersonar |
 | `CarpetaController` | `carpeta_controller.dart` | tužka, `bloques`, `clientes`, `documentos`; přiložení na blok = album, ne druhý blob |
 | `TitularesPanel` | `carpeta_titulares.dart` | spoluvlastníci na desce; mimo obří `carpeta_screen` |

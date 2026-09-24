@@ -24,7 +24,7 @@
     "ownerEmail": "E-mail ownera",
     "detail": "Kancelář",
     "impersonate": "Převtělit se",
-    "impersonateHint": "Otevře kancelářskou aplikaci se stejným účtem. Do URL jde refresh_token (hash), jinak druhá origin nemá přihlášení.",
+    "impersonateHint": "Otevře kancelářskou aplikaci se stejným účtem. Do URL jde jednorázový kód (hash), ne raw refresh_token.",
     "reason": "Důvod (min. 12 znaků)",
     "note": "Poznámka",
     "reasonRequired": "Důvod je povinný.",

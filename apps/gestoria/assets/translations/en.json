@@ -158,8 +158,9 @@
     "end": "End",
     "accepting": "Starting support mode…",
     "missingSession": "The URL is missing session_id.",
-    "missingToken": "The URL hash is missing refresh_token. The other origin has no session without it.",
-    "sessionClosed": "The support session is closed or expired."
+    "missingToken": "The URL hash is missing the one-time handoff code (or legacy refresh_token). The other origin has no session without it.",
+    "sessionClosed": "The support session is closed or expired.",
+    "handoffFailed": "The handoff code is invalid or expired. Start impersonation again from Support."
   },
   "inbox": {
     "title": "Today",

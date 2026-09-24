@@ -30,7 +30,8 @@ class _ImpersonationAcceptScreenState
     try {
       final uri = GoRouterState.of(context).uri;
       final sessionId = SessionHandoff.sessionIdFromUri(uri);
-      final refresh = SessionHandoff.refreshTokenFromUri(uri);
+      final handoffCode = SessionHandoff.handoffCodeFromUri(uri);
+      final legacyRefresh = SessionHandoff.refreshTokenFromUri(uri);
       if (sessionId == null) {
         setState(() => _error = 'impersonation.missingSession'.tr());
         return;
@@ -41,6 +42,19 @@ class _ImpersonationAcceptScreenState
         return;
       }
       if (client.auth.currentSession == null) {
+        String? refresh = legacyRefresh;
+        if (refresh == null && handoffCode != null) {
+          try {
+            refresh = await SessionHandoff.redeemHandoffCode(
+              client: client,
+              sessionId: sessionId,
+              code: handoffCode,
+            );
+          } on Object {
+            setState(() => _error = 'impersonation.handoffFailed'.tr());
+            return;
+          }
+        }
         if (refresh == null) {
           // OmniToca tady šla tiše na /login. My to řekneme.
           setState(() => _error = 'impersonation.missingToken'.tr());
