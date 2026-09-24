@@ -40,6 +40,8 @@ class CarpetaDocumento {
     this.createdAt,
     this.albumKeys = const [],
     this.caption = '',
+    this.aiSummary = '',
+    this.aiSummaryLocale = '',
   });
 
   final String id;
@@ -56,6 +58,9 @@ class CarpetaDocumento {
   final List<String> albumKeys;
   /// Ruční popis. Není extracted — AI a Guardar desky ho nemění.
   final String caption;
+  /// 1–2 věty ve staff locale. Extract zapisuje; deska nemění.
+  final String aiSummary;
+  final String aiSummaryLocale;
 
   CarpetaDocumento copyWith({
     String? tipo,
@@ -67,6 +72,8 @@ class CarpetaDocumento {
     DateTime? createdAt,
     List<String>? albumKeys,
     String? caption,
+    String? aiSummary,
+    String? aiSummaryLocale,
   }) {
     return CarpetaDocumento(
       id: id,
@@ -81,6 +88,8 @@ class CarpetaDocumento {
       createdAt: createdAt ?? this.createdAt,
       albumKeys: albumKeys ?? this.albumKeys,
       caption: caption ?? this.caption,
+      aiSummary: aiSummary ?? this.aiSummary,
+      aiSummaryLocale: aiSummaryLocale ?? this.aiSummaryLocale,
     );
   }
 }
@@ -423,7 +432,8 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
         .from('documentos')
         .select(
           'id, bloque_id, tipo, storage_path, original_name, extracted, '
-          'body_text, caption, storage_purged_at, inmueble_id, content_sha256, created_at',
+          'body_text, caption, ai_summary, ai_summary_locale, '
+          'storage_purged_at, inmueble_id, content_sha256, created_at',
         )
         .eq('cliente_id', clienteId)
         .isFilter('deleted_at', null);
@@ -520,6 +530,8 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
         createdAt: DateTime.tryParse('${raw['created_at'] ?? ''}'),
         albumKeys: albums,
         caption: '${raw['caption'] ?? ''}'.trim(),
+        aiSummary: '${raw['ai_summary'] ?? ''}'.trim(),
+        aiSummaryLocale: '${raw['ai_summary_locale'] ?? ''}'.trim(),
       );
       libraryDocs.add(doc);
       if (albums.isEmpty) {

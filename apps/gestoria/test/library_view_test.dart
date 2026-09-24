@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gestoria_os/features/ai/extract_text.dart';
 import 'package:gestoria_os/features/carpeta/carpeta_controller.dart';
 import 'package:gestoria_os/features/carpeta/documento_library.dart';
 import 'package:gestoria_os/features/carpeta/library_view.dart';
@@ -256,5 +257,28 @@ BIC: CAIXESBBXXX
     );
     expect(summary, contains('ES96 2100 9143 9413 0049 8086'));
     expect(summary, isNot(contains('9621009143941')));
+  });
+
+  test('glance maskuje IBAN a prose bere ai_summary', () {
+    expect(maskIban('ES9621009143941300498086'), 'ES96 **** **** 8086');
+    final doc = paper(
+      id: 's',
+      tipo: 'dni_nie',
+      name: 'dni.pdf',
+      extracted: const {
+        'fields.nie': 'Y1234567Z',
+        'fields.nombre': 'Ana',
+      },
+    ).copyWith(aiSummary: 'Občanka Anny s NIE.');
+    final row = LibraryPaper(document: doc);
+    expect(
+      libraryPaperProseSummary(row, tr: (k, {named = const {}}) => k),
+      'Občanka Anny s NIE.',
+    );
+    final chips = libraryGlanceEntries(
+      row.glanceFields,
+      keys: kLibraryCardGlanceKeys,
+    );
+    expect(chips.map((e) => e.value), containsAll(['Y1234567Z', 'Ana']));
   });
 }

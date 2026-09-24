@@ -1,9 +1,16 @@
 /// Cesty desky. Blok má vlastní URL, ať AI i tužka otevírají stejný šanon.
-String carpetaRoute(String clienteId, {String? expedienteId}) {
+String carpetaRoute(
+  String clienteId, {
+  String? expedienteId,
+  bool afterSkip = false,
+}) {
   final base = '/clientes/$clienteId/carpeta';
+  final q = <String>[];
   final exp = expedienteId?.trim();
-  if (exp == null || exp.isEmpty) return base;
-  return '$base?exp=$exp';
+  if (exp != null && exp.isNotEmpty) q.add('exp=$exp');
+  if (afterSkip) q.add('skip=1');
+  if (q.isEmpty) return base;
+  return '$base?${q.join('&')}';
 }
 
 String carpetaStohRoute(

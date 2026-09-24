@@ -89,15 +89,33 @@ const kLibraryGlanceKeys = <String>[
   'fields.issued',
 ];
 
+/// Glance čipy na kartě stohu: NIE, jméno, IBAN mask, adresa, datum.
+const kLibraryCardGlanceKeys = <String>[
+  'fields.nie',
+  'fields.nombre',
+  'fields.iban',
+  'fields.address',
+  'fields.date',
+  'fields.issued',
+];
+
 List<MapEntry<String, String>> libraryGlanceEntries(
   Map<String, String> fields, {
   int max = 4,
+  List<String> keys = kLibraryGlanceKeys,
 }) {
   final out = <MapEntry<String, String>>[];
-  for (final key in kLibraryGlanceKeys) {
+  for (final key in keys) {
     final v = (fields[key] ?? '').trim();
     if (v.isEmpty) continue;
-    out.add(MapEntry(key, v));
+    final shown = key == 'fields.iban'
+        ? maskIban(v)
+        : (key == 'fields.date' ||
+                key == 'fields.issued' ||
+                key == 'fields.expiry')
+            ? (toDmyDate(v) ?? v)
+            : v;
+    out.add(MapEntry(key, shown));
     if (out.length >= max) break;
   }
   return out;
@@ -109,6 +127,24 @@ String libraryPaperTipo(LibraryPaper row) {
   if (t.isNotEmpty && t != 'other') return t;
   final p = row.proposal.tipo.trim();
   return p.isEmpty ? 'other' : p;
+}
+
+/// Prose summary: DB sloupec, draft field, nebo strukturovaný auto-summary.
+String libraryPaperProseSummary(
+  LibraryPaper row, {
+  required String Function(String key, {Map<String, String> named}) tr,
+}) {
+  final fromDoc = row.document.aiSummary.trim();
+  if (fromDoc.isNotEmpty) return fromDoc;
+  final fromDraft = (row.draftFields['ai_summary'] ?? '').trim();
+  if (fromDraft.isNotEmpty) return fromDraft;
+  return libraryPaperAutoSummary(row, tr: tr);
+}
+
+/// Levný náhled: jen obrázek ze storage. PDF bez pre-renderu → null.
+bool libraryPaperHasImageThumb(String storagePath, String originalName) {
+  final hay = '${storagePath.toLowerCase()}\n${originalName.toLowerCase()}';
+  return RegExp(r'\.(jpe?g|png|webp|gif)(\?|$)').hasMatch(hay);
 }
 
 String? _glanceVal(Map<String, String> f, String key) {

@@ -46,7 +46,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final payment = path == '/payment-required';
 
       if (accepting) return null;
-      if (auth.isLoading) return null;
+      // Během hydrate neinbox — jinak AppShell blikne a test/VM bez config
+      // zůstanou na prázdné cestě, dokud GoRouter nedostane refresh.
+      if (auth.isLoading) {
+        return (loggingIn || resetting) ? null : '/login';
+      }
 
       final snap = auth.valueOrNull ?? AuthSnapshot.signedOut;
       // Token v URL: heslo jen dokud ještě není uložené. Zbylý `?code=`

@@ -262,6 +262,14 @@ Referencia catastral:
   test('po založení klienta jde URL na /stoh, ne rovnou na desku', () {
     expect(carpetaStohRoute('abc', afterCreate: true), '/clientes/abc/stoh?new=1');
     expect(carpetaRoute('abc'), '/clientes/abc/carpeta');
+    expect(
+      carpetaRoute('abc', afterSkip: true),
+      '/clientes/abc/carpeta?skip=1',
+    );
+    expect(
+      carpetaBloqueRoute('abc', 'agua', expedienteId: 'e1'),
+      '/clientes/abc/carpeta/agua?exp=e1',
+    );
   });
 
   test('nahraný stoh ukáže kus z celku a procenta', () {

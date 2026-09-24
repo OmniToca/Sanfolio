@@ -216,7 +216,7 @@
   },
   "stoh": {
     "title": "Biblioteca de papeles",
-    "subtitle": "Suba los escaneos del archivador. El sistema propone el bloque; guarda usted.",
+    "subtitle": "Un montón por cliente. La IA propone; usted archiva el álbum y guarda el tablero.",
     "attach": "Subir montón",
     "skip": "Saltar, abrir el tablero",
     "empty": "Aún no hay escaneo. Adjunte PDF o fotos de una vez.",
@@ -237,7 +237,7 @@
     "progress": "Subidos {done} de {total}",
     "percent": "{percent} %",
     "duplicateFile": "Este archivo ya está en la carpeta.",
-    "newHint": "1. Ya tiene el nombre. 2. Suba el archivador. 3. Confirme a qué bloque va cada papel.",
+    "newHint": "1. Ya tiene el nombre. 2. Suba el montón. 3. Archive en el álbum, o anote en el tablero (activa el servicio).",
     "filterAll": "Todo",
     "filterPile": "Montón",
     "filterPlaced": "Archivados",
@@ -250,7 +250,7 @@
     "dupInvoice": "Misma factura",
     "dupName": "Mismo nombre",
     "groupMail": "Correo / otros",
-    "place": "Solo archivar",
+    "place": "Archivar en el álbum",
     "unplace": "Quitar",
     "setFinca": "Inmueble",
     "noFinca": "Sin inmueble",
@@ -281,7 +281,11 @@
     "onDesk": "En el tablero",
     "fincaMismatch": "Estos papeles son de otro inmueble que esta compraventa. Corrija la dirección o abra una compra nueva. DNI y poder no se bloquean.",
     "fincaFix": "Corregir esta compra",
-    "fincaNewPurchase": "Nueva compra desde el papel"
+    "fincaNewPurchase": "Nueva compra desde el papel",
+    "placeHint": "Solo álbum — no activa el servicio.",
+    "guardarHint": "Activa el bloque y escribe los campos en el tablero.",
+    "albumDraft": "Propuesta: {album}",
+    "ready": "Listo"
   },
   "ofertas": {
     "settingsTitle": "Ofertas del despacho",
@@ -500,7 +504,8 @@
     "anonymizeBlocked": "Primero quite o espere el legal hold.",
     "anonymizeDone": "La ficha ya está anonimizada.",
     "anonymizeError": "No se pudo anonimizar.",
-    "holdSaveError": "No se pudo guardar el legal hold."
+    "holdSaveError": "No se pudo guardar el legal hold.",
+    "openStoh": "Subir papeles"
   },
   "audit": {
     "title": "Auditoría",
@@ -789,7 +794,9 @@
     "ladoUnknown": "Sin determinar",
     "titularSaveError": "No se pudo guardar el titular.",
     "titularNieTaken": "Otro titular de esta finca ya tiene este NIE.",
-    "titularCard": "ficha"
+    "titularCard": "ficha",
+    "emptyDesk": "El tablero está casi vacío. Active bloques con el lápiz, o suba el montón.",
+    "emptyDeskStoh": "Subir montón"
   },
   "docs": {
     "copia_escritura": "Copia escritura",

@@ -28,10 +28,11 @@ Před novou feature ověř, že tu už není. Po novém modulu/provideru doplň 
 | `AiPanel` / `aiChatProvider` | `features/ai/ai_panel.dart` | trvalý chat; zápis `ai_conversations` + `ai_messages` |
 | `AiPanel` / `aiChatProvider` | `features/ai/ai_panel.dart` | trvalý chat; zápis `ai_conversations` + `ai_messages` |
 | `person_name` | `core/identity/person_name.dart` | split/join jméno + příjmení; save nesmí mazat `apellidos` |
-| `extract-document` | Edge Function | fotka/PDF → text LLM nebo vision → `ai_drafts`; po LLM OCR `body_text` + kousky; album/tipo/inmueble až Guardar; Poder/FACTURA v názvu není escritura; kódy mají typ (IBAN/CUPS/NIE ≠ tel); IBI → `sumaId`/`period` rok; podobné zařazené papíry v rozsahu (`similar_placed_papers`); Guardar polí desky je gestor |
+| `extract-document` | Edge Function | fotka/PDF → text LLM nebo vision → `ai_drafts`; po LLM OCR `body_text` + kousky + `ai_summary` ve staff locale; album/tipo/inmueble až Guardar; Poder/FACTURA v názvu není escritura; kódy mají typ (IBAN/CUPS/NIE ≠ tel); IBI → `sumaId`/`period` rok; podobné zařazené papíry v rozsahu (`similar_placed_papers`); Guardar polí desky je gestor |
 | `similar_placed_papers` | SQL RPC | cosine k zařazeným papírům tenantu; extract čte album/tipo/klíče; bez jmen a NIE; AI neukládá |
 | `office_paper_memory` | `office_paper_memory.dart` | konsensus vzorů kanceláře (2 blízké / 1 hodně blízký lidský); redakce PII v promptu |
 | `documentos.extracted` | JSONB na dokladu | uložená pole po Guardar; AI sem nezapisuje |
+| `documentos.ai_summary` | TEXT + `ai_summary_locale` | 1–2 věty o papíru v jazyku staff UI; zapisuje extract; Guardar desky nemění |
 | `documentos.body_text` | TEXT na dokladu | přepis PDF po extractu (i bez alba) |
 | `documentos.caption` | TEXT na dokladu | ruční „co v souboru je“ v knihovně; AI nezapisuje; není extracted |
 | `purge_documento_storage` | SQL RPC | owner vysype blob schovaného dokumentu; `legal_hold` když drží hold |

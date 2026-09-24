@@ -17,6 +17,7 @@ import '../provision/owing_banner.dart';
 import '../citas/office_citas_banner.dart';
 import '../clientes/reach_gaps_banner.dart';
 import '../settings/office_settings_controller.dart';
+import '../carpeta/carpeta_routes.dart';
 import 'inbox_providers.dart';
 
 class InboxScreen extends ConsumerStatefulWidget {
@@ -250,7 +251,23 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
       context.go('/expedientes/$expId');
       return;
     }
-    context.go('/clientes/${row.clienteId}/carpeta');
+    final bloque = row.bloqueKey.trim();
+    if (bloque.isNotEmpty) {
+      context.go(
+        carpetaBloqueRoute(
+          row.clienteId,
+          bloque,
+          expedienteId: expId,
+        ),
+      );
+      return;
+    }
+    context.go(
+      carpetaRoute(
+        row.clienteId,
+        expedienteId: expId,
+      ),
+    );
   }
 }
 

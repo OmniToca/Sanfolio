@@ -128,6 +128,15 @@ String formatIban(String raw) {
   return buf.toString();
 }
 
+/// Pro glance na kartě: ES12 **** **** 1234, ne celý IBAN.
+String maskIban(String raw) {
+  final v = compactIban(raw);
+  if (v.length < 8) return formatIban(raw);
+  final head = v.substring(0, 4);
+  final tail = v.substring(v.length - 4);
+  return '$head **** **** $tail';
+}
+
 String shownFieldValue(String key, String value) {
   if (key == 'fields.iban') return formatIban(value);
   return value;
@@ -239,6 +248,10 @@ Map<String, String> sanitizeExtractedFields(Map<String, String> raw) {
         if (v.contains('@') && v.length <= 120) out[e.key] = v.toLowerCase();
       case 'body_text':
         out[e.key] = v.length > 100000 ? v.substring(0, 100000) : v;
+      case 'ai_summary':
+        out[e.key] = v.length > 600 ? v.substring(0, 600) : v;
+      case 'ai_summary_locale':
+        if (v.length <= 8) out[e.key] = v;
       default:
         final max = kLongExtractKeys.contains(e.key) ? 2000 : 200;
         if (v.length <= max) out[e.key] = v;
@@ -263,6 +276,8 @@ DocumentoTranscript splitDocumentoTranscript(Map<String, String> raw) {
   fields.remove(kExtractStatus);
   fields.remove(kProposedBloqueKey);
   fields.remove(kProposedTipo);
+  fields.remove('ai_summary');
+  fields.remove('ai_summary_locale');
   final body = fields.remove('body_text')?.trim();
   if (body != null && body.isNotEmpty) {
     fields = overlayIbanFromBody(fields, bodyText: body);
