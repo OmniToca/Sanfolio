@@ -796,7 +796,15 @@
     "titularNieTaken": "Un autre titular de cette finca a déjà ce NIE.",
     "titularCard": "fiche",
     "emptyDesk": "Le bureau est presque vide. Activez des blocs au crayon, ou déposez la pile.",
-    "emptyDeskStoh": "Déposer la pile"
+    "emptyDeskStoh": "Déposer la pile",
+    "snapshotHint": "Contact du dossier. Nom et second contact se modifient sur la fiche.",
+    "snapshotNoChannel": "Sans e-mail ni téléphone, Pedir n’atteint personne — complétez le canal sur la fiche ou ici.",
+    "residenceLabel": "Domicile",
+    "residenceHint": "Domicile de la personne, pas la finca (crayon URBANA en haut).",
+    "ibanHint": "IBAN seulement en cas de prélèvement. Sinon laissez vide.",
+    "snapshotStoh": "Déposer DNI / passeport",
+    "snapshotPapersEmpty": "Pas encore de scan d’identité. Recommandé : {types}.",
+    "snapshotIdentityHint": "L’album n’a pas de scan d’identité. Recommandé : {types}."
   },
   "docs": {
     "copia_escritura": "Copie d'acte (escritura)",

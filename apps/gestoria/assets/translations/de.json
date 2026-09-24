@@ -796,7 +796,15 @@
     "titularNieTaken": "Ein anderer Titular dieser Finca hat diese NIE schon.",
     "titularCard": "Karte",
     "emptyDesk": "Die Akte ist fast leer. Blöcke mit dem Stift einschalten oder den Stapel hochladen.",
-    "emptyDeskStoh": "Stapel hochladen"
+    "emptyDeskStoh": "Stapel hochladen",
+    "snapshotHint": "Kontakt auf der Akte. Name und Zweitkontakt bearbeiten Sie auf der Karte.",
+    "snapshotNoChannel": "Ohne E-Mail und Telefon erreicht Pedir niemanden — Kanal auf der Karte oder hier ergänzen.",
+    "residenceLabel": "Wohnsitz",
+    "residenceHint": "Wohnsitz der Person, nicht die Finca (URBANA-Stift oben).",
+    "ibanHint": "IBAN nur bei Lastschrift. Sonst leer lassen.",
+    "snapshotStoh": "DNI / Pass hochladen",
+    "snapshotPapersEmpty": "Noch kein Identitäts-Scan. Empfohlen: {types}.",
+    "snapshotIdentityHint": "Im Album fehlt der Identitäts-Scan. Empfohlen: {types}."
   },
   "docs": {
     "copia_escritura": "Urkundenkopie (escritura)",

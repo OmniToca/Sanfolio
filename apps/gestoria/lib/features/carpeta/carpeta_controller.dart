@@ -811,8 +811,15 @@ class CarpetaController extends FamilyAsyncNotifier<CarpetaView, CarpetaTarget> 
       throw OfficeUploadException('bloque');
     }
     final template = _templateByKey(templateKey);
+    // Bez povinných typů (KLIENT) bereme stoh nabídku — jinak always `other`.
+    final tipoHints = template.requiredDocTypes.isNotEmpty
+        ? template.requiredDocTypes
+        : [
+            for (final t in tiposForStohBloque(templateKey))
+              if (t != 'other') t,
+          ];
     final tipo = guessDocumentoTipo(
-      requiredDocTypes: template.requiredDocTypes,
+      requiredDocTypes: tipoHints,
       alreadyHave: {for (final d in bloque.documents) d.tipo},
       originalName: originalName,
     );
@@ -2132,6 +2139,24 @@ final carpetaControllerProvider =
 /// Vypnutý šanon bez papírů. Chat sem nesmí posadit gestora — dům je na desce.
 bool emptyOffBloque(BloqueState bloque) =>
     !bloque.enabled && bloque.documents.isEmpty;
+
+/// Doporučené identity papíry na bloku KLIENT. Ne povinné — NIE není podmínka založení.
+const kClienteSnapshotIdentityTipos = <String>['dni_nie', 'pasaporte'];
+
+/// Má album DNI/NIE nebo pas. IBAN justificante nestačí jako identita.
+bool clienteSnapshotHasIdentityPaper(Iterable<String> tipos) {
+  for (final t in tipos) {
+    if (t == 'dni_nie' || t == 'pasaporte') return true;
+  }
+  return false;
+}
+
+/// Pedir bez e-mailu i telefonu nedosáhne — stejně jako inbox `/kanal`.
+bool clienteSnapshotNeedsChannel(Map<String, String> values) {
+  final email = (values['fields.email'] ?? '').trim();
+  final tel = (values['fields.tel'] ?? '').trim();
+  return email.isEmpty && tel.isEmpty;
+}
 
 BloqueUiStatus statusOf(BloqueTemplate template, BloqueState bloque) {
   if (!bloque.enabled) return BloqueUiStatus.off;

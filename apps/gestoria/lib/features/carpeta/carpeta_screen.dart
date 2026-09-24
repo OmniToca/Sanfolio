@@ -37,6 +37,7 @@ import 'carpeta_routes.dart';
 import 'carpeta_titulares.dart';
 import 'finca_edit_dialog.dart';
 import 'pile_pick_dialog.dart';
+import 'stoh.dart';
 
 /// Text v políčku. Cents z DB se formátují; surové `100` by při sync smažalo eura.
 String displayBloqueField(String field, String raw) {
@@ -974,6 +975,8 @@ class _BloqueCardState extends ConsumerState<_BloqueCard> {
               const SizedBox(height: 8),
               if (template.key == 'provision_factura')
                 _provisionBody(context, ctrl)
+              else if (template.key == 'cliente_snapshot')
+                _clienteSnapshotBody(context, ctrl)
               else
                 for (final field in template.fieldKeys)
                   if (field == 'fields.remaining')
@@ -1020,9 +1023,22 @@ class _BloqueCardState extends ConsumerState<_BloqueCard> {
                       icon: const Icon(Icons.layers_outlined, size: 18),
                       label: Text('folder.attachFromPile'.tr()),
                     ),
+                    if (template.key == 'cliente_snapshot')
+                      TextButton.icon(
+                        onPressed: () => context.go(
+                          carpetaStohRoute(
+                            widget.target.clienteId,
+                            expedienteId: widget.target.expedienteId,
+                          ),
+                        ),
+                        icon: const Icon(Icons.file_upload_outlined, size: 18),
+                        label: Text('folder.snapshotStoh'.tr()),
+                      ),
                   ],
                 ),
               ),
+              if (template.key == 'cliente_snapshot')
+                _clienteSnapshotPapersHint(context, papers),
               if (template.requiredDocTypes.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
@@ -1150,9 +1166,15 @@ class _BloqueCardState extends ConsumerState<_BloqueCard> {
     );
     final picked = await showPilePickDialog(context, papers: candidates);
     if (picked == null || !context.mounted) return;
+    final tipoHints = template.requiredDocTypes.isNotEmpty
+        ? template.requiredDocTypes
+        : [
+            for (final t in tiposForStohBloque(template.key))
+              if (t != 'other') t,
+          ];
     final tipo = picked.tipo.trim().isEmpty || picked.tipo == 'other'
         ? guessDocumentoTipo(
-            requiredDocTypes: template.requiredDocTypes,
+            requiredDocTypes: tipoHints,
             alreadyHave: {for (final d in widget.state.documents) d.tipo},
             originalName: picked.originalName,
           )
@@ -1292,6 +1314,112 @@ class _BloqueCardState extends ConsumerState<_BloqueCard> {
       return;
     }
     ctrl.setField(key, field, value);
+    // Kanál hint na KLIENT musí zmizet hned po doplnění e-mailu / tel.
+    if (key == 'cliente_snapshot' &&
+        (field == 'fields.email' || field == 'fields.tel') &&
+        mounted) {
+      setState(() {});
+    }
+  }
+
+  /// Blok 1 desky: kontakt na spisu. Jméno a druhý kontakt žijí na kartě.
+  Widget _clienteSnapshotBody(BuildContext context, CarpetaController ctrl) {
+    final muted = Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: AppTheme.pencil,
+        );
+    final name = widget.clienteNombre.trim();
+    final live = <String, String>{
+      for (final e in _fields.entries) e.key: e.value.text,
+    };
+    final needsChannel = clienteSnapshotNeedsChannel(live);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('folder.snapshotHint'.tr(), style: muted),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            if (name.isNotEmpty)
+              Text(
+                name,
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+            TextButton.icon(
+              onPressed: () => context.go('/clientes/${widget.target.clienteId}'),
+              icon: const Icon(Icons.badge_outlined, size: 18),
+              label: Text('clients.openCard'.tr()),
+            ),
+          ],
+        ),
+        if (needsChannel) ...[
+          const SizedBox(height: 8),
+          Text('folder.snapshotNoChannel'.tr(), style: muted),
+        ],
+        const SizedBox(height: 8),
+        for (final field in widget.template.fieldKeys) ...[
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: AppTextField(
+              controller: _fields[field],
+              focusNode: _focus[field],
+              label: field == 'fields.address'
+                  ? 'folder.residenceLabel'.tr()
+                  : field.tr(),
+              onChanged: (v) => _onField(ctrl, 'cliente_snapshot', field, v),
+            ),
+          ),
+          if (field == 'fields.address')
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text('folder.residenceHint'.tr(), style: muted),
+            )
+          else if (field == 'fields.iban')
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text('folder.ibanHint'.tr(), style: muted),
+            )
+          else
+            const SizedBox(height: 4),
+        ],
+      ],
+    );
+  }
+
+  /// Soft empty / díra identity — DNI není povinný, ale kancelář ho čeká.
+  Widget _clienteSnapshotPapersHint(
+    BuildContext context,
+    List<CarpetaDocumento> papers,
+  ) {
+    final muted = Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: AppTheme.pencil,
+        );
+    final types = kClienteSnapshotIdentityTipos
+        .map((t) => 'docs.$t'.tr())
+        .join(', ');
+    if (papers.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 8, bottom: 8),
+        child: Text(
+          'folder.snapshotPapersEmpty'.tr(namedArgs: {'types': types}),
+          style: muted,
+        ),
+      );
+    }
+    if (clienteSnapshotHasIdentityPaper(papers.map((d) => d.tipo))) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 8),
+      child: Text(
+        'folder.snapshotIdentityHint'.tr(namedArgs: {'types': types}),
+        style: muted,
+      ),
+    );
   }
 
   int _remainingCents(BloqueState state) {
