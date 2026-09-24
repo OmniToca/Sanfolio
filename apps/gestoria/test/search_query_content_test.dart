@@ -81,6 +81,31 @@ void main() {
     );
   });
 
+  test('nějakou nemovitost / tento klient / kupní smlouva', () {
+    expect(
+      classifyAiNlIntent('má renata sušičová nějakou nemovitost?'),
+      AiNlIntent.propertyCount,
+    );
+    expect(
+      classifyAiNlIntent('Má tento klient nějakou nemovitost?'),
+      AiNlIntent.propertyCount,
+    );
+    expect(looksLikeClientFollowUp('Má tento klient nějakou nemovitost?'), isTrue);
+    expect(looksLikeClientFollowUp('má renata nějakou nemovitost?'), isFalse);
+    expect(
+      classifyAiNlIntent('máme u renaty sušičové kupní smlouvu?'),
+      AiNlIntent.docPresence,
+    );
+    expect(
+      searchDocQueryParts('kupní smlouvu'),
+      contains('copia_escritura'),
+    );
+    expect(
+      classifyAiNlIntent('máme klient s NIE které začíná na Y990'),
+      isNot(AiNlIntent.docPresence),
+    );
+  });
+
   test('adresa zůstane po stopslovech', () {
     expect(searchQueryContent('bydliště Islandia 14'), contains('Islandia'));
   });

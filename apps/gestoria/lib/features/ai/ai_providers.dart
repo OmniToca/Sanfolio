@@ -252,19 +252,22 @@ Future<List<AiHit>> aiSearchClients(String q) async {
     );
   }
   named.sort((a, b) => b.score.compareTo(a.score));
-  return named;
+  // Top N — nikdy celý tenant do UI/promptu (100+ karet).
+  return named.take(10).toList();
 }
 
-/// Seznam karet tenantu (otázky „jaci klienti“). Soft-delete pryč.
-Future<List<AiHit>> aiListClients({int limit = 30}) async {
+/// Seznam karet tenantu (otázky „jací klienti“). Max 20 — ne dump 100 karet.
+/// RLS + soft-delete; žádný full-tenant scan v paměti.
+Future<List<AiHit>> aiListClients({int limit = 20}) async {
   final client = trySupabaseClient();
   if (client == null) return const [];
+  final capped = limit.clamp(1, 20);
   final rows = await client
       .from('clientes')
       .select('id, nombre, apellidos')
       .isFilter('deleted_at', null)
       .order('updated_at', ascending: false)
-      .limit(limit);
+      .limit(capped);
   final out = <AiHit>[];
   if (rows is! List) return out;
   for (final raw in rows) {
@@ -321,14 +324,16 @@ class AiPileDocsAnswer {
   final List<AiPileDocHit> items;
 }
 
-/// Hromada: tipo / název / summary / body. Scope RLS + can_access_cliente.
+/// Hromada: tipo / název / summary / body.
+/// Vždy preferuj [clienteId] po resoluci — office-wide jen s neprázdným q (RPC).
 Future<AiPileDocsAnswer?> aiSearchClienteDocumentos({
   String? clienteId,
   String q = '',
-  int limit = 30,
+  int limit = 8,
 }) async {
   final client = trySupabaseClient();
   if (client == null) return null;
+  final capped = limit.clamp(1, 20);
   try {
     final data = await client.rpc(
       'search_cliente_documentos',
@@ -336,7 +341,7 @@ Future<AiPileDocsAnswer?> aiSearchClienteDocumentos({
         if (clienteId != null && clienteId.isNotEmpty)
           'p_cliente_id': clienteId,
         'p_q': q,
-        'p_limit': limit,
+        'p_limit': capped,
       },
     );
     if (data is! Map) return null;
@@ -978,11 +983,13 @@ String _suministroKey(String q) {
 }
 
 /// Edge `ai-assistant`. Selhání = null, panel spadne na facts / office RPC.
+/// [focusClienteId] = poslední resolved UUID ve vlákně („tento klient“).
 Future<AiChatPayload?> askAiAssistant({
   required String message,
   required String locale,
   String? clienteId,
   String? tenantId,
+  String? focusClienteId,
 }) async {
   final client = trySupabaseClient();
   if (client == null || message.trim().isEmpty) return null;
@@ -992,8 +999,10 @@ Future<AiChatPayload?> askAiAssistant({
       body: {
         'message': message,
         'locale': locale,
-        if (clienteId != null) 'cliente_id': clienteId,
-        if (tenantId != null) 'tenant_id': tenantId,
+        if (clienteId != null && clienteId.isNotEmpty) 'cliente_id': clienteId,
+        if (tenantId != null && tenantId.isNotEmpty) 'tenant_id': tenantId,
+        if (focusClienteId != null && focusClienteId.isNotEmpty)
+          'focus_cliente_id': focusClienteId,
       },
     );
     final data = response.data;

@@ -1090,7 +1090,11 @@
     "coOwnersTitle": "Cotitulares — {name} ({count})",
     "coOwnersEmpty": "No hay otros cotitulares en titulares para {name}.",
     "propertiesTitle": "Inmuebles — {name} ({count})",
-    "propertiesEmpty": "Esta carpeta aún no tiene finca."
+    "propertiesEmpty": "Esta carpeta aún no tiene finca.",
+    "docYes": "Sí — {name} tiene {count} documento(s) coincidente(s):",
+    "docNo": "No — no veo ese papel en el montón / expediente de {name}.",
+    "noFocusClient": "Indique primero un cliente (nombre / NIE), o pregunte tras abrir la ficha. “Este cliente” solo vale en este hilo.",
+    "listMore": "…muestro máx. 20 — acote por nombre / NIE."
   },
   "tax": {
     "title": "Cálculo IRNR (modelo 210)",

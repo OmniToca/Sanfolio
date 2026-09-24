@@ -104,4 +104,13 @@ void main() {
     expect(mimeForOfficeFile('nie.pdf'), 'application/pdf');
     expect(mimeForOfficeFile('pas.jpeg'), 'image/jpeg');
   });
+
+  test('AiChatState drží focus klienta pro follow-up', () {
+    const s = AiChatState(
+      focusClienteId: '11111111-1111-1111-1111-111111111111',
+      focusClienteNombre: 'Renata',
+    );
+    expect(s.focusClienteId, startsWith('1111'));
+    expect(s.copyWith(clearFocus: true).focusClienteId, isNull);
+  });
 }

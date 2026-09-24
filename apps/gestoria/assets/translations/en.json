@@ -1090,7 +1090,11 @@
     "coOwnersTitle": "Co-owners — {name} ({count})",
     "coOwnersEmpty": "No other co-owners in titulares for {name}.",
     "propertiesTitle": "Properties — {name} ({count})",
-    "propertiesEmpty": "This folder has no finca yet."
+    "propertiesEmpty": "This folder has no finca yet.",
+    "docYes": "Yes — {name} has {count} matching paper(s):",
+    "docNo": "No — I do not see that paper on the pile / in the file for {name}.",
+    "noFocusClient": "Name a client first (or ask after opening a card). “This client” only works in the same thread.",
+    "listMore": "…showing max 20 — narrow by name / NIE."
   },
   "tax": {
     "title": "IRNR calculation (modelo 210)",

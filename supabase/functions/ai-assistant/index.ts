@@ -14,7 +14,7 @@ const tools = [
     function: {
       name: "search_clients",
       description:
-        "Find clients by partial name/surname, NIE substring, phone, email, or address (home or finca). Pass only the name/NIE/address fragment in q, not the whole sentence.",
+        "Find clients by partial name/surname, NIE substring, phone, email, or address (home or finca). Pass only the name/NIE/address fragment in q, not the whole sentence. Returns top matches only (limit ~10) via indexed RPC — never load the whole tenant.",
       parameters: {
         type: "object",
         properties: { q: { type: "string" } },
@@ -143,11 +143,15 @@ Deno.serve(async (req) => {
     locale?: unknown;
     cliente_id?: unknown;
     tenant_id?: unknown;
+    focus_cliente_id?: unknown;
   };
   const message = typeof body.message === "string" ? body.message.trim() : "";
   const locale = typeof body.locale === "string" ? body.locale.trim() : "cs";
-  const clienteId = typeof body.cliente_id === "string"
+  const openClienteId = typeof body.cliente_id === "string"
     ? body.cliente_id.trim()
+    : "";
+  const focusClienteId = typeof body.focus_cliente_id === "string"
+    ? body.focus_cliente_id.trim()
     : "";
   let tenantId = typeof body.tenant_id === "string" ? body.tenant_id.trim() : "";
   if (!message) return json(400, { ok: false, error: "message required" });
@@ -181,19 +185,26 @@ Deno.serve(async (req) => {
   const intent = classifyIntent(message);
   const listAll = intent === "list";
   const pileQ = intent === "pile";
+  const docPresenceQ = intent === "docPresence";
   const coOwnersQ = intent === "coOwners";
   const propertyQ = intent === "propertyCount";
   const identityQ = intent === "identity" || intent === "other";
+  const followUp = looksLikeClientFollowUp(message);
 
-  // Otevřená karta = context hned, ať model nehledá „Renatu“ přes search a neříká že nenašel.
-  // Bez body_excerpt wall — jinak LLM/fallback dumpuje stejný stoh na každou otázku.
+  // „Tento klient“ = UUID z vlákna / otevřené karty — ne search přes celý tenant.
+  const sessionCliente = openClienteId ||
+    (followUp ? focusClienteId : "") ||
+    "";
+
+  // Otevřená / focus karta = context hned (1× get_cliente), ať model nehledá.
+  // Bez body_excerpt wall — jinak LLM/fallback dumpuje stejný stoh.
   let openSnap: unknown = null;
-  if (clienteId) {
+  if (sessionCliente) {
     const snap = await runTool(
       userClient,
       tenantId,
       "get_cliente",
-      { cliente_id: clienteId },
+      { cliente_id: sessionCliente },
       opens,
       apiKey,
     );
@@ -202,14 +213,19 @@ Deno.serve(async (req) => {
       typeof snap === "object" &&
       !("error" in (snap as Record<string, unknown>))
     ) {
-      openSnap = slimClienteSnap(snap, pileQ ? "pile" : "card");
+      openSnap = slimClienteSnap(
+        snap,
+        pileQ || docPresenceQ ? "pile" : "card",
+      );
     }
   }
 
-  // Deterministický presearch z NL — model často pošle celou větu do q.
+  // Search jen když není follow-up UUID. Top N přes RPC (index/ILIKE/trgm), ne O(n).
   const preHits = listAll
-    ? await listClientHits(userClient, 30)
-    : await searchClientHits(userClient, message, 10);
+    ? await listClientHits(userClient, 20)
+    : (followUp && sessionCliente
+      ? []
+      : await searchClientHits(userClient, message, 10));
   for (const hit of preHits) {
     if (opens.some((o) => o.cliente_id === hit.cliente_id && !o.bloque_key)) {
       continue;
@@ -221,12 +237,14 @@ Deno.serve(async (req) => {
     });
   }
 
-  const focusCliente = clienteId || preHits[0]?.cliente_id || "";
+  const focusCliente = sessionCliente || preHits[0]?.cliente_id || "";
 
-  // Hromada: jen při pile intent.
+  // Hromada / doc-presence: vždy scoped na konkrétní cliente_id po resoluci.
   let preDocs: unknown = null;
-  if (pileQ && focusCliente) {
-    const docQ = looksLikeListPileDocs(message) ? "" : message;
+  if ((pileQ || docPresenceQ) && focusCliente) {
+    const docQ = looksLikeListPileDocs(message) && !docPresenceQ
+      ? ""
+      : message;
     const rawDocs = await runTool(
       userClient,
       tenantId,
@@ -248,6 +266,34 @@ Deno.serve(async (req) => {
     preProperties = await loadFolderProperties(userClient, focusCliente);
   }
 
+  // Deterministické krátké odpovědi — bez LLM dump identity karty.
+  const det = deterministicReply({
+    intent,
+    locale,
+    focusCliente,
+    followUp,
+    preHits,
+    preDocs,
+    preCoOwners,
+    preProperties,
+    openSnap,
+  });
+  if (det) {
+    const admin = createClient(supabaseUrl(), serviceRoleKey(), {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    await admin.from("audit_logs").insert({
+      tenant_id: tenantId,
+      actor_id: userData.user.id,
+      action: "ai.tool",
+      entity_table: "ai_conversations",
+      after: { tool: "ai_assistant", mode: "deterministic", intent },
+    });
+    return json(200, { ok: true, text: det.text, opens: det.opens.length ? det.opens : opens });
+  }
+
+  const clienteId = sessionCliente;
+
   const messages: Array<Record<string, unknown>> = [
     {
       role: "system",
@@ -257,7 +303,8 @@ Deno.serve(async (req) => {
         "Odpovídej KRÁTCE podle záměru otázky — nevypisuj celý seznam dokladů, pokud se neptají na hromadu/doklady. " +
         "Identita / jméno / NIE / telefon = 1–3 řádky (jméno + NIE), ne dump PDF. " +
         "Spoluvlastníci / titulares / co-owners = použij co_owners níže (jiné osoby na finca složky), ne documentos. " +
-        "Kolik nemovitostí / finca = properties níže (počet + adresy), ne výpis faktur. " +
+        "Nemovitost / finca / kolik = properties níže (počet + adresy), ne výpis faktur. " +
+        "Kupní smlouva / escritura / DNI / poder = ano/ne + které papíry z hromady (preDocs), ne identity karta. " +
         "Prázdné pole na desce ≠ neexistuje smlouva — řekni, že to na desce není vyplněné. " +
         "Částka na desce dodávky není součet faktur. Součet je invoice_glance / fields.amount na dokumentech (kladné; dobropis ne). " +
         "Office otázky (dodavatel, seguro, notář, právník, catastral, strana ve smlouvě) = query_* tools. " +
@@ -270,26 +317,31 @@ Deno.serve(async (req) => {
         "search_document_text / search_cliente_documentos / get_cliente.documentos: albums [] = hromada; jinak template_key alb. inmueble_id / direccion = finca. " +
         "Cena domu = sale_price celé listiny; podíl = share_percent. Prázdné documentos[] na kartě titulare ≠ dům nemáme. " +
         "Open = deska složky folder_cliente_id (/carpeta), ne šanon escritura (může být vypnutý) a ne prázdná karta spoluvlastníka. " +
-        "search_clients: do q dej jen jméno, část NIE nebo adresu (ne celou větu). Seznam všech klientů = hits níže / list. " +
+        "search_clients: do q dej jen jméno, část NIE nebo adresu (ne celou větu). Top 10 hitů — ne načítat všechny klienty. " +
+        "Seznam klientů = max 20 jmen z hits (list), ne dump 100 karet. " +
         "Když níže jsou hits s jménem/NIE/adresou, použij je — neříkej že nikoho nenašel. " +
         (clienteId
-          ? `Otevřená karta: ${clienteId}. Na otázky o „tomto klientovi“ / jménu / NIE ber snapshot níže (neříkej že nikoho nenašel). `
+          ? `Focus klient (UUID): ${clienteId}. Na „tento/ta klient(ka)“ ber snapshot níže — nehledej znovu. `
+          : focusClienteId
+          ? `Poslední klient ve vlákně: ${focusClienteId}. Follow-up bez jména = tento UUID. `
           : "") +
-        (identityQ && !pileQ
+        (identityQ && !pileQ && !docPresenceQ
           ? "Tato otázka NENÍ výpis dokladů — odpověz stručně. "
           : ""),
     },
     ...(openSnap
       ? [{
         role: "system" as const,
-        content: `Snapshot otevřené karty (read-only): ${JSON.stringify(openSnap)}`,
+        content: `Snapshot focus karty (read-only): ${JSON.stringify(openSnap)}`,
       }]
       : []),
     ...(preHits.length > 0
       ? [{
         role: "system" as const,
         content:
-          `Hits z dotazu (read-only, jméno+id): ${JSON.stringify(preHits)}. ` +
+          `Hits z RPC search/list (read-only, max ${listAll ? 20 : 10}): ${
+            JSON.stringify(preHits)
+          }. ` +
           (identityQ && !pileQ
             ? "Stačí jméno (+ NIE z get_cliente pokud potřeba); nevypisuj documentos."
             : "Odpověz podle nich; get_cliente pro detail."),
@@ -299,8 +351,10 @@ Deno.serve(async (req) => {
       ? [{
         role: "system" as const,
         content:
-          `Doklady z hromady (read-only, max 8): ${JSON.stringify(preDocs)}. ` +
-          "Odpověz podle nich; albums [] = ještě na hromadě.",
+          `Doklady (scoped cliente_id, read-only, max 8): ${JSON.stringify(preDocs)}. ` +
+          (docPresenceQ
+            ? "Odpověz ano/ne + které papíry; ne identity kartu."
+            : "Odpověz podle nich; albums [] = ještě na hromadě."),
       }]
       : []),
     ...(preCoOwners
@@ -315,7 +369,7 @@ Deno.serve(async (req) => {
       ? [{
         role: "system" as const,
         content:
-          `Nemovitosti složky (read-only): ${JSON.stringify(preProperties)}. ` +
+          `Nemovitosti složky (read-only, scoped): ${JSON.stringify(preProperties)}. ` +
           "Odpověz počtem a adresami; ne dump faktur/PDF.",
       }]
       : []),
@@ -723,6 +777,15 @@ function looksLikeListClients(raw: string): boolean {
     .test(n);
 }
 
+function looksLikeClientFollowUp(raw: string): boolean {
+  const n = raw.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
+  if (/\b(tento|tato|ten|ta|tohoto|teto|te|toho)\s+klient/.test(n)) return true;
+  if (/\b(u\s+n[ei]|u\s+nich|this\s+client|este\s+cliente|dieser\s+kunde|ce\s+client)\b/.test(n)) {
+    return true;
+  }
+  return /ta klientka|te klientky|tohoto klienta/.test(n);
+}
+
 function looksLikeCoOwners(raw: string): boolean {
   const n = raw.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
   return /spoluvlast|titular|cotitular|co-?owner|coowner|copropriet|miteigent|compropriet|joint owner|otros duenos/
@@ -735,12 +798,37 @@ function looksLikePropertyCount(raw: string): boolean {
     /nemovit|finca|inmueble|propert|immobilie|vivienda|propied|\bbyt\b|\bbyty\b|\bdum\b|\bdomy\b/
       .test(n);
   if (!hasProp) return false;
-  return /kolik|pocet|how many|cuant|wieviel|combien|jake ma|ma nejake|ktere|which|donde|kde ma/
+  // „má nějakou nemovitost“ i bez „kolik“
+  return /kolik|pocet|how many|cuant|wieviel|combien|jake ma|ma nejak|nejakou|nejaky|nejake|any |alguna|ktere|which|donde|kde ma|\bma\b|\btiene\b|\bhave\b|\bhas\b|mame|mate/
+    .test(n);
+}
+
+function looksLikeDocPresence(raw: string): boolean {
+  if (looksLikeCoOwners(raw) || looksLikePropertyCount(raw)) return false;
+  const n = raw.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
+  // NIE fragment = identita, ne papír DNI
+  if (
+    searchQueryIdTokens(raw).length > 0 &&
+    !/\b(dni|pasport|pasaporte|passport|obcans|doklad|dokument|escritur|kupni|compraventa|smlouv|poder|factura|faktur|iban)\b/
+      .test(n)
+  ) {
+    return false;
+  }
+  const parts = searchDocQueryParts(raw);
+  if (parts.length === 0) return false;
+  if (looksLikeListPileDocsLoose(raw)) return false;
+  return /mame|mate|\bma\b|je tam|existuje|\bu\b|have|has |tiene|tenemos|hay |got /
     .test(n);
 }
 
 function looksLikePileDocs(raw: string): boolean {
-  if (looksLikeCoOwners(raw) || looksLikePropertyCount(raw)) return false;
+  if (
+    looksLikeCoOwners(raw) ||
+    looksLikePropertyCount(raw) ||
+    looksLikeDocPresence(raw)
+  ) {
+    return false;
+  }
   const n = raw.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
   // „podle dokumentů“ u jiné otázky ≠ výpis hromady.
   if (
@@ -751,7 +839,7 @@ function looksLikePileDocs(raw: string): boolean {
   ) {
     return false;
   }
-  return /hromad|stoh|dokument|doklad|pap[ií]r|scan|sken|dni|pasport|pasaporte|factura|faktur|invoice|email|e-mail|correo|pošta|posta|\bmail\b|escritur|listin|poder|iban|pile|document|rechnung|je tam|má na|ma na|má v|ma v/
+  return /hromad|stoh|dokument|doklad|pap[ií]r|scan|sken|dni|pasport|pasaporte|factura|faktur|invoice|email|e-mail|correo|pošta|posta|\bmail\b|escritur|listin|poder|iban|pile|document|rechnung|je tam|má na|ma na|má v|ma v|kupni|compraventa|smlouv/
     .test(n);
 }
 
@@ -760,6 +848,7 @@ function looksLikeIdentity(raw: string): boolean {
     looksLikeListClients(raw) ||
     looksLikeCoOwners(raw) ||
     looksLikePropertyCount(raw) ||
+    looksLikeDocPresence(raw) ||
     looksLikePileDocs(raw)
   ) {
     return false;
@@ -782,6 +871,7 @@ type NlIntent =
   | "list"
   | "coOwners"
   | "propertyCount"
+  | "docPresence"
   | "pile"
   | "identity"
   | "other";
@@ -790,9 +880,176 @@ function classifyIntent(raw: string): NlIntent {
   if (looksLikeListClients(raw)) return "list";
   if (looksLikeCoOwners(raw)) return "coOwners";
   if (looksLikePropertyCount(raw)) return "propertyCount";
+  if (looksLikeDocPresence(raw)) return "docPresence";
   if (looksLikePileDocs(raw)) return "pile";
   if (looksLikeIdentity(raw)) return "identity";
   return "other";
+}
+
+/** Krátká odpověď z prefetch — bez LLM identity dump. */
+function deterministicReply(args: {
+  intent: NlIntent;
+  locale: string;
+  focusCliente: string;
+  followUp: boolean;
+  preHits: ClientHit[];
+  preDocs: unknown;
+  preCoOwners: unknown;
+  preProperties: unknown;
+  openSnap: unknown;
+}): { text: string; opens: Array<{ cliente_id: string; label: string; carpeta: boolean }> } | null {
+  const { intent, focusCliente, followUp, preDocs, preCoOwners, preProperties, openSnap } =
+    args;
+  const nameFromSnap = (() => {
+    if (!openSnap || typeof openSnap !== "object") return "";
+    const c = (openSnap as { cliente?: { nombre?: string } }).cliente;
+    return `${c?.nombre ?? ""}`.trim();
+  })();
+
+  if (
+    (intent === "propertyCount" || intent === "docPresence" || intent === "coOwners") &&
+    !focusCliente
+  ) {
+    if (followUp) {
+      return {
+        text: args.locale.startsWith("cs")
+          ? "Nejdřív uveďte klienta (jméno / NIE), nebo se zeptejte po nalezení karty — „tento klient“ drží jen v tomto vlákně."
+          : "Name a client first (or ask after opening a card). “This client” only works in the same thread.",
+        opens: [],
+      };
+    }
+    return null;
+  }
+
+  if (intent === "propertyCount" && focusCliente && preProperties) {
+    const p = preProperties as {
+      count?: number;
+      addresses?: string[];
+      cliente_id?: string;
+    };
+    const count = Number(p.count) || 0;
+    const addrs = Array.isArray(p.addresses) ? p.addresses : [];
+    const name = nameFromSnap || "—";
+    const lines = [
+      args.locale.startsWith("cs")
+        ? `Nemovitosti — ${name} (${count})`
+        : `Properties — ${name} (${count})`,
+    ];
+    if (count === 0 && addrs.length === 0) {
+      lines.push(
+        args.locale.startsWith("cs")
+          ? "Na složce zatím není žádná finca."
+          : "This folder has no finca yet.",
+      );
+    } else {
+      for (const a of addrs.slice(0, 8)) lines.push(a);
+    }
+    return {
+      text: lines.join("\n"),
+      opens: [{ cliente_id: focusCliente, label: name, carpeta: true }],
+    };
+  }
+
+  if (intent === "coOwners" && focusCliente && preCoOwners) {
+    const c = preCoOwners as {
+      items?: Array<{ nombre?: string; nie?: string; direccion?: string; share_percent?: number }>;
+    };
+    const items = Array.isArray(c.items) ? c.items : [];
+    const name = nameFromSnap || "—";
+    if (items.length === 0) {
+      return {
+        text: args.locale.startsWith("cs")
+          ? `U ${name} nemám v titulares jiné spoluvlastníky.`
+          : `No other co-owners in titulares for ${name}.`,
+        opens: [{ cliente_id: focusCliente, label: name, carpeta: true }],
+      };
+    }
+    const lines = [
+      args.locale.startsWith("cs")
+        ? `Spoluvlastníci — ${name} (${items.length})`
+        : `Co-owners — ${name} (${items.length})`,
+    ];
+    for (const t of items.slice(0, 12)) {
+      const bits = [
+        `${t.nombre ?? ""}`.trim(),
+        t.nie ? `NIE: ${t.nie}` : "",
+        `${t.direccion ?? ""}`.trim(),
+        t.share_percent != null ? `${t.share_percent} %` : "",
+      ].filter(Boolean);
+      lines.push(bits.join(" · "));
+    }
+    return {
+      text: lines.join("\n"),
+      opens: [{ cliente_id: focusCliente, label: name, carpeta: true }],
+    };
+  }
+
+  if (intent === "docPresence" && focusCliente && preDocs) {
+    const d = preDocs as {
+      total?: number;
+      items?: Array<{
+        tipo?: string;
+        original_name?: string;
+        ai_summary?: string;
+        albums?: unknown;
+      }>;
+      cliente?: { nombre?: string };
+    };
+    const name = `${d.cliente?.nombre ?? nameFromSnap}`.trim() || "—";
+    const items = Array.isArray(d.items) ? d.items : [];
+    const total = Number(d.total) || items.length;
+    if (items.length === 0) {
+      return {
+        text: args.locale.startsWith("cs")
+          ? `Ne — u ${name} teď takový papír na hromadě / ve spisu nevidím.`
+          : `No — I do not see that paper on the pile / in the file for ${name}.`,
+        opens: [{ cliente_id: focusCliente, label: name, carpeta: true }],
+      };
+    }
+    const lines = [
+      args.locale.startsWith("cs")
+        ? `Ano — u ${name} je ${total} odpovídající papír(ů):`
+        : `Yes — ${name} has ${total} matching paper(s):`,
+    ];
+    for (const doc of items.slice(0, 8)) {
+      const bits = [
+        `${doc.tipo ?? ""}`.trim(),
+        `${doc.original_name ?? ""}`.trim(),
+        `${doc.ai_summary ?? ""}`.trim(),
+      ].filter(Boolean);
+      lines.push(bits.join(" · "));
+    }
+    return {
+      text: lines.join("\n"),
+      opens: [{ cliente_id: focusCliente, label: name, carpeta: true }],
+    };
+  }
+
+  if (intent === "list" && args.preHits.length > 0) {
+    const lines = [
+      args.locale.startsWith("cs") ? "Nalezení klienti" : "Matching clients",
+    ];
+    for (const h of args.preHits.slice(0, 20)) {
+      lines.push(h.nombre || h.cliente_id);
+    }
+    if (args.preHits.length >= 20) {
+      lines.push(
+        args.locale.startsWith("cs")
+          ? "…ukazuji max. 20 — upřesněte jménem / NIE."
+          : "…showing max 20 — narrow by name / NIE.",
+      );
+    }
+    return {
+      text: lines.join("\n"),
+      opens: args.preHits.slice(0, 20).map((h) => ({
+        cliente_id: h.cliente_id,
+        label: h.nombre || h.cliente_id,
+        carpeta: true,
+      })),
+    };
+  }
+
+  return null;
 }
 
 // Snapshot bez wall body_excerpt — card mode vyhodí documentos, pile zkrátí.
@@ -916,12 +1173,12 @@ async function loadFolderProperties(
 }
 
 function searchDocQueryParts(raw: string): string[] {
-  const n = raw.toLowerCase();
+  const n = raw.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
   const parts: string[] = [];
   const add = (s: string) => {
     if (!parts.includes(s)) parts.push(s);
   };
-  if (/(dni|nie|pasport|pasaporte|passport|občans|obcans)/.test(n)) {
+  if (/(dni|nie|pasport|pasaporte|passport|obcans)/.test(n)) {
     add("dni_nie");
     add("pasaporte");
   }
@@ -929,21 +1186,32 @@ function searchDocQueryParts(raw: string): string[] {
     add("factura");
     add("recibo");
   }
-  if (/(email|e-mail|mail|correo|posta|pošta|gmail|outlook)/.test(n)) {
+  if (/(email|e-mail|mail|correo|posta|gmail|outlook)/.test(n)) {
     add("email");
     add("correo");
     add("mail");
   }
-  if (/(escritur|listin|notar|deed)/.test(n)) add("copia_escritura");
-  if (/(poder|plná moc|plna moc|attorney)/.test(n)) add("copia_poder");
+  if (/(escritur|listin|notar|deed|kupni|compraventa|smlouv)/.test(n)) {
+    add("copia_escritura");
+    add("escritura");
+    add("compraventa");
+  }
+  if (/(poder|plna moc|attorney)/.test(n)) add("copia_poder");
   if (/(iban|bankov)/.test(n)) add("justificante_iban");
   if (/(ibi|suma|catastr)/.test(n)) add("recibo_ibi");
   if (/(seguro|pojist|alarm)/.test(n)) {
     add("poliza_seguro");
     add("contrato_alarma");
   }
-  if (/(scan|sken|pdf|fotka|foto|papír|papir)/.test(n)) add("scan");
+  if (/(scan|sken|pdf|fotka|foto|papir)/.test(n)) add("scan");
   return parts;
+}
+
+function looksLikeListPileDocsLoose(raw: string): boolean {
+  const n = raw.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
+  const asksList = /jake|jaky|which|what |que |quels|welche/.test(n);
+  const onPile = /hromad|stoh|doklad|dokument|pile|papir/.test(n);
+  return asksList && onPile;
 }
 
 function looksLikeListPileDocs(raw: string): boolean {
@@ -1022,12 +1290,14 @@ async function listClientHits(
   client: SupabaseClient,
   limit: number,
 ): Promise<ClientHit[]> {
+  // Max 20 — stránkovaný výtah, ne dump 100 karet do promptu.
+  const capped = Math.min(Math.max(limit, 1), 20);
   const { data, error } = await client
     .from("clientes")
     .select("id, nombre, apellidos")
     .is("deleted_at", null)
     .order("updated_at", { ascending: false })
-    .limit(limit);
+    .limit(capped);
   if (error || !Array.isArray(data)) return [];
   return data.map((raw) => {
     const row = raw as { id?: string; nombre?: string; apellidos?: string };

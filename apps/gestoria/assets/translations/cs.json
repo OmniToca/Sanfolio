@@ -1090,7 +1090,11 @@
     "send": "Odeslat",
     "savedHint": "Rozhovor se ukládá u vás v kanceláři.",
     "writeError": "Rozhovor se nepodařilo uložit.",
-    "openFolder": "Složka · {name}"
+    "openFolder": "Složka · {name}",
+    "docYes": "Ano — u {name} je {count} odpovídající papír(ů):",
+    "docNo": "Ne — u {name} teď takový papír na hromadě / ve spisu nevidím.",
+    "noFocusClient": "Nejdřív uveďte klienta (jméno / NIE), nebo se zeptejte po nalezení karty — „tento klient“ drží jen v tomto vlákně.",
+    "listMore": "…ukazuji max. 20 — upřesněte jménem / NIE."
   },
   "tax": {
     "title": "Výpočet IRNR (modelo 210)",

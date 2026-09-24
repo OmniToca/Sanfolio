@@ -69,21 +69,34 @@ class AiChatState {
     this.conversationId,
     this.messages = const [],
     this.busy = false,
+    this.focusClienteId,
+    this.focusClienteNombre,
   });
 
   final String? conversationId;
   final List<AiChatMessage> messages;
   final bool busy;
 
+  /// Poslední vyřešený klient ve vlákně — pro „tento/ta klient(ka)“.
+  final String? focusClienteId;
+  final String? focusClienteNombre;
+
   AiChatState copyWith({
     String? conversationId,
     List<AiChatMessage>? messages,
     bool? busy,
+    String? focusClienteId,
+    String? focusClienteNombre,
+    bool clearFocus = false,
   }) {
     return AiChatState(
       conversationId: conversationId ?? this.conversationId,
       messages: messages ?? this.messages,
       busy: busy ?? this.busy,
+      focusClienteId:
+          clearFocus ? null : (focusClienteId ?? this.focusClienteId),
+      focusClienteNombre:
+          clearFocus ? null : (focusClienteNombre ?? this.focusClienteNombre),
     );
   }
 }
@@ -208,7 +221,28 @@ class AiChatController extends AsyncNotifier<AiChatState> {
         .order('created_at', ascending: true);
     final messages = [...parseAiChatMessages(rows)]
       ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
-    return AiChatState(conversationId: id, messages: messages);
+    final focus = _focusFromMessages(messages);
+    return AiChatState(
+      conversationId: id,
+      messages: messages,
+      focusClienteId: focus.$1,
+      focusClienteNombre: focus.$2,
+    );
+  }
+
+  /// Poslední open z assistant payloadu = focus pro follow-up.
+  (String?, String?) _focusFromMessages(List<AiChatMessage> messages) {
+    for (var i = messages.length - 1; i >= 0; i--) {
+      final m = messages[i];
+      if (m.fromUser) continue;
+      final payload = decodeAiChatPayload(m.content);
+      if (payload.opens.isEmpty) continue;
+      final open = payload.opens.first;
+      final id = open.clienteId.trim();
+      if (id.isEmpty) continue;
+      return (id, open.label.trim().isEmpty ? null : open.label.trim());
+    }
+    return (null, null);
   }
 
   Future<void> reload() async {
@@ -227,6 +261,21 @@ class AiChatController extends AsyncNotifier<AiChatState> {
           .eq('id', id);
     }
     state = const AsyncData(AiChatState());
+  }
+
+  /// Zapamatuj klienta pro „tento klient“ ve stejném vlákně.
+  void rememberFocus({required String clienteId, String? nombre}) {
+    final id = clienteId.trim();
+    if (id.isEmpty) return;
+    final snap = state.valueOrNull ?? const AiChatState();
+    state = AsyncData(
+      snap.copyWith(
+        focusClienteId: id,
+        focusClienteNombre: (nombre ?? '').trim().isEmpty
+            ? snap.focusClienteNombre
+            : nombre!.trim(),
+      ),
+    );
   }
 
   Future<void> addUser(String text) async {
@@ -263,6 +312,8 @@ class AiChatController extends AsyncNotifier<AiChatState> {
         conversationId: snap.conversationId,
         messages: optimistic,
         busy: true,
+        focusClienteId: snap.focusClienteId,
+        focusClienteNombre: snap.focusClienteNombre,
       ),
     );
     try {
@@ -296,11 +347,37 @@ class AiChatController extends AsyncNotifier<AiChatState> {
           .eq('id', convId);
       final msg = parseAiChatMessage(row) ?? local;
       final next = [...snap.messages, msg];
-      state = AsyncData(AiChatState(conversationId: convId, messages: next));
+      var focusId = snap.focusClienteId;
+      var focusName = snap.focusClienteNombre;
+      if (role == 'assistant') {
+        final payload = decodeAiChatPayload(content);
+        if (payload.opens.isNotEmpty) {
+          final open = payload.opens.first;
+          if (open.clienteId.trim().isNotEmpty) {
+            focusId = open.clienteId.trim();
+            if (open.label.trim().isNotEmpty) {
+              focusName = open.label.trim();
+            }
+          }
+        }
+      }
+      state = AsyncData(
+        AiChatState(
+          conversationId: convId,
+          messages: next,
+          focusClienteId: focusId,
+          focusClienteNombre: focusName,
+        ),
+      );
     } on Object {
       // Odpověď v panelu musí zůstat i když zápis do DB spadne.
       state = AsyncData(
-        AiChatState(conversationId: snap.conversationId, messages: optimistic),
+        AiChatState(
+          conversationId: snap.conversationId,
+          messages: optimistic,
+          focusClienteId: snap.focusClienteId,
+          focusClienteNombre: snap.focusClienteNombre,
+        ),
       );
     }
   }
