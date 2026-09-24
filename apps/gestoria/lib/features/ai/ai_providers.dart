@@ -504,9 +504,11 @@ Future<AiFactAnswer?> askClienteFacts(String q) async {
 }
 
 /// Otevřená karta má přednost před hledáním z věty.
+/// [includeDocs] false = jen identita (jméno/NIE/tel) — ne wall všech PDF.
 Future<AiFactAnswer?> askClienteFactsForId(
   String clienteId, {
   String nombre = '',
+  bool includeDocs = true,
 }) async {
   final client = trySupabaseClient();
   if (client == null) {
@@ -518,7 +520,7 @@ Future<AiFactAnswer?> askClienteFactsForId(
       params: {'p_cliente_id': clienteId},
     );
     final docs = <AiDocFact>[];
-    if (snap is Map && snap['documentos'] is List) {
+    if (includeDocs && snap is Map && snap['documentos'] is List) {
       for (final raw in snap['documentos'] as List) {
         if (raw is! Map) continue;
         final extracted = stringFieldMap(raw['extracted']);
@@ -572,31 +574,34 @@ Future<AiFactAnswer?> askClienteFactsForId(
         }
       }
     }
-    final drafts = await client
-        .from('ai_drafts')
-        .select('fields, bloque_key, expires_at')
-        .eq('cliente_id', clienteId)
-        .isFilter('deleted_at', null)
-        .gt('expires_at', DateTime.now().toUtc().toIso8601String());
-    if (drafts is List) {
-      for (final raw in drafts) {
-        if (raw is! Map) continue;
-        final fields = stringFieldMap(raw['fields']);
-        if (fields.isEmpty) continue;
-        final tipo = '${raw['bloque_key'] ?? ''}';
-        docs.add(
-          AiDocFact(
-            tipo: tipo.isEmpty ? 'other' : tipo,
-            nombre: fields['fields.nombre'],
-            nie: fields['fields.nie'],
-            expiry: fields['fields.expiry'],
-            amount: fields['fields.amount'],
-            consumption: fields['fields.consumption'],
-            docNumber: fields['fields.docNumber'] ?? fields['fields.invoiceNo'],
-            periodFrom: fields['fields.periodFrom'],
-            periodTo: fields['fields.periodTo'],
-          ),
-        );
+    if (includeDocs) {
+      final drafts = await client
+          .from('ai_drafts')
+          .select('fields, bloque_key, expires_at')
+          .eq('cliente_id', clienteId)
+          .isFilter('deleted_at', null)
+          .gt('expires_at', DateTime.now().toUtc().toIso8601String());
+      if (drafts is List) {
+        for (final raw in drafts) {
+          if (raw is! Map) continue;
+          final fields = stringFieldMap(raw['fields']);
+          if (fields.isEmpty) continue;
+          final tipo = '${raw['bloque_key'] ?? ''}';
+          docs.add(
+            AiDocFact(
+              tipo: tipo.isEmpty ? 'other' : tipo,
+              nombre: fields['fields.nombre'],
+              nie: fields['fields.nie'],
+              expiry: fields['fields.expiry'],
+              amount: fields['fields.amount'],
+              consumption: fields['fields.consumption'],
+              docNumber:
+                  fields['fields.docNumber'] ?? fields['fields.invoiceNo'],
+              periodFrom: fields['fields.periodFrom'],
+              periodTo: fields['fields.periodTo'],
+            ),
+          );
+        }
       }
     }
     return AiFactAnswer(
@@ -609,6 +614,160 @@ Future<AiFactAnswer?> askClienteFactsForId(
     );
   } on Object {
     return AiFactAnswer(clienteId: clienteId, nombre: nombre);
+  }
+}
+
+/// Spoluvlastník na finca složky (titulares ≠ karta složky).
+class AiCoOwnerHit {
+  const AiCoOwnerHit({
+    required this.nombre,
+    this.nie,
+    this.direccion,
+    this.clienteId,
+    this.lado,
+    this.sharePercent,
+  });
+
+  final String nombre;
+  final String? nie;
+  final String? direccion;
+  final String? clienteId;
+  final String? lado;
+  final double? sharePercent;
+}
+
+class AiCoOwnersAnswer {
+  const AiCoOwnersAnswer({
+    required this.clienteId,
+    required this.nombre,
+    this.items = const [],
+  });
+
+  final String clienteId;
+  final String nombre;
+  final List<AiCoOwnerHit> items;
+}
+
+/// Titulares na inmuebles složky — bez řádku samotné karty.
+Future<AiCoOwnersAnswer?> askClienteCoOwners(
+  String clienteId, {
+  String nombre = '',
+}) async {
+  final client = trySupabaseClient();
+  if (client == null) return null;
+  try {
+    final inmRows = await client
+        .from('inmuebles')
+        .select('id, direccion')
+        .eq('cliente_id', clienteId)
+        .isFilter('deleted_at', null);
+    if (inmRows is! List || inmRows.isEmpty) {
+      return AiCoOwnersAnswer(clienteId: clienteId, nombre: nombre);
+    }
+    final addrById = <String, String>{};
+    final inmIds = <String>[];
+    for (final raw in inmRows) {
+      if (raw is! Map) continue;
+      final id = '${raw['id'] ?? ''}'.trim();
+      if (id.isEmpty) continue;
+      inmIds.add(id);
+      final d = '${raw['direccion'] ?? ''}'.trim();
+      if (d.isNotEmpty) addrById[id] = d;
+    }
+    if (inmIds.isEmpty) {
+      return AiCoOwnersAnswer(clienteId: clienteId, nombre: nombre);
+    }
+    final titRows = await client
+        .from('inmueble_titulares')
+        .select(
+          'nombre, nie_raw, cliente_id, lado, cuota_bps, inmueble_id',
+        )
+        .inFilter('inmueble_id', inmIds)
+        .isFilter('deleted_at', null);
+    final items = <AiCoOwnerHit>[];
+    if (titRows is List) {
+      for (final raw in titRows) {
+        if (raw is! Map) continue;
+        final tid = '${raw['cliente_id'] ?? ''}'.trim();
+        // Řádek karty složky není „spoluvlastník“.
+        if (tid.isNotEmpty && tid == clienteId) continue;
+        final name = '${raw['nombre'] ?? ''}'.trim();
+        if (name.isEmpty) continue;
+        final nie = '${raw['nie_raw'] ?? ''}'.trim();
+        final iid = '${raw['inmueble_id'] ?? ''}'.trim();
+        final bps = raw['cuota_bps'] is int
+            ? raw['cuota_bps'] as int
+            : int.tryParse('${raw['cuota_bps']}');
+        items.add(
+          AiCoOwnerHit(
+            nombre: name,
+            nie: nie.isEmpty ? null : nie,
+            direccion: addrById[iid],
+            clienteId: tid.isEmpty ? null : tid,
+            lado: '${raw['lado'] ?? ''}'.trim().isEmpty
+                ? null
+                : '${raw['lado']}'.trim(),
+            sharePercent: bps == null ? null : bps / 100.0,
+          ),
+        );
+      }
+    }
+    return AiCoOwnersAnswer(
+      clienteId: clienteId,
+      nombre: nombre,
+      items: items,
+    );
+  } on Object {
+    return null;
+  }
+}
+
+/// Vlastní finca složky (adresy z `inmuebles`).
+class AiPropertiesAnswer {
+  const AiPropertiesAnswer({
+    required this.clienteId,
+    required this.nombre,
+    required this.count,
+    this.addresses = const [],
+  });
+
+  final String clienteId;
+  final String nombre;
+  final int count;
+  final List<String> addresses;
+}
+
+Future<AiPropertiesAnswer?> askClienteProperties(
+  String clienteId, {
+  String nombre = '',
+}) async {
+  final client = trySupabaseClient();
+  if (client == null) return null;
+  try {
+    final rows = await client
+        .from('inmuebles')
+        .select('id, direccion')
+        .eq('cliente_id', clienteId)
+        .isFilter('deleted_at', null)
+        .order('created_at', ascending: true);
+    final addresses = <String>[];
+    var count = 0;
+    if (rows is List) {
+      for (final raw in rows) {
+        if (raw is! Map) continue;
+        count += 1;
+        final d = '${raw['direccion'] ?? ''}'.trim();
+        if (d.isNotEmpty && !addresses.contains(d)) addresses.add(d);
+      }
+    }
+    return AiPropertiesAnswer(
+      clienteId: clienteId,
+      nombre: nombre,
+      count: count,
+      addresses: addresses,
+    );
+  } on Object {
+    return null;
   }
 }
 

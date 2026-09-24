@@ -369,10 +369,118 @@ bool looksLikeListClientsQuery(String raw) {
       n.contains('avons');
 }
 
+/// Záměr NL otázky — ať Flutter fallback i Edge neroutují všechno na dump dokladů.
+enum AiNlIntent {
+  listClients,
+  coOwners,
+  propertyCount,
+  pileDocs,
+  identity,
+  other,
+}
+
+/// Spoluvlastníci / titulares na finca (ne celý stoh papírů).
+bool looksLikeCoOwnersQuery(String raw) {
+  final n = normalizeSearchText(raw);
+  if (n.isEmpty) return false;
+  return n.contains('spoluvlast') ||
+      n.contains('titular') ||
+      n.contains('cotitular') ||
+      n.contains('coowner') ||
+      n.contains('co owner') ||
+      n.contains('co-owner') ||
+      n.contains('copropriet') ||
+      n.contains('miteigent') ||
+      n.contains('compropriet') ||
+      n.contains('joint owner') ||
+      n.contains('otros duenos');
+}
+
+/// Kolik nemovitostí / jaké finca — ne výpis všech PDF.
+bool looksLikePropertyCountQuery(String raw) {
+  final n = normalizeSearchText(raw);
+  if (n.isEmpty) return false;
+  final hasProp = n.contains('nemovit') ||
+      n.contains('finca') ||
+      n.contains('inmueble') ||
+      n.contains('property') ||
+      n.contains('properties') ||
+      n.contains('immobilie') ||
+      n.contains('immobilien') ||
+      n.contains('vivienda') ||
+      n.contains('propied') ||
+      RegExp(r'\bbyt\b|\bbyty\b|\bdum\b|\bdomy\b').hasMatch(n);
+  if (!hasProp) return false;
+  return n.contains('kolik') ||
+      n.contains('pocet') ||
+      n.contains('how many') ||
+      n.contains('cuant') ||
+      n.contains('wieviel') ||
+      n.contains('combien') ||
+      n.contains('jake ma') ||
+      n.contains('ma nejake') ||
+      n.contains('ktere') ||
+      n.contains('which') ||
+      n.contains('donde') ||
+      n.contains('kde ma');
+}
+
+/// Jen jméno / NIE / identita karty — krátká odpověď, ne wall dokladů.
+bool looksLikeIdentityQuery(String raw) {
+  if (looksLikeListClientsQuery(raw) ||
+      looksLikeCoOwnersQuery(raw) ||
+      looksLikePropertyCountQuery(raw)) {
+    return false;
+  }
+  final n = normalizeSearchText(raw);
+  if (n.isEmpty) return false;
+  final ids = searchQueryIdTokens(raw);
+  final content = searchQueryContent(raw);
+  final asksId = n.contains('jmen') ||
+      n.contains('nie') ||
+      n.contains('dni') ||
+      n.contains('nif') ||
+      n.contains('telefon') ||
+      n.contains('tel ') ||
+      n.contains('email') ||
+      n.contains('e-mail') ||
+      n.contains('correo') ||
+      n.contains('phone') ||
+      n.contains('llam') ||
+      n.contains('who is') ||
+      n.contains('kdo je');
+  if (asksId) return true;
+  // Samotný fragment NIE / jméno bez otázky na papíry.
+  if (ids.isNotEmpty && content.split(RegExp(r'\s+')).where((t) => t.isNotEmpty).length <= 3) {
+    return true;
+  }
+  final toks = content.split(RegExp(r'\s+')).where((t) => t.isNotEmpty).toList();
+  if (toks.isNotEmpty && toks.length <= 3 && searchDocQueryParts(raw).isEmpty) {
+    return !n.contains('hromad') &&
+        !n.contains('stoh') &&
+        !n.contains('doklad') &&
+        !n.contains('faktura') &&
+        !n.contains('factura');
+  }
+  return false;
+}
+
 /// Otázky o hromadě / dokladech (tipo, DNI, factura, e-mail…).
+/// „podle dokumentů“ u nemovitostí / titulares sem nepatří — to je count/co-owners.
 bool looksLikePileDocsQuery(String raw) {
   final n = normalizeSearchText(raw);
   if (n.isEmpty) return false;
+  if (looksLikeCoOwnersQuery(raw) || looksLikePropertyCountQuery(raw)) {
+    return false;
+  }
+  // „podle našich dokumentů“ u jiné otázky ≠ výpis hromady.
+  final onlyAsSource = n.contains('podle') &&
+      (n.contains('dokument') || n.contains('document')) &&
+      searchDocQueryParts(raw).isEmpty &&
+      !n.contains('hromad') &&
+      !n.contains('stoh') &&
+      !n.contains('doklad');
+  if (onlyAsSource) return false;
   return n.contains('hromad') ||
       n.contains('stoh') ||
       n.contains('dokument') ||
@@ -404,6 +512,16 @@ bool looksLikePileDocsQuery(String raw) {
       n.contains('má na') ||
       n.contains('ma v') ||
       n.contains('má v');
+}
+
+/// Jedna klasifikace pro panel i testy. Pořadí = priorita.
+AiNlIntent classifyAiNlIntent(String raw) {
+  if (looksLikeListClientsQuery(raw)) return AiNlIntent.listClients;
+  if (looksLikeCoOwnersQuery(raw)) return AiNlIntent.coOwners;
+  if (looksLikePropertyCountQuery(raw)) return AiNlIntent.propertyCount;
+  if (looksLikePileDocsQuery(raw)) return AiNlIntent.pileDocs;
+  if (looksLikeIdentityQuery(raw)) return AiNlIntent.identity;
+  return AiNlIntent.other;
 }
 
 /// Hinty tipo/text pro `search_cliente_documentos` (stejný záměr jako SQL).

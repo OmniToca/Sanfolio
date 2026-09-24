@@ -204,34 +204,57 @@ class _AiPanelState extends ConsumerState<AiPanel> {
             .read(aiChatProvider.notifier)
             .addAssistant(encodeAiChatPayload(assistant));
       } else {
-        // Fallback bez Edge: seznam / hromada / search (stopslova+NIE) / facts.
-        final listAll = looksLikeListClientsQuery(q);
-        final pileQ = looksLikePileDocsQuery(q);
+        // Fallback bez Edge: intent → krátká odpověď / titulares / count / hromada.
+        // Ne vždy dump všech dokladů (regrese po NL search).
+        final intent = classifyAiNlIntent(q);
+        final listAll = intent == AiNlIntent.listClients;
+        final pileQ = intent == AiNlIntent.pileDocs;
+        final wantDocs = pileQ;
         final hits =
             listAll ? await aiListClients() : await aiSearchClients(q);
-        final pileClienteId = openId ??
+        final focusId = openId ??
             (hits.isNotEmpty ? hits.first.clienteId : null);
+        final focusName = openId != null
+            ? ''
+            : (hits.isNotEmpty ? hits.first.nombre : '');
         AiPileDocsAnswer? pile;
-        if (pileQ && pileClienteId != null) {
+        if (pileQ && focusId != null) {
           final docFilter = looksLikeListPileDocsQuery(q)
               ? ''
               : (searchDocQueryParts(q).isNotEmpty
                     ? q
                     : searchQueryContent(q));
           pile = await aiSearchClienteDocumentos(
-            clienteId: pileClienteId,
+            clienteId: focusId,
             q: docFilter,
           );
         }
-        final facts = openId != null
-            ? await askClienteFactsForId(openId)
-            : (listAll || hits.isEmpty
-                  ? null
-                  : await askClienteFactsForId(
-                      hits.first.clienteId,
-                      nombre: hits.first.nombre,
-                    ));
-        final office = tenantId == null
+        AiCoOwnersAnswer? coOwners;
+        if (intent == AiNlIntent.coOwners && focusId != null) {
+          coOwners = await askClienteCoOwners(
+            focusId,
+            nombre: focusName,
+          );
+        }
+        AiPropertiesAnswer? properties;
+        if (intent == AiNlIntent.propertyCount && focusId != null) {
+          properties = await askClienteProperties(
+            focusId,
+            nombre: focusName,
+          );
+        }
+        final facts = focusId == null || listAll
+            ? null
+            : await askClienteFactsForId(
+                focusId,
+                nombre: focusName,
+                includeDocs: wantDocs,
+              );
+        final office = tenantId == null ||
+                intent == AiNlIntent.identity ||
+                intent == AiNlIntent.coOwners ||
+                intent == AiNlIntent.propertyCount ||
+                listAll
             ? null
             : await askOfficeFacts(tenantId: tenantId, q: q);
         await ref
@@ -239,10 +262,13 @@ class _AiPanelState extends ConsumerState<AiPanel> {
             .addAssistant(
               encodeAiChatPayload(
                 _replyPayload(
+                  intent: intent,
                   hits: hits,
                   facts: facts,
                   office: office,
                   pile: pile,
+                  coOwners: coOwners,
+                  properties: properties,
                 ),
               ),
             );
@@ -260,19 +286,103 @@ class _AiPanelState extends ConsumerState<AiPanel> {
   }
 
   AiChatPayload _replyPayload({
+    required AiNlIntent intent,
     required List<AiHit> hits,
     required AiFactAnswer? facts,
     AiOfficeAnswer? office,
     AiPileDocsAnswer? pile,
+    AiCoOwnersAnswer? coOwners,
+    AiPropertiesAnswer? properties,
   }) {
     if (facts == null &&
         hits.isEmpty &&
         office == null &&
-        pile == null) {
+        pile == null &&
+        coOwners == null &&
+        properties == null) {
       return AiChatPayload(text: 'ai.factsNone'.tr());
     }
     final lines = <String>[];
     final opens = <AiChatOpen>[];
+
+    if (coOwners != null) {
+      final name = coOwners.nombre.trim().isNotEmpty
+          ? coOwners.nombre.trim()
+          : (facts?.nombre ?? '—');
+      if (coOwners.items.isEmpty) {
+        lines.add(
+          'ai.coOwnersEmpty'.tr(namedArgs: {'name': name}),
+        );
+      } else {
+        lines.add(
+          'ai.coOwnersTitle'.tr(
+            namedArgs: {
+              'name': name,
+              'count': '${coOwners.items.length}',
+            },
+          ),
+        );
+        for (final t in coOwners.items.take(12)) {
+          lines.add(
+            [
+              t.nombre,
+              if ((t.nie ?? '').isNotEmpty) '${'fields.nie'.tr()}: ${t.nie}',
+              if ((t.direccion ?? '').isNotEmpty) t.direccion!,
+              if (t.sharePercent != null)
+                '${t.sharePercent!.toStringAsFixed(t.sharePercent! % 1 == 0 ? 0 : 1)} %',
+            ].where((s) => s.trim().isNotEmpty).join(' · '),
+          );
+          final cid = t.clienteId;
+          if (cid != null &&
+              cid.isNotEmpty &&
+              opens.every((o) => o.clienteId != cid)) {
+            opens.add(AiChatOpen(clienteId: cid, label: t.nombre));
+          }
+        }
+      }
+      if (opens.every((o) => o.clienteId != coOwners.clienteId)) {
+        opens.add(
+          AiChatOpen(
+            clienteId: coOwners.clienteId,
+            label: name,
+            carpeta: true,
+          ),
+        );
+      }
+      return AiChatPayload(text: lines.join('\n'), opens: opens);
+    }
+
+    if (properties != null) {
+      final name = properties.nombre.trim().isNotEmpty
+          ? properties.nombre.trim()
+          : (facts?.nombre ?? '—');
+      lines.add(
+        'ai.propertiesTitle'.tr(
+          namedArgs: {
+            'name': name,
+            'count': '${properties.count}',
+          },
+        ),
+      );
+      if (properties.addresses.isEmpty && properties.count == 0) {
+        lines.add('ai.propertiesEmpty'.tr());
+      } else {
+        for (final addr in properties.addresses.take(8)) {
+          lines.add(addr);
+        }
+      }
+      if (opens.every((o) => o.clienteId != properties.clienteId)) {
+        opens.add(
+          AiChatOpen(
+            clienteId: properties.clienteId,
+            label: name,
+            carpeta: true,
+          ),
+        );
+      }
+      return AiChatPayload(text: lines.join('\n'), opens: opens);
+    }
+
     if (pile != null) {
       final name = (pile.clienteNombre ?? '').trim().isNotEmpty
           ? pile.clienteNombre!.trim()
@@ -292,7 +402,7 @@ class _AiPanelState extends ConsumerState<AiPanel> {
             },
           ),
         );
-        for (final doc in pile.items.take(20)) {
+        for (final doc in pile.items.take(8)) {
           final bits = [
             _docTipoLabel(doc.tipo),
             _aiAlbumBit(doc.albums),
@@ -311,11 +421,21 @@ class _AiPanelState extends ConsumerState<AiPanel> {
             );
           }
         }
+        if (pile.total > 8) {
+          lines.add(
+            'ai.pileMore'.tr(namedArgs: {'count': '${pile.total - 8}'}),
+          );
+        }
       }
     }
+
+    final identityOnly = intent == AiNlIntent.identity ||
+        intent == AiNlIntent.other ||
+        (intent != AiNlIntent.pileDocs && pile == null);
     if (facts != null) {
-      // Když už máme výpis hromady, nekreslí znovu celý stoh z facts.
-      if (pile == null) {
+      if (identityOnly && pile == null) {
+        lines.add('ai.cardTitle'.tr(namedArgs: {'name': facts.nombre}));
+      } else if (pile == null) {
         lines.add('ai.factsTitle'.tr(namedArgs: {'name': facts.nombre}));
       }
       if (facts.nie != null && facts.nie!.isNotEmpty) {
@@ -328,10 +448,12 @@ class _AiPanelState extends ConsumerState<AiPanel> {
         lines.add('${'fields.email'.tr()}: ${facts.email}');
       }
       if (pile == null && facts.docs.isEmpty) {
-        if (!facts.hasAnything) {
+        if (!facts.hasAnything && !identityOnly) {
           lines.add('ai.factsEmpty'.tr());
         }
-      } else if (pile == null) {
+      } else if (pile == null &&
+          intent == AiNlIntent.pileDocs &&
+          facts.docs.isNotEmpty) {
         final glance = stackGlanceOf([
           for (final doc in facts.docs)
             (
@@ -356,7 +478,10 @@ class _AiPanelState extends ConsumerState<AiPanel> {
             ),
           );
         }
+        var shown = 0;
         for (final doc in facts.docs) {
+          if (shown >= 8) break;
+          shown += 1;
           final g = paperGlanceOf(
             tipo: doc.tipo,
             fields: {
@@ -397,6 +522,13 @@ class _AiPanelState extends ConsumerState<AiPanel> {
           ];
           lines.add(bits.join(' · '));
         }
+        if (facts.docs.length > 8) {
+          lines.add(
+            'ai.pileMore'.tr(
+              namedArgs: {'count': '${facts.docs.length - 8}'},
+            ),
+          );
+        }
       }
       if (opens.every((o) => o.clienteId != facts.clienteId)) {
         opens.add(
@@ -415,7 +547,7 @@ class _AiPanelState extends ConsumerState<AiPanel> {
         lines.add('ai.officeEmpty'.tr());
       } else {
         lines.add('ai.officePartial'.tr());
-        for (final hit in office.items) {
+        for (final hit in office.items.take(8)) {
           lines.add(
             [
               hit.nombre,
@@ -445,10 +577,12 @@ class _AiPanelState extends ConsumerState<AiPanel> {
         }
       }
     }
-    if (hits.isNotEmpty) {
+    if (hits.isNotEmpty &&
+        (intent == AiNlIntent.listClients ||
+            (facts == null && pile == null && office == null))) {
       if (lines.isNotEmpty) lines.add('');
       lines.add('ai.results'.tr());
-      for (final hit in hits) {
+      for (final hit in hits.take(20)) {
         final name = hit.nombre.isEmpty ? 'inbox.unnamed'.tr() : hit.nombre;
         lines.add(name);
         if (opens.any((o) => o.clienteId == hit.clienteId)) continue;
