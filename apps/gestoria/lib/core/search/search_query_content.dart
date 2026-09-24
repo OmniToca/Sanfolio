@@ -234,7 +234,6 @@ const _searchStopwords = {
   'hat',
   'ist',
   'sind',
-  'dokument',
   'dokumente',
   'stapel',
   'rechnung',
