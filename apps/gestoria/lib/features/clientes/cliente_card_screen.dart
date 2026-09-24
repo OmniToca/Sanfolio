@@ -28,6 +28,7 @@ import 'cliente_card_hold.dart';
 import 'cliente_card_widgets.dart';
 import 'clientes_providers.dart';
 import 'reach_gaps.dart';
+import '../carpeta/carpeta_routes.dart';
 import 'reach_gaps_providers.dart';
 import '../expedientes/expediente_catalog.dart';
 import '../expedientes/expediente_controller.dart';
@@ -290,44 +291,69 @@ class _ClienteCardScreenState extends ConsumerState<ClienteCardScreen> {
           ],
           bottom: card.deleted
               ? null
-              : Row(
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Expanded(
-                      child: FilledButton.icon(
-                        onPressed: () {
-                          if (card.isCoOwnerOnly &&
-                              (card.coOwnerFolderId ?? '').isNotEmpty) {
-                            final exp = card.coOwnerExpedienteId;
-                            context.go(
-                              exp == null || exp.isEmpty
-                                  ? '/clientes/${card.coOwnerFolderId}/carpeta'
-                                  : '/clientes/${card.coOwnerFolderId}/carpeta?exp=$exp',
-                            );
-                            return;
-                          }
-                          context.go('/clientes/${widget.clienteId}/carpeta');
-                        },
-                        icon: const Icon(Icons.folder_open, size: 18),
-                        label: Text(
-                          card.isCoOwnerOnly
-                              ? 'clients.openOwnerFolder'.tr(
-                                  namedArgs: {
-                                    'owner': card.coOwnerFolderNombre ?? '',
-                                  },
-                                )
-                              : 'clients.openFolder'.tr(),
-                        ),
-                      ),
-                    ),
-                    if (messagingOn) ...[
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () => context.go(
-                            '/clientes/${widget.clienteId}/mensaje',
+                    Row(
+                      children: [
+                        Expanded(
+                          child: FilledButton.icon(
+                            onPressed: () {
+                              if (card.isCoOwnerOnly &&
+                                  (card.coOwnerFolderId ?? '').isNotEmpty) {
+                                final exp = card.coOwnerExpedienteId;
+                                context.go(
+                                  carpetaRoute(
+                                    card.coOwnerFolderId!,
+                                    expedienteId: exp,
+                                  ),
+                                );
+                                return;
+                              }
+                              context.go(
+                                carpetaRoute(widget.clienteId),
+                              );
+                            },
+                            icon: const Icon(Icons.folder_open, size: 18),
+                            label: Text(
+                              card.isCoOwnerOnly
+                                  ? 'clients.openOwnerFolder'.tr(
+                                      namedArgs: {
+                                        'owner':
+                                            card.coOwnerFolderNombre ?? '',
+                                      },
+                                    )
+                                  : 'clients.openFolder'.tr(),
+                            ),
                           ),
-                          icon: const Icon(Icons.mail_outline, size: 18),
-                          label: Text('clients.writeEmail'.tr()),
+                        ),
+                        if (messagingOn) ...[
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () => context.go(
+                                '/clientes/${widget.clienteId}/mensaje',
+                              ),
+                              icon: const Icon(Icons.mail_outline, size: 18),
+                              label: Text('clients.writeEmail'.tr()),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    if (!card.isCoOwnerOnly) ...[
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          onPressed: () => context.go(
+                            carpetaStohRoute(widget.clienteId),
+                          ),
+                          icon: const Icon(
+                            Icons.file_upload_outlined,
+                            size: 18,
+                          ),
+                          label: Text('clients.openStoh'.tr()),
                         ),
                       ),
                     ],

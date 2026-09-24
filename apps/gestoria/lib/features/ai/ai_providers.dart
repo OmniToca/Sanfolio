@@ -133,6 +133,7 @@ Future<AiPrefillDraft?> extractDocumentDraft({
   String? docTipo,
   String bloqueKey = 'cliente_snapshot',
   bool classify = true,
+  String? locale,
 }) async {
   final client = trySupabaseClient();
   if (client == null) return null;
@@ -146,6 +147,7 @@ Future<AiPrefillDraft?> extractDocumentDraft({
       if (docTipo != null && docTipo.isNotEmpty) 'doc_tipo': docTipo,
       if (!classify) 'bloque_key': bloqueKey,
       if (classify) 'classify': true,
+      if (locale != null && locale.trim().isNotEmpty) 'locale': locale.trim(),
     },
   );
   final data = response.data;
@@ -173,6 +175,7 @@ void startExtractInBackground({
   String? docTipo,
   String bloqueKey = 'cliente_snapshot',
   bool classify = true,
+  String? locale,
   void Function(AiPrefillDraft? draft)? onDone,
 }) {
   unawaited(() async {
@@ -186,6 +189,7 @@ void startExtractInBackground({
         docTipo: docTipo,
         bloqueKey: bloqueKey,
         classify: classify,
+        locale: locale,
       );
     } on Object {
       draft = null;

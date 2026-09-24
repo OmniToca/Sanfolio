@@ -48,6 +48,8 @@ Map<String, String> extractProposalFields(Map<String, String> fields) {
           e.key != 'body_text' &&
           e.key != kProposedBloqueKey &&
           e.key != kProposedTipo &&
+          e.key != 'ai_summary' &&
+          e.key != 'ai_summary_locale' &&
           e.value.trim().isNotEmpty)
         e.key: e.value.trim(),
   };

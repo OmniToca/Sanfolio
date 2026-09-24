@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:gestoria_auth/gestoria_auth.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -12,6 +13,7 @@ import '../../core/modules/module_catalog.dart';
 import '../../core/presentation/widgets/app_widgets.dart';
 import '../../core/theme/app_theme.dart';
 import '../ai/ai_providers.dart';
+import '../ai/extract_text.dart';
 import 'carpeta_controller.dart';
 import 'carpeta_routes.dart';
 import 'documento_library.dart';
@@ -147,6 +149,7 @@ class _StohScreenState extends ConsumerState<StohScreen> {
                                 carpetaRoute(
                                   widget.clienteId,
                                   expedienteId: widget.expedienteId,
+                                  afterSkip: true,
                                 ),
                               ),
                               child: Text('stoh.skip'.tr()),
@@ -421,6 +424,12 @@ class _StohScreenState extends ConsumerState<StohScreen> {
     final tipo = _tipoChoice[doc.id] ??
         (doc.tipo != 'other' ? doc.tipo : row.proposal.tipo);
     final checked = _selected.contains(doc.id);
+    final paperTipo = libraryPaperTipo(row);
+    final glance = libraryGlanceEntries(
+      row.glanceFields,
+      max: 5,
+      keys: kLibraryCardGlanceKeys,
+    );
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: AppCard(
@@ -443,6 +452,8 @@ class _StohScreenState extends ConsumerState<StohScreen> {
                       }
                     }),
                   ),
+                  _paperThumb(row),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       doc.originalName,
@@ -456,11 +467,25 @@ class _StohScreenState extends ConsumerState<StohScreen> {
                 spacing: 8,
                 runSpacing: 6,
                 children: [
-                  if (libraryPaperTipo(row) != 'other')
-                    _chip('docs.${libraryPaperTipo(row)}'.tr()),
+                  if (paperTipo != 'other')
+                    _chip('docs.$paperTipo'.tr()),
+                  if (row.onPile && row.proposal.known)
+                    _chip(
+                      'stoh.albumDraft'.tr(
+                        namedArgs: {'album': _albumLabel(row.proposal.bloqueKey)},
+                      ),
+                    ),
                   if (!row.onPile)
                     for (final key in doc.albumKeys) _chip(_albumLabel(key)),
                   if (libraryPaperOnDesk(row)) _chip('stoh.onDesk'.tr()),
+                  if (row.pending) _chip('stoh.pending'.tr()),
+                  if (row.failed) _chip('stoh.failed'.tr()),
+                  if (!row.pending &&
+                      !row.failed &&
+                      (doc.aiSummary.isNotEmpty ||
+                          (row.draftFields['ai_summary'] ?? '').isNotEmpty ||
+                          row.glanceFields.isNotEmpty))
+                    _chip('stoh.ready'.tr()),
                   if (row.inmuebleLabel.isNotEmpty) _chip(row.inmuebleLabel),
                   if (row.dupKind != null) _chip(_dupLabel(row.dupKind!)),
                   if (libraryShowsYearChip(row))
@@ -469,18 +494,9 @@ class _StohScreenState extends ConsumerState<StohScreen> {
                         namedArgs: {'year': '${libraryPaperYear(row)}'},
                       ),
                     ),
+                  for (final e in glance) _chip(e.value),
                 ],
               ),
-              if (row.pending)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text('stoh.pending'.tr()),
-                ),
-              if (row.failed)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text('stoh.failed'.tr()),
-                ),
               ..._summary(row),
               const SizedBox(height: 8),
               Focus(
@@ -514,10 +530,50 @@ class _StohScreenState extends ConsumerState<StohScreen> {
                         if (v != null) {
                           setState(() {
                             _bloqueChoice[doc.id] = v;
-                            _tipoChoice[doc.id] = tiposForStohBloque(v).first;
+                            final allowed = tiposForStohBloque(v);
+                            final keep = _tipoChoice[doc.id] ??
+                                (doc.tipo != 'other'
+                                    ? doc.tipo
+                                    : row.proposal.tipo);
+                            _tipoChoice[doc.id] = allowed.contains(keep)
+                                ? keep
+                                : allowed.first;
                           });
                         }
                       },
+              ),
+              if (bloque.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  key: ValueKey('stoh-t-${doc.id}-$bloque-$tipo'),
+                  initialValue: tiposForStohBloque(bloque).contains(tipo)
+                      ? tipo
+                      : tiposForStohBloque(bloque).first,
+                  decoration: InputDecoration(labelText: 'stoh.tipo'.tr()),
+                  items: [
+                    for (final t in tiposForStohBloque(bloque))
+                      DropdownMenuItem(
+                        value: t,
+                        child: Text('docs.$t'.tr()),
+                      ),
+                  ],
+                  onChanged: row.pending
+                      ? null
+                      : (v) {
+                          if (v != null) {
+                            setState(() => _tipoChoice[doc.id] = v);
+                          }
+                        },
+                ),
+              ],
+              const SizedBox(height: 8),
+              Text(
+                'stoh.placeHint'.tr(),
+                style: const TextStyle(color: AppTheme.pencil, fontSize: 12),
+              ),
+              Text(
+                'stoh.guardarHint'.tr(),
+                style: const TextStyle(color: AppTheme.pencil, fontSize: 12),
               ),
               const SizedBox(height: 12),
               Wrap(
@@ -537,7 +593,9 @@ class _StohScreenState extends ConsumerState<StohScreen> {
                       child: Text('stoh.unplace'.tr()),
                     ),
                   TextButton(
-                    onPressed: libraryPaperOnDesk(row)
+                    onPressed: libraryPaperOnDesk(row) ||
+                            row.pending ||
+                            bloque.isEmpty
                         ? null
                         : () => _guardar(row, view, bloque, tipo),
                     child: Text(
@@ -563,20 +621,79 @@ class _StohScreenState extends ConsumerState<StohScreen> {
     );
   }
 
+  /// Obrázek ze storage je levný; PDF bez thumbnailu → ikona podle tipo.
+  Widget _paperThumb(LibraryPaper row) {
+    final doc = row.document;
+    final tipo = libraryPaperTipo(row);
+    final icon = Icon(
+      _tipoIcon(tipo),
+      size: 28,
+      color: AppTheme.pencil,
+    );
+    if (doc.storagePurged ||
+        !libraryPaperHasImageThumb(doc.storagePath, doc.originalName)) {
+      return SizedBox(width: 44, height: 56, child: Center(child: icon));
+    }
+    return SizedBox(
+      width: 44,
+      height: 56,
+      child: FutureBuilder<String?>(
+        future: ref
+            .read(carpetaControllerProvider(_target).notifier)
+            .signedUrl(doc.storagePath),
+        builder: (context, snap) {
+          final url = snap.data;
+          if (url == null || url.isEmpty) {
+            return Center(child: icon);
+          }
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+            child: Image.network(
+              url,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Center(child: icon),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  IconData _tipoIcon(String tipo) {
+    return switch (tipo) {
+      'dni_nie' || 'pasaporte' => Icons.badge_outlined,
+      'copia_escritura' || 'escritura_o_nota_simple' =>
+        Icons.description_outlined,
+      'copia_poder' => Icons.gavel_outlined,
+      'justificante_iban' => Icons.account_balance_outlined,
+      final t when t.startsWith('factura') || t.startsWith('recibo') =>
+        Icons.receipt_long_outlined,
+      final t when t.startsWith('contrato') || t == 'poliza_seguro' =>
+        Icons.article_outlined,
+      'certificado_catastral' ||
+      'certificado_comunidad' ||
+      'declaracion_plusvalia' =>
+        Icons.home_work_outlined,
+      _ => Icons.insert_drive_file_outlined,
+    };
+  }
+
   List<Widget> _summary(LibraryPaper row) {
-    if (row.document.caption.trim().isNotEmpty) return const [];
-    final text = libraryPaperAutoSummary(
+    final out = <Widget>[];
+    final prose = libraryPaperProseSummary(
       row,
       tr: (key, {named = const {}}) => key.tr(namedArgs: named),
     );
-    if (text.isEmpty) return const [];
-    return [
-      const SizedBox(height: 8),
-      Text(
-        text,
-        style: const TextStyle(color: AppTheme.pencil, fontSize: 13),
-      ),
-    ];
+    if (prose.isNotEmpty) {
+      out.add(const SizedBox(height: 8));
+      out.add(
+        Text(
+          prose,
+          style: const TextStyle(color: AppTheme.pencil, fontSize: 13),
+        ),
+      );
+    }
+    return out;
   }
 
   TextEditingController _captionController(LibraryPaper row) {
@@ -744,12 +861,19 @@ class _StohScreenState extends ConsumerState<StohScreen> {
           originalName: file.name,
         );
         if (doc != null) {
+          final locale = ref
+                  .read(authControllerProvider)
+                  .valueOrNull
+                  ?.profile
+                  ?.locale ??
+              'cs';
           startExtractInBackground(
             tenantId: view.tenantId,
             clienteId: view.clienteId,
             storagePath: doc.storagePath,
             mime: mimeForOfficeFile(file.name, extension: file.extension),
             classify: true,
+            locale: locale,
           );
         }
       } on Object catch (e) {
@@ -885,11 +1009,28 @@ class _StohScreenState extends ConsumerState<StohScreen> {
     if (ok != true || bloque.isEmpty) return;
     final ctrl = ref.read(carpetaControllerProvider(_target).notifier);
     final ids = _selected.toList();
+    final papers = ref.read(carpetaControllerProvider(_target)).valueOrNull;
+    final byId = {
+      for (final d in papers?.libraryDocuments ?? const <CarpetaDocumento>[])
+        d.id: d,
+    };
     for (final id in ids) {
+      final doc = byId[id];
+      final proposal = doc == null
+          ? const StohProposal()
+          : classifyStohPaper(
+              originalName: doc.originalName,
+              bodyText: doc.bodyText ?? '',
+              fields: doc.extracted,
+            );
+      final allowed = tiposForStohBloque(bloque);
+      final prefer = _tipoChoice[id] ??
+          (doc != null && doc.tipo != 'other' ? doc.tipo : proposal.tipo);
+      final tipo = allowed.contains(prefer) ? prefer : allowed.first;
       await ctrl.setLibraryPlacement(
         documentId: id,
         bloqueKey: bloque,
-        tipo: tiposForStohBloque(bloque).first,
+        tipo: tipo,
         on: true,
       );
     }

@@ -104,10 +104,13 @@ class CarpetaScreen extends ConsumerWidget {
     super.key,
     required this.clienteId,
     this.expedienteId,
+    this.afterSkip = false,
   });
 
   final String clienteId;
   final String? expedienteId;
+  /// Po Skip ze stohu: empty-state, ať nezbude prázdná deska bez návodu.
+  final bool afterSkip;
 
   CarpetaTarget get _target =>
       CarpetaTarget(clienteId: clienteId, expedienteId: expedienteId);
@@ -343,6 +346,46 @@ class CarpetaScreen extends ConsumerWidget {
                               ),
                             if (view.expedienteId != null)
                               const SizedBox(height: 16),
+                            if (afterSkip && enabled.isEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 16),
+                                child: AppCard(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(16),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
+                                      children: [
+                                        Text(
+                                          'folder.emptyDesk'.tr(),
+                                          style: const TextStyle(
+                                            color: AppTheme.pencil,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 12),
+                                        Align(
+                                          alignment: Alignment.centerLeft,
+                                          child: FilledButton.icon(
+                                            onPressed: () => context.go(
+                                              carpetaStohRoute(
+                                                clienteId,
+                                                expedienteId: expedienteId,
+                                              ),
+                                            ),
+                                            icon: const Icon(
+                                              Icons.file_upload_outlined,
+                                              size: 18,
+                                            ),
+                                            label: Text(
+                                              'folder.emptyDeskStoh'.tr(),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
                             enabledGrid(),
                             if (disabled.isNotEmpty) ...[
                               const SizedBox(height: 24),

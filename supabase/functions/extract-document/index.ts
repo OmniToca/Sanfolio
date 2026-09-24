@@ -6,9 +6,9 @@ import { corsHeaders } from "../_shared/cors.ts";
 
 /**
  * Fotka / PDF → návrh do ai_drafts. OCR přepis (body_text) + chunks pro search.
- * Album / tipo / inmueble až po lidském Guardar — AI neukládá knihovnu (H3).
- * Vzory: podobné zařazené papíry v rozsahu člena, ne dotrénování modelu.
- * HTTP vrátí pending hned; LLM doběhne na pozadí (waitUntil).
+ * 1–2 věty ai_summary ve staff locale. Album / tipo / inmueble až po lidském
+ * Guardar — AI neukládá knihovnu (H3). Vzory: podobné zařazené papíry v rozsahu
+ * člena, ne dotrénování modelu. HTTP vrátí pending hned; LLM doběhne na pozadí.
  */
 
 const IMAGE_MIME = new Set(["image/jpeg", "image/png", "image/webp", "image/heic"]);
@@ -44,6 +44,7 @@ Deno.serve(async (req) => {
     doc_tipo?: unknown;
     bloque_key?: unknown;
     classify?: unknown;
+    locale?: unknown;
   };
   const tenantId = typeof body.tenant_id === "string" ? body.tenant_id.trim() : "";
   const clienteId = typeof body.cliente_id === "string" ? body.cliente_id.trim() : "";
@@ -53,6 +54,9 @@ Deno.serve(async (req) => {
   const mime = typeof body.mime === "string" ? body.mime.trim() : "";
   const docTipo = typeof body.doc_tipo === "string" ? body.doc_tipo.trim() : "";
   const classify = body.classify === true || body.classify === "true";
+  const locale = normalizeStaffLocale(
+    typeof body.locale === "string" ? body.locale : "",
+  );
   const bloqueKey = typeof body.bloque_key === "string" && body.bloque_key.trim()
     ? body.bloque_key.trim()
     : classify
@@ -119,6 +123,7 @@ Deno.serve(async (req) => {
     docTipo,
     bloqueKey,
     classify,
+    locale,
   });
   keepAlive(work);
 
@@ -151,12 +156,15 @@ async function finishExtract(args: {
   draftId: string;
   storagePath: string;
   mime: string;
-    docTipo: string;
-    bloqueKey: string;
-    classify: boolean;
-  }) {
+  docTipo: string;
+  bloqueKey: string;
+  classify: boolean;
+  locale: string;
+}) {
   try {
     const hint = await loadClienteHint(args.userClient, args.clienteId);
+    const staffLocale = args.locale ||
+      await loadStaffLocale(args.userClient, args.userId);
     const docTipo = guessTipoFromPath(args.storagePath, args.docTipo);
     const { data: file, error: dlErr } = await args.userClient.storage
       .from("documentos")
@@ -206,6 +214,7 @@ async function finishExtract(args: {
         docTipo,
         isPdf,
         args.classify,
+        staffLocale,
       );
       if (vision) {
         const body = fields.body_text;
@@ -239,6 +248,7 @@ async function finishExtract(args: {
         hint,
         args.classify,
         officeHint,
+        staffLocale,
       );
       if (llm) {
         const body = fields.body_text;
@@ -278,6 +288,23 @@ async function finishExtract(args: {
     }
     const extracted = Object.keys(fields).length > 0 &&
       !(Object.keys(fields).length === 1 && fields.extract_status);
+    // Shrnutí ve staff locale — glance na kartě, ne auto Place.
+    if (extracted && apiKey) {
+      try {
+        const summary = await ensureAiSummary({
+          apiKey,
+          fields,
+          docTipo: guessTipo || docTipo,
+          locale: staffLocale,
+        });
+        if (summary) {
+          fields.ai_summary = summary;
+          fields.ai_summary_locale = staffLocale;
+        }
+      } catch (err) {
+        console.warn("extract-document: ai_summary", err);
+      }
+    }
     await markDraft(
       args.userClient,
       args.draftId,
@@ -285,7 +312,10 @@ async function finishExtract(args: {
     );
     if (extracted) {
       try {
-        await persistLibraryExtract(args, fields);
+        await persistLibraryExtract(
+          { ...args, locale: staffLocale },
+          fields,
+        );
       } catch (err) {
         console.warn("extract-document: library persist", err);
       }
@@ -315,6 +345,7 @@ async function persistLibraryExtract(
     draftId: string;
     storagePath: string;
     classify: boolean;
+    locale?: string;
   },
   fields: Record<string, string>,
 ) {
@@ -337,12 +368,23 @@ async function persistLibraryExtract(
   if (!docId) return;
 
   const body = (fields.body_text ?? "").trim();
-  // H3: jen OCR přepis + vektory. Album/tipo/inmueble = Guardar (set_documento_*).
+  const summary = (fields.ai_summary ?? "").trim().slice(0, 600);
+  const summaryLocale = normalizeStaffLocale(
+    fields.ai_summary_locale || args.locale || "",
+  );
+  // H3: jen OCR přepis + vektory + prose summary. Album/tipo/inmueble = Guardar.
+  const patch: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
+  };
+  if (body) patch.body_text = body;
+  if (summary) {
+    patch.ai_summary = summary;
+    patch.ai_summary_locale = summaryLocale;
+  }
+  if (Object.keys(patch).length > 1) {
+    await args.userClient.from("documentos").update(patch).eq("id", docId);
+  }
   if (body) {
-    await args.userClient.from("documentos").update({
-      body_text: body,
-      updated_at: new Date().toISOString(),
-    }).eq("id", docId);
     const apiKey = Deno.env.get("OPENAI_API_KEY")?.trim();
     if (apiKey) {
       try {
@@ -504,7 +546,9 @@ function extractSystemPrompt(
   docTipo: string,
   includeBody: boolean,
   classify = false,
+  locale = "cs",
 ): string {
+  const lang = staffLocaleLabel(locale);
   return (
     `Extract fields from a Spanish gestoría document (declared type: ${docTipo || "unknown"}). ` +
     "It may be a factura even if the type says contrato. Keep official terms (NIE, CUPS, escritura). " +
@@ -512,7 +556,9 @@ function extractSystemPrompt(
     (classify
       ? ", proposedBloque, proposedTipo"
       : "") +
-    ". " +
+    ", summary. " +
+    `summary = 1–2 short sentences in ${lang} describing what the paper is ` +
+    "(who/what/where/when); no field labels, no inventing. " +
     "Nº de contrato / póliza → contractNo. Nº de cliente → clientNo. Nº factura → invoiceNo. " +
     "Periodo de facturación → periodFrom and periodTo (YYYY-MM-DD), not period (period is IBI year only). " +
     "IBI / SUMA recibo: period = ejercicio year (2024), never the payment window. " +
@@ -732,6 +778,23 @@ function sanitizeFields(raw: Record<string, string>): Record<string, string> {
       out[key] = v.slice(0, 100000);
       continue;
     }
+    if (key === "ai_summary") {
+      out[key] = v.slice(0, 600);
+      continue;
+    }
+    if (key === "ai_summary_locale") {
+      const loc = normalizeStaffLocale(v);
+      if (loc) out[key] = loc;
+      continue;
+    }
+    if (
+      key === "proposed_bloque_key" ||
+      key === "proposed_tipo" ||
+      key === "extract_status"
+    ) {
+      out[key] = v.slice(0, 64);
+      continue;
+    }
     const long = key === "fields.buyers" ||
       key === "fields.sellers" ||
       key === "fields.address" ||
@@ -767,6 +830,7 @@ async function llmExtractFromText(
   hint: { nombre: string; nie: string },
   classify = false,
   officeHint = "",
+  locale = "cs",
 ): Promise<Record<string, string> | null> {
   const clipped = escrituraLlmFocus(text).slice(0, 24000);
   const who = [
@@ -785,7 +849,10 @@ async function llmExtractFromText(
       temperature: 0,
       response_format: { type: "json_object" },
       messages: [
-        { role: "system", content: extractSystemPrompt(docTipo, false, classify) },
+        {
+          role: "system",
+          content: extractSystemPrompt(docTipo, false, classify, locale),
+        },
         {
           role: "user",
           content: userText,
@@ -812,8 +879,10 @@ function parseLlmJson(raw: string): Record<string, string> | null {
     const mapped = mapLlmFields(parsed);
     const bloque = str(parsed.proposedBloque ?? parsed.proposed_bloque_key);
     const tipo = str(parsed.proposedTipo ?? parsed.proposed_tipo);
+    const summary = str(parsed.summary ?? parsed.ai_summary);
     if (bloque) mapped.proposed_bloque_key = bloque;
     if (tipo) mapped.proposed_tipo = tipo;
+    if (summary) mapped.ai_summary = summary.slice(0, 600);
     return mapped;
   } catch {
     return null;
@@ -827,6 +896,7 @@ async function visionExtract(
   docTipo: string,
   isPdf = false,
   classify = false,
+  locale = "cs",
 ): Promise<Record<string, string> | null> {
   const b64 = bytesToB64(bytes);
   const userContent = isPdf
@@ -859,7 +929,7 @@ async function visionExtract(
       messages: [
         {
           role: "system",
-          content: extractSystemPrompt(docTipo, true, classify),
+          content: extractSystemPrompt(docTipo, true, classify, locale),
         },
         {
           role: "user",
@@ -932,6 +1002,102 @@ function json(
     status,
     headers: { ...corsHeaders(req), "Content-Type": "application/json" },
   });
+}
+
+const STAFF_LOCALES = new Set(["cs", "en", "es", "de", "fr"]);
+
+function normalizeStaffLocale(raw: string): string {
+  const code = raw.trim().toLowerCase().slice(0, 2);
+  return STAFF_LOCALES.has(code) ? code : "";
+}
+
+function staffLocaleLabel(locale: string): string {
+  switch (normalizeStaffLocale(locale) || "cs") {
+    case "en":
+      return "English";
+    case "es":
+      return "Spanish";
+    case "de":
+      return "German";
+    case "fr":
+      return "French";
+    default:
+      return "Czech";
+  }
+}
+
+async function loadStaffLocale(
+  userClient: ReturnType<typeof createClient>,
+  userId: string,
+): Promise<string> {
+  const { data } = await userClient
+    .from("profiles")
+    .select("locale")
+    .eq("id", userId)
+    .maybeSingle();
+  return normalizeStaffLocale(`${data?.locale ?? ""}`) || "cs";
+}
+
+/** Když extract už summary nemá, dožene krátký prose call. AI neukládá Place. */
+async function ensureAiSummary(args: {
+  apiKey: string;
+  fields: Record<string, string>;
+  docTipo: string;
+  locale: string;
+}): Promise<string> {
+  const existing = (args.fields.ai_summary ?? "").trim();
+  if (existing) return existing.slice(0, 600);
+  const body = (args.fields.body_text ?? "").trim().slice(0, 4000);
+  const bits = Object.entries(args.fields)
+    .filter(([k, v]) =>
+      k.startsWith("fields.") && typeof v === "string" && v.trim()
+    )
+    .slice(0, 12)
+    .map(([k, v]) => `${k.replace("fields.", "")}=${v.trim()}`)
+    .join("; ");
+  if (!body && !bits) return "";
+  const lang = staffLocaleLabel(args.locale);
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${args.apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      temperature: 0,
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content:
+            `Write a 1–2 sentence office glance summary in ${lang} for a Spanish gestoría paper. ` +
+            "JSON only: {\"summary\":\"...\"}. Keep NIE/escritura/CUPS. Do not invent. Do not file or place.",
+        },
+        {
+          role: "user",
+          content: [
+            args.docTipo ? `tipo=${args.docTipo}` : "",
+            bits,
+            body,
+          ].filter(Boolean).join("\n"),
+        },
+      ],
+    }),
+  });
+  if (!res.ok) return "";
+  const data = await res.json() as {
+    choices?: Array<{ message?: { content?: string } }>;
+  };
+  const raw = data.choices?.[0]?.message?.content?.trim() ?? "";
+  const m = raw.match(/\{[\s\S]*\}/);
+  if (!m) return "";
+  try {
+    const parsed = JSON.parse(m[0]) as { summary?: unknown };
+    return str(parsed.summary).slice(0, 600);
+  } catch {
+    return "";
+  }
 }
 
 function guessTipoFromPath(path: string, declared: string): string {
