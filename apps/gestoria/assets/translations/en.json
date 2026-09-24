@@ -796,7 +796,15 @@
     "titularNieTaken": "Another titular on this finca already has this NIE.",
     "titularCard": "card",
     "emptyDesk": "The desk is almost empty. Turn blocks on with the pencil, or upload the stack.",
-    "emptyDeskStoh": "Upload stack"
+    "emptyDeskStoh": "Upload stack",
+    "snapshotHint": "Contact on this file. Edit the name and second contact on the client card.",
+    "snapshotNoChannel": "Without email and phone, Pedir cannot reach them — add a channel on the card or here.",
+    "residenceLabel": "Residence",
+    "residenceHint": "Person’s home address, not the finca (URBANA pencil above).",
+    "ibanHint": "IBAN only when direct debit applies. Otherwise leave blank.",
+    "snapshotStoh": "Upload DNI / passport",
+    "snapshotPapersEmpty": "No identity scan yet. Recommended: {types}.",
+    "snapshotIdentityHint": "Album has no identity scan. Recommended: {types}."
   },
   "docs": {
     "copia_escritura": "Deed copy (escritura)",

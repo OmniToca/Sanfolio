@@ -796,7 +796,15 @@
     "titularNieTaken": "Otro titular de esta finca ya tiene este NIE.",
     "titularCard": "ficha",
     "emptyDesk": "El tablero está casi vacío. Active bloques con el lápiz, o suba el montón.",
-    "emptyDeskStoh": "Subir montón"
+    "emptyDeskStoh": "Subir montón",
+    "snapshotHint": "Contacto del expediente. Nombre y segundo contacto se editan en la ficha.",
+    "snapshotNoChannel": "Sin correo ni teléfono Pedir no llega — complete el canal en la ficha o aquí.",
+    "residenceLabel": "Domicilio",
+    "residenceHint": "Domicilio de la persona, no la finca (lápiz URBANA arriba).",
+    "ibanHint": "IBAN solo si hay domiciliación. Si no, déjelo vacío.",
+    "snapshotStoh": "Subir DNI / pasaporte",
+    "snapshotPapersEmpty": "Aún no hay escaneo de identidad. Recomendado: {types}.",
+    "snapshotIdentityHint": "En el álbum falta el escaneo de identidad. Recomendado: {types}."
   },
   "docs": {
     "copia_escritura": "Copia escritura",

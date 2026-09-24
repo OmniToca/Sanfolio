@@ -796,7 +796,15 @@
     "titularNieTaken": "Toto NIE už má jiný titular na této finca.",
     "titularCard": "karta",
     "emptyDesk": "Deska je skoro prázdná. Zapněte bloky tužkou, nebo nahrajte šanon.",
-    "emptyDeskStoh": "Nahrát šanon"
+    "emptyDeskStoh": "Nahrát šanon",
+    "snapshotHint": "Kontakt na spisu. Jméno a druhý kontakt upravíte na kartě klienta.",
+    "snapshotNoChannel": "Bez e-mailu i telefonu Pedir nedosáhne — doplňte kanál na kartě nebo sem.",
+    "residenceLabel": "Bydliště",
+    "residenceHint": "Bydliště osoby, ne adresa finca (tužka u URBANA nahoře).",
+    "ibanHint": "IBAN jen když je inkaso. Jinak nechte prázdné.",
+    "snapshotStoh": "Nahrát DNI / pas",
+    "snapshotPapersEmpty": "Zatím žádný sken identity. Doporučeno: {types}.",
+    "snapshotIdentityHint": "V albu chybí sken identity. Doporučeno: {types}."
   },
   "docs": {
     "copia_escritura": "Kopie listiny (escritura)",

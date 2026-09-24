@@ -17,6 +17,36 @@ void main() {
     expect(statusOf(template, state), BloqueUiStatus.done);
   });
 
+  test('KLIENT bez DNI/pas nemá identity paper; IBAN nestačí', () {
+    expect(clienteSnapshotHasIdentityPaper(const []), isFalse);
+    expect(clienteSnapshotHasIdentityPaper(const ['justificante_iban']), isFalse);
+    expect(clienteSnapshotHasIdentityPaper(const ['dni_nie']), isTrue);
+    expect(clienteSnapshotHasIdentityPaper(const ['pasaporte', 'other']), isTrue);
+    expect(kClienteSnapshotIdentityTipos, ['dni_nie', 'pasaporte']);
+  });
+
+  test('KLIENT bez e-mailu i tel potřebuje kanál', () {
+    expect(clienteSnapshotNeedsChannel(const {}), isTrue);
+    expect(
+      clienteSnapshotNeedsChannel(const {'fields.email': '  ', 'fields.tel': ''}),
+      isTrue,
+    );
+    expect(
+      clienteSnapshotNeedsChannel(const {'fields.email': 'a@b.cz'}),
+      isFalse,
+    );
+    expect(
+      clienteSnapshotNeedsChannel(const {'fields.tel': '+34600'}),
+      isFalse,
+    );
+  });
+
+  test('compraventa katalog: první blok je cliente_snapshot', () {
+    expect(compraventaBloques.first.key, 'cliente_snapshot');
+    expect(compraventaBloques.first.opensFromDesk, isFalse);
+    expect(compraventaBloques.first.requiredDocTypes, isEmpty);
+  });
+
   test('zapnutá escritura bez kopie je missing_document', () {
     const template = BloqueTemplate(
       key: 'escritura',
