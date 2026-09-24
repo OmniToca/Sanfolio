@@ -1069,6 +1069,7 @@
     "discard": "Discard proposal",
     "ask": "Ask about documents",
     "factsTitle": "Saved documents — {name}",
+    "cardTitle": "Client — {name}",
     "factsEmpty": "This client has no saved document fields yet. Attach a file and save the proposal first.",
     "factsNone": "No client matched that name.",
     "officeHits": "In the office",
@@ -1084,7 +1085,12 @@
     "writeError": "The conversation could not be saved.",
     "openFolder": "Folder · {name}",
     "pileTitle": "Pile — {name} ({count})",
-    "pileEmpty": "Nothing like that is on the pile for {name} (or the transcript is not saved yet)."
+    "pileEmpty": "Nothing like that is on the pile for {name} (or the transcript is not saved yet).",
+    "pileMore": "…and {count} more",
+    "coOwnersTitle": "Co-owners — {name} ({count})",
+    "coOwnersEmpty": "No other co-owners in titulares for {name}.",
+    "propertiesTitle": "Properties — {name} ({count})",
+    "propertiesEmpty": "This folder has no finca yet."
   },
   "tax": {
     "title": "IRNR calculation (modelo 210)",

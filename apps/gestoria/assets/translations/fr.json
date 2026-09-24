@@ -1069,6 +1069,7 @@
     "discard": "Jeter la proposition",
     "ask": "Demander les documents",
     "factsTitle": "Documents enregistrés — {name}",
+    "cardTitle": "Client — {name}",
     "factsEmpty": "Ce client n’a pas encore de champs de document enregistrés. Joignez un fichier et enregistrez la proposition.",
     "factsNone": "Personne ne correspond à ce nom.",
     "officeHits": "Au cabinet",
@@ -1084,7 +1085,12 @@
     "writeError": "Impossible d’enregistrer la conversation.",
     "openFolder": "Dossier · {name}",
     "pileTitle": "Pile — {name} ({count})",
-    "pileEmpty": "Rien de tel dans la pile de {name} pour l’instant (ou la transcription n’est pas encore enregistrée)."
+    "pileEmpty": "Rien de tel dans la pile de {name} pour l’instant (ou la transcription n’est pas encore enregistrée).",
+    "pileMore": "…et encore {count}",
+    "coOwnersTitle": "Copropriétaires — {name} ({count})",
+    "coOwnersEmpty": "Pas d’autres cotitulaires dans titulares pour {name}.",
+    "propertiesTitle": "Biens — {name} ({count})",
+    "propertiesEmpty": "Ce dossier n’a pas encore de finca."
   },
   "tax": {
     "title": "Calcul IRNR (modelo 210)",

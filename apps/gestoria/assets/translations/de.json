@@ -1069,6 +1069,7 @@
     "discard": "Vorschlag verwerfen",
     "ask": "Zu Dokumenten fragen",
     "factsTitle": "Gespeicherte Dokumente — {name}",
+    "cardTitle": "Mandant — {name}",
     "factsEmpty": "Für diesen Mandanten sind noch keine Dokumentfelder gespeichert. Datei anhängen und den Vorschlag speichern.",
     "factsNone": "Zu diesem Namen wurde niemand gefunden.",
     "officeHits": "Im Büro",
@@ -1084,7 +1085,12 @@
     "writeError": "Der Verlauf konnte nicht gespeichert werden.",
     "openFolder": "Akte · {name}",
     "pileTitle": "Stapel — {name} ({count})",
-    "pileEmpty": "Auf dem Stapel von {name} liegt gerade nichts dergleichen (oder die Abschrift fehlt noch)."
+    "pileEmpty": "Auf dem Stapel von {name} liegt gerade nichts dergleichen (oder die Abschrift fehlt noch).",
+    "pileMore": "…und noch {count} weitere",
+    "coOwnersTitle": "Miteigentümer — {name} ({count})",
+    "coOwnersEmpty": "Keine weiteren Miteigentümer in titulares für {name}.",
+    "propertiesTitle": "Immobilien — {name} ({count})",
+    "propertiesEmpty": "Dieser Ordner hat noch keine finca."
   },
   "tax": {
     "title": "IRNR-Berechnung (modelo 210)",

@@ -48,6 +48,39 @@ void main() {
     expect(looksLikeListPileDocsQuery('je tam factura?'), isFalse);
   });
 
+  test('spoluvlastníci / nemovitosti / identita — ne dump dokladů', () {
+    expect(
+      classifyAiNlIntent(
+        'má renata sušičová nějaké spoluvlastníky na nemovitosti?',
+      ),
+      AiNlIntent.coOwners,
+    );
+    expect(
+      looksLikePileDocsQuery(
+        'má renata sušičová nějaké spoluvlastníky na nemovitosti?',
+      ),
+      isFalse,
+    );
+    expect(
+      classifyAiNlIntent(
+        'Kolik má renata sušičová nemovitostí podle našich dokumentů?',
+      ),
+      AiNlIntent.propertyCount,
+    );
+    expect(
+      looksLikePileDocsQuery(
+        'Kolik má renata sušičová nemovitostí podle našich dokumentů?',
+      ),
+      isFalse,
+    );
+    expect(classifyAiNlIntent('Y990'), AiNlIntent.identity);
+    expect(classifyAiNlIntent('Renata Sušičová'), AiNlIntent.identity);
+    expect(
+      classifyAiNlIntent('jaké doklady má Renata na hromadě'),
+      AiNlIntent.pileDocs,
+    );
+  });
+
   test('adresa zůstane po stopslovech', () {
     expect(searchQueryContent('bydliště Islandia 14'), contains('Islandia'));
   });
