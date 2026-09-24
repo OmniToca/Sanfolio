@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gestoria_auth/gestoria_auth.dart';
 
+import '../../core/search/search_query_content.dart';
 import 'ai_chat.dart';
 import 'extract_text.dart';
 
@@ -201,26 +202,31 @@ void startExtractInBackground({
 Future<List<AiHit>> aiSearchClients(String q) async {
   final client = trySupabaseClient();
   if (client == null || q.trim().isEmpty) return [];
-  final hits = await client.rpc(
-    'search_clients',
-    params: {'p_q': q.trim(), 'p_limit': 10},
-  );
-  final ids = <String>[];
+  // Celá věta přes stopslova / NIE tokeny — ne raw NL do RPC.
+  final queries = searchClientQueries(q);
   final score = <String, AiHit>{};
-  if (hits is List) {
+  for (final query in queries) {
+    final hits = await client.rpc(
+      'search_clients',
+      params: {'p_q': query, 'p_limit': 10},
+    );
+    if (hits is! List) continue;
     for (final raw in hits) {
       if (raw is! Map) continue;
       final id = '${raw['cliente_id']}';
-      ids.add(id);
-      score[id] = AiHit(
+      if (id.isEmpty) continue;
+      final next = AiHit(
         clienteId: id,
         score: raw['score'] is int
             ? raw['score'] as int
             : int.tryParse('${raw['score']}') ?? 0,
         matchedVia: raw['matched_via']?.toString(),
       );
+      final prev = score[id];
+      if (prev == null || next.score > prev.score) score[id] = next;
     }
   }
+  final ids = score.keys.toList();
   if (ids.isEmpty) return [];
   final rows = await client
       .from('clientes')
@@ -247,6 +253,31 @@ Future<List<AiHit>> aiSearchClients(String q) async {
   }
   named.sort((a, b) => b.score.compareTo(a.score));
   return named;
+}
+
+/// Seznam karet tenantu (otázky „jaci klienti“). Soft-delete pryč.
+Future<List<AiHit>> aiListClients({int limit = 30}) async {
+  final client = trySupabaseClient();
+  if (client == null) return const [];
+  final rows = await client
+      .from('clientes')
+      .select('id, nombre, apellidos')
+      .isFilter('deleted_at', null)
+      .order('updated_at', ascending: false)
+      .limit(limit);
+  final out = <AiHit>[];
+  if (rows is! List) return out;
+  for (final raw in rows) {
+    if (raw is! Map) continue;
+    final id = '${raw['id']}';
+    if (id.isEmpty) continue;
+    final nombre = [
+      '${raw['nombre'] ?? ''}'.trim(),
+      '${raw['apellidos'] ?? ''}'.trim(),
+    ].where((s) => s.isNotEmpty).join(' ');
+    out.add(AiHit(clienteId: id, score: 1, matchedVia: 'list', nombre: nombre));
+  }
+  return out;
 }
 
 class AiDraftMessage {

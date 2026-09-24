@@ -99,9 +99,6 @@ bool aiPanelVisible({required double width, required bool? preference}) {
 /// Dock vedle desky; na úzkém okně překryv, ať se netlačí obsah.
 bool aiPanelDocked(double width) => width >= 1100;
 
-/// Reverse ListView: index 0 u vstupu = nejnovější. Bez toho skrol skáče nahoru/dolů.
-int aiChatLatestFirstIndex(int length, int i) => length - 1 - i;
-
 String? clienteIdFromOfficePath(String path) {
   final parts = path.split('/');
   final i = parts.indexOf('clientes');
@@ -208,8 +205,10 @@ class AiChatController extends AsyncNotifier<AiChatState> {
         .select('id, role, content, created_at')
         .eq('conversation_id', id)
         .isFilter('deleted_at', null)
-        .order('created_at');
-    return AiChatState(conversationId: id, messages: parseAiChatMessages(rows));
+        .order('created_at', ascending: true);
+    final messages = [...parseAiChatMessages(rows)]
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    return AiChatState(conversationId: id, messages: messages);
   }
 
   Future<void> reload() async {

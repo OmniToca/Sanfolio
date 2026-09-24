@@ -10,6 +10,7 @@ import '../../core/documents/documento_storage.dart';
 import '../../core/documents/office_attach_button.dart';
 import '../../core/documents/office_file_pick.dart';
 import '../../core/money/cents.dart';
+import '../../core/search/search_query_content.dart';
 import '../../core/theme/app_theme.dart';
 import 'ai_chat.dart';
 import 'ai_providers.dart';
@@ -45,7 +46,9 @@ class _AiPanelState extends ConsumerState<AiPanel> {
     ref.listen<AsyncValue<AiChatState>>(aiChatProvider, (prev, next) {
       final was = prev?.valueOrNull?.messages.length ?? 0;
       final now = next.valueOrNull?.messages.length ?? 0;
-      if (now > was && (_working || _nearLatest())) {
+      final loaded =
+          (prev?.isLoading ?? true) && next.hasValue && now > 0;
+      if ((now > was || loaded) && (_working || _nearLatest() || loaded)) {
         _pinToLatest();
       }
     });
@@ -101,14 +104,12 @@ class _AiPanelState extends ConsumerState<AiPanel> {
                 }
                 return ListView.builder(
                   controller: _scroll,
-                  reverse: true,
-                  padding: const EdgeInsets.fromLTRB(12, 16, 12, 12),
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
                   itemCount: state.messages.length,
                   itemBuilder: (context, i) {
-                    final message = state.messages[aiChatLatestFirstIndex(
-                      state.messages.length,
-                      i,
-                    )];
+                    // Chronologicky ASC: staré nahoře, nové dole (Leo-styl).
+                    // reverse:true + index flip po reloadu otáčel celý thread.
+                    final message = state.messages[i];
                     return _Bubble(
                       message: message,
                       onOpen: (route) => context.go(route),
@@ -203,11 +204,13 @@ class _AiPanelState extends ConsumerState<AiPanel> {
             .read(aiChatProvider.notifier)
             .addAssistant(encodeAiChatPayload(assistant));
       } else {
-        // Fallback bez Edge: otevřená karta = facts; search vždy (jméno/NIE).
-        final hits = await aiSearchClients(q);
+        // Fallback bez Edge: seznam / search (stopslova+NIE) / facts karty.
+        final listAll = looksLikeListClientsQuery(q);
+        final hits =
+            listAll ? await aiListClients() : await aiSearchClients(q);
         final facts = openId != null
             ? await askClienteFactsForId(openId)
-            : (hits.isEmpty
+            : (listAll || hits.isEmpty
                   ? null
                   : await askClienteFactsForId(
                       hits.first.clienteId,
@@ -597,14 +600,15 @@ class _AiPanelState extends ConsumerState<AiPanel> {
 
   bool _nearLatest() {
     if (!_scroll.hasClients) return true;
-    return _scroll.offset <= 72;
+    final pos = _scroll.position;
+    return pos.maxScrollExtent - pos.pixels <= 72;
   }
 
-  /// Reverse seznam: 0 = nejnovější u pole. maxScrollExtent by hodil historii dolů.
+  /// ASC seznam: nejnovější dole u vstupu. Po reloadu i po odpovědi.
   void _pinToLatest() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scroll.hasClients) return;
-      _scroll.jumpTo(0);
+      _scroll.jumpTo(_scroll.position.maxScrollExtent);
     });
   }
 }

@@ -41,7 +41,7 @@ Whitelist v `supabase/functions/ai-assistant/index.ts`. Nic jiného runtime mode
 }
 ```
 
-Volá RPC z [search_spec.md](search_spec.md). Vrací id, jméno, skóre, matched_via. Žádný update.
+Volá RPC z [search_spec.md](search_spec.md). Vrací id, **jméno**, skóre, matched_via. Edge před LLM ještě vytáhne NIE/jméno ze věty (stopslova) a vloží hits do promptu. Žádný update.
 
 ### 2.2 `get_cliente`
 

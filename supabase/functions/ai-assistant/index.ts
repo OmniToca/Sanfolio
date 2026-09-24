@@ -179,12 +179,27 @@ Deno.serve(async (req) => {
     }
   }
 
+  // Deterministický search z NL věty — model často pošle celou větu do q a RPC vrátí [].
+  const preHits = looksLikeListClients(message)
+    ? await listClientHits(userClient, 30)
+    : await searchClientHits(userClient, message, 10);
+  for (const hit of preHits) {
+    if (opens.some((o) => o.cliente_id === hit.cliente_id && !o.bloque_key)) {
+      continue;
+    }
+    opens.push({
+      cliente_id: hit.cliente_id,
+      label: hit.nombre || hit.cliente_id,
+      carpeta: true,
+    });
+  }
+
   const messages: Array<Record<string, unknown>> = [
     {
       role: "system",
       content:
         `Jsi asistent španělské gestoría. Odpovídej jazykem ${locale}. ` +
-        "Data čteš jen tools. Nevymýšlíš NIE ani doložky. Neříkej, že jsi uložil. " +
+        "Data čteš jen tools a snapshoty níže. Nevymýšlíš NIE ani doložky. Neříkej, že jsi uložil. " +
         "Prázdné pole na desce ≠ neexistuje smlouva — řekni, že to na desce není vyplněné. " +
         "Částka na desce dodávky není součet faktur. Součet je invoice_glance / fields.amount na dokumentech (kladné; dobropis ne). " +
         "Office otázky (dodavatel, seguro, notář, právník, catastral, strana ve smlouvě) = query_* tools. " +
@@ -195,7 +210,8 @@ Deno.serve(async (req) => {
         "search_document_text a get_cliente.documentos: albums [] = hromada; jinak template_key alb. inmueble_id / direccion = finca. Stejný PDF může být ve víc albech jedné finca. " +
         "Cena domu = sale_price celé listiny; podíl = share_percent. Prázdné documentos[] na kartě titulare ≠ dům nemáme. " +
         "Open = deska složky folder_cliente_id (/carpeta), ne šanon escritura (může být vypnutý) a ne prázdná karta spoluvlastníka. " +
-        "Hledání jiného klienta = search_clients (jméno nebo NIE). Seznam / jiné jméno ≠ otevřená karta. " +
+        "search_clients: do q dej jen jméno nebo NIE (ne celou větu). Seznam všech klientů = hits níže / list. " +
+        "Když níže jsou hits s jménem/NIE, použij je — neříkej že nikoho nenašel. " +
         (clienteId
           ? `Otevřená karta: ${clienteId}. Na otázky o „tomto klientovi“ / jménu / NIE / dokladech ber snapshot níže (neříkej že nikoho nenašel). `
           : ""),
@@ -204,6 +220,14 @@ Deno.serve(async (req) => {
       ? [{
         role: "system" as const,
         content: `Snapshot otevřené karty (read-only): ${JSON.stringify(openSnap)}`,
+      }]
+      : []),
+    ...(preHits.length > 0
+      ? [{
+        role: "system" as const,
+        content:
+          `Hits z dotazu (read-only, jméno+id): ${JSON.stringify(preHits)}. ` +
+          "Odpověz podle nich; get_cliente pro detail.",
       }]
       : []),
     { role: "user", content: message },
@@ -308,12 +332,8 @@ async function runTool(
   switch (name) {
     case "search_clients": {
       const q = str(args.q);
-      const { data, error } = await client.rpc("search_clients", {
-        p_q: q,
-        p_limit: 10,
-      });
-      if (error) return { error: error.message };
-      return data;
+      const hits = await searchClientHits(client, q, 10);
+      return hits;
     }
     case "get_cliente": {
       const id = str(args.cliente_id);
@@ -501,6 +521,172 @@ function parseAmountCents(raw: string): number {
 
 function str(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
+}
+
+type ClientHit = {
+  cliente_id: string;
+  nombre: string;
+  score: number;
+  matched_via?: string;
+};
+
+const SEARCH_STOP = new Set([
+  "jak", "se", "jsem", "jsme", "mam", "mame", "máme", "klient", "klienta",
+  "klienti", "klienty", "klientu", "klientů", "nasi", "naši", "nase", "naše",
+  "jmenuji", "jmenuje", "jmenují", "jmeno", "jméno", "jménem", "nie", "dni",
+  "nif", "kolik", "kde", "kdo", "co", "pro", "dal", "dál", "jeho", "její",
+  "the", "and", "or", "of", "for", "with", "our", "my", "client", "clients",
+  "name", "who", "what", "how", "have", "has", "is", "are", "we", "you",
+  "el", "la", "los", "las", "un", "una", "de", "del", "cliente", "clientes",
+  "nombre", "der", "die", "das", "und", "kunde", "kunden", "le", "les",
+  "des", "notre", "s", "a", "i", "u", "v", "z", "na", "do", "od", "po", "za",
+]);
+
+function searchQueryContent(raw: string): string {
+  return raw
+    .trim()
+    .split(/\s+/)
+    .map((t) => t.replace(/^[.,;:!?„“"'()[\]{}]+|[.,;:!?„“"'()[\]{}]+$/g, ""))
+    .filter((t) => t.length >= 2 && !SEARCH_STOP.has(t.toLowerCase()))
+    .join(" ");
+}
+
+function searchQueryIdTokens(raw: string): string[] {
+  const out = new Set<string>();
+  for (const m of raw.matchAll(/[A-Za-z0-9*]+/g)) {
+    const tok = m[0].toUpperCase();
+    if (tok.length < 4) continue;
+    if (
+      /^[XYZ][0-9*]{7}[A-Z]$/.test(tok) ||
+      /^[0-9*]{8}[A-Z]$/.test(tok) ||
+      /^[XYZ][0-9*]{3,}$/.test(tok) ||
+      /^[0-9*]{5,}$/.test(tok)
+    ) {
+      out.add(tok);
+    }
+  }
+  return [...out];
+}
+
+function searchClientQueries(raw: string): string[] {
+  const q = raw.trim();
+  if (!q) return [];
+  const out: string[] = [];
+  const add = (s: string) => {
+    const t = s.trim();
+    if (t.length < 2) return;
+    if (out.some((e) => e.toLowerCase() === t.toLowerCase())) return;
+    out.push(t);
+  };
+  for (const id of searchQueryIdTokens(q)) add(id);
+  const content = searchQueryContent(q);
+  if (content) add(content);
+  if (!q.includes(" ") && !content) add(q);
+  if (out.length === 0) add(q);
+  return out;
+}
+
+function looksLikeListClients(raw: string): boolean {
+  const n = raw.toLowerCase();
+  const asks = /klient|client|kunde|cliente/.test(n);
+  if (!asks) return false;
+  if (searchQueryContent(raw) || searchQueryIdTokens(raw).length) return false;
+  return /jmen|naši|nasi|nase|naše|seznam|všechn|vsechn|list|all |our |tenemos|nuestros|haben wir|avons|systém|system/
+    .test(n);
+}
+
+async function enrichClientHits(
+  client: SupabaseClient,
+  rows: Array<{ cliente_id?: string; score?: number; matched_via?: string }>,
+): Promise<ClientHit[]> {
+  const ids = [
+    ...new Set(
+      rows.map((r) => `${r.cliente_id ?? ""}`).filter((id) => id.length > 0),
+    ),
+  ];
+  if (ids.length === 0) return [];
+  const { data } = await client
+    .from("clientes")
+    .select("id, nombre, apellidos")
+    .in("id", ids);
+  const names = new Map<string, string>();
+  for (const raw of data ?? []) {
+    const row = raw as { id?: string; nombre?: string; apellidos?: string };
+    const id = `${row.id ?? ""}`;
+    const nombre = [row.nombre, row.apellidos]
+      .map((s) => `${s ?? ""}`.trim())
+      .filter(Boolean)
+      .join(" ");
+    names.set(id, nombre);
+  }
+  const byScore = new Map<string, ClientHit>();
+  for (const r of rows) {
+    const id = `${r.cliente_id ?? ""}`;
+    if (!id) continue;
+    const score = Number(r.score) || 0;
+    const prev = byScore.get(id);
+    if (prev && prev.score >= score) continue;
+    byScore.set(id, {
+      cliente_id: id,
+      nombre: names.get(id) ?? "",
+      score,
+      matched_via: r.matched_via,
+    });
+  }
+  return [...byScore.values()].sort((a, b) => b.score - a.score);
+}
+
+async function searchClientHits(
+  client: SupabaseClient,
+  q: string,
+  limit: number,
+): Promise<ClientHit[]> {
+  const merged: Array<
+    { cliente_id?: string; score?: number; matched_via?: string }
+  > = [];
+  for (const query of searchClientQueries(q)) {
+    const { data, error } = await client.rpc("search_clients", {
+      p_q: query,
+      p_limit: limit,
+    });
+    if (error || !Array.isArray(data)) continue;
+    for (const row of data) {
+      if (row && typeof row === "object") {
+        merged.push(row as {
+          cliente_id?: string;
+          score?: number;
+          matched_via?: string;
+        });
+      }
+    }
+  }
+  return (await enrichClientHits(client, merged)).slice(0, limit);
+}
+
+async function listClientHits(
+  client: SupabaseClient,
+  limit: number,
+): Promise<ClientHit[]> {
+  const { data, error } = await client
+    .from("clientes")
+    .select("id, nombre, apellidos")
+    .is("deleted_at", null)
+    .order("updated_at", { ascending: false })
+    .limit(limit);
+  if (error || !Array.isArray(data)) return [];
+  return data.map((raw) => {
+    const row = raw as { id?: string; nombre?: string; apellidos?: string };
+    const nombre = [row.nombre, row.apellidos]
+      .map((s) => `${s ?? ""}`.trim())
+      .filter(Boolean)
+      .join(" ");
+    return {
+      cliente_id: `${row.id ?? ""}`,
+      nombre,
+      score: 1,
+      matched_via: "list",
+    };
+  }).filter((h) => h.cliente_id);
 }
 
 async function searchDocumentHybrid(
